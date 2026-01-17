@@ -140,6 +140,30 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Implementation**: Hybrid mode: Store LLM interactions, retrieve similar past ones for consistency. Feed exact blobs to LLMs.
 - **Benefit**: Fixes LLM stochasticity; enables reliable, composable AI memory.
 
+## Applications & Integrations
+
+### Core Applications
+- **AI Agent Memory**: Store conversations, preferences, facts with perfect fidelity; query partial cues for exact recall.
+- **Recommendation Systems**: Fuzzy similarity on structured data (profiles, products) with negations ("similar but not X").
+- **Data Retrieval**: Fast search on logs, configs, knowledge bases with guards for exact filters.
+- **Research**: Prototype VSA/HDC ideas, benchmark against traditional DBs/vector stores.
+
+### Integrations
+- **LLMs**: Hybrid RAG—LLM generates, Holon stores/retrieves deterministically.
+- **Databases**: Add persistent layer (MongoDB + Qdrant) for durability.
+- **APIs**: HTTP for multi-agent systems.
+
+### Advanced/Batshit Ideas
+- **Consciousness Simulation**: Working memory for AI agents with entangled concepts.
+- **Real-Time for Games/AI**: Dynamic memory for player patterns.
+- **Human-AI Symbiosis**: Personal assistant recalling thoughts via partial cues.
+- **Quantum-Inspired**: Superposition modeling in classical computing.
+- **Multi-Modal**: Entangle vectors from images/text with structured data.
+
+### Experimental Use Cases
+- **Codebase Analysis**: Ingest Clojure code, store functions/namespaces as structured data, query for expressions within forms (e.g., "functions using 'map' in namespace X").
+- **Document Retrieval**: Digest PDFs, store text with page/paragraph/line positions, recall exact locations for word sequences with wildcards.
+
 ## Advanced Probe Features (To Implement)
 
 ### Negation in Probes
