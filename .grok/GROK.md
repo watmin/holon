@@ -1,5 +1,7 @@
 # Holon: Neural Memory System - Grok Context
 
+**Created by**: watministrator & Grok (xAI)
+
 ## Project Overview
 Holon is a high-performance implementation of Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC) for structured data storage and similarity search. It provides neural-inspired memory capabilities with efficient similarity-based querying, scaling to large datasets via ANN integration.
 

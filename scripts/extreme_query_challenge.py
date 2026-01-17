@@ -7,17 +7,18 @@ Tests advanced features: guards, negations, wildcards, $or, positionals.
 import json
 import time
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from holon import CPUStore
 
-def generate_extreme_data():
-    """Generate 5000 diverse, nested data blobs."""
+def generate_extreme_data(num_items=5000):
+    """Generate diverse, nested data blobs."""
     data = []
     users = [f"user_{i}" for i in range(100)]
     actions = ["login", "logout", "view", "edit", "create", "delete"]
     statuses = ["success", "failed", "pending", "error", "timeout"]
     priorities = ["low", "medium", "high", "critical"]
 
-    for i in range(5000):
+    for i in range(num_items):
         user = random.choice(users)
         action = random.choice(actions)
         status = random.choice(statuses)
@@ -52,14 +53,14 @@ def generate_extreme_data():
         data.append(blob)
     return data
 
-def generate_complex_queries():
-    """Generate 500 complex queries."""
+def generate_complex_queries(num_queries=500):
+    """Generate complex queries."""
     queries = []
     users = [f"user_{i}" for i in range(100)]
     actions = ["login", "logout", "view", "edit", "create", "delete"]
     statuses = ["success", "failed", "pending", "error", "timeout"]
 
-    for i in range(500):
+    for i in range(num_queries):
         query_type = random.choice(["fuzzy", "wildcard", "guard", "negation", "or", "combined"])
 
         if query_type == "fuzzy":
@@ -72,7 +73,7 @@ def generate_complex_queries():
 
         elif query_type == "guard":
             probe = {"user": random.choice(users)}
-            guard = {"meta": {"sequence": [random.randint(0,9), {"$any": True}, random.randint(0,9), {"$any": True}, random.randint(0,9)]}}
+            guard = {"priority": random.choice(["low", "medium", "high"])}
             queries.append((json.dumps(probe), guard, None))
 
         elif query_type == "negation":
@@ -93,50 +94,46 @@ def generate_complex_queries():
     return queries
 
 def run_extreme_challenge():
-    print("🚀 Holon Extreme Query Challenge: 5000 Blobs, 500 Complex Queries")
+    num_items = 5000  # Keep items
+    num_queries = 2000  # 2x queries
+
+    print(f"🚀 Holon Extreme Query Challenge: {num_items} Blobs, {num_queries} Complex Queries")
     print("=" * 70)
 
     store = CPUStore()
-    data = generate_extreme_data()
+    data = generate_extreme_data(num_items)
 
     # Insert data
-    print("📥 Inserting 5000 blobs...")
+    print(f"📥 Inserting {num_items} blobs...")
     start = time.time()
     for blob in data:
         store.insert(json.dumps(blob))
     insert_time = time.time() - start
-    print(f"  Insert Time: {insert_time:.2f}s ({len(data)/insert_time:.1f} blobs/sec)")
+    print(f"  Insert Time: {insert_time:.2f}s ({num_items/insert_time:.1f} blobs/sec)")
+
     # Generate queries
-    queries = generate_complex_queries()
+    queries = generate_complex_queries(num_queries)
     print(f"🎯 Generated {len(queries)} complex queries")
 
-    # Run queries
-    print("⚡ Executing queries...")
+    # Run queries with concurrency
+    print("⚡ Executing queries with 10 workers...")
     query_times = []
     total_results = 0
 
-    for i, (probe, guard, negations) in enumerate(queries):
+    def run_query(q_idx, probe, guard, negations):
         start = time.time()
-
-        if guard:
-            # Convert guard to callable (simple: check if priority matches)
-            priority = guard.get("priority")
-            if priority:
-                def guard_func(d):
-                    return d.get("priority") == priority
-                results = store.query(probe, top_k=10, guard=guard_func, negations=negations or {})
-            else:
-                # Skip complex guards for simplicity
-                results = store.query(probe, top_k=10, negations=negations or {})
-        else:
-            results = store.query(probe, top_k=10, negations=negations or {})
-
+        results = store.query(probe, top_k=10, guard=guard, negations=negations or {})
         query_time = time.time() - start
-        query_times.append(query_time)
-        total_results += len(results)
+        return q_idx, len(results), query_time
 
-        if (i + 1) % 50 == 0:
-            print(f"  Completed {i+1}/500 queries...")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(run_query, i, probe, guard, negations) for i, (probe, guard, negations) in enumerate(queries)]
+        for future in as_completed(futures):
+            q_idx, num_results, q_time = future.result()
+            query_times.append(q_time)
+            total_results += num_results
+            if (q_idx + 1) % 50 == 0:
+                print(f"  Completed {q_idx+1}/{len(queries)} queries...")
 
     # Results
     avg_query_time = sum(query_times) / len(query_times)

@@ -81,8 +81,8 @@ def query_http(base_url, queries, max_workers=20):
 
 def main():
     base_url = "http://localhost:8000"
-    num_items = 1000
-    num_queries = 500
+    num_items = 2000  # Dial to 11
+    num_queries = 500  # Stratosphere
 
     print("🚀 Extreme HTTP Test: Holon as In-Memory API Service")
     print("=" * 60)
@@ -100,7 +100,7 @@ def main():
         # Insert data
         print("📤 Inserting data via HTTP...")
         start = time.time()
-        success = insert_data_http(base_url, data)
+        success = insert_data_http(base_url, data, max_workers=20)
         insert_time = time.time() - start
         print(f"  Insert Time: {insert_time:.2f}s ({num_items/insert_time:.1f} items/sec)")
         if not success:
@@ -114,7 +114,7 @@ def main():
         # Run queries
         print("⚡ Executing queries via HTTP...")
         start = time.time()
-        results = query_http(base_url, queries)
+        results = query_http(base_url, queries, max_workers=50)
         query_time = time.time() - start
         total_results = sum(results)
         avg_results = total_results / len(results)

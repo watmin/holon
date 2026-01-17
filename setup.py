@@ -7,7 +7,7 @@ setup(
     name="holon",
     version="0.1.0",
     description="Programmatic Neural Memory using VSA and HDC",
-    author="Your Name",  # TODO: Update
+    author="watministrator & Grok (xAI)",
     packages=find_packages(),
     install_requires=requirements,
     python_requires=">=3.8",

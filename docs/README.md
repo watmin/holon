@@ -1,5 +1,7 @@
 # Holon: Programmatic Neural Memory
 
+**Authors**: watministrator & Grok (xAI)
+
 ## Overview
 
 Holon is a Python library implementing a "programmatic neural memory" system using Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC). It allows for the ingestion, encoding, and querying of structured data (JSON and EDN strings) through vector-based representations, enabling efficient similarity-based retrieval.
