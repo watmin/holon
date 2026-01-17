@@ -105,26 +105,44 @@ class CPUStore(Store):
 
         probe_vector = self.encoder.encode_data(clean_probe)
 
-        # Vector-level negation via subtraction
-        if negations:
-            neg_vector = self.encoder.encode_data(negations)  # Encode full negations dict
-            probe_vector = probe_vector - neg_vector  # Subtract to exclude pattern
-
-        # Fallback data-based negation (recursive check)
-        def matches_negation(data, neg):
-            """Recursive check if data matches negation dict."""
+        # Parse user-specified $not markers in negations
+        negation_specs = []
+        cleaned_negations = {}
+        def parse_negations(neg, cleaned, path=""):
             for k, v in neg.items():
-                if k not in data:
-                    return False
-                if isinstance(v, dict):
-                    if not isinstance(data[k], dict) or not matches_negation(data[k], v):
-                        return False
+                if k == "$not":
+                    negation_specs.append((path, v))
+                    cleaned[path.split(".")[-1]] = v  # For vector, use the value
+                elif isinstance(v, dict):
+                    sub_clean = {}
+                    parse_negations(v, sub_clean, path + ("." if path else "") + k)
+                    if sub_clean:
+                        cleaned[k] = sub_clean
                 else:
-                    if data[k] != v:
-                        return False
-            return True
+                    cleaned[k] = v
+        if negations:
+            parse_negations(negations, cleaned_negations)
 
-        negation_filters = [negations] if negations else []
+        # Vector-level negation via subtraction (encode cleaned)
+        if cleaned_negations:
+            neg_vector = self.encoder.encode_data(cleaned_negations)
+            probe_vector = probe_vector - neg_vector
+
+        # Data-based negation check
+        def matches_negation(data, specs):
+            for path, value in specs:
+                keys = path.split(".")
+                current = data
+                try:
+                    for key in keys:
+                        current = current[key]
+                    if current == value:
+                        return True
+                except (KeyError, TypeError):
+                    pass
+            return False
+
+        negation_filters = negation_specs
 
         # Use ANN if available and dataset is large
         if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
@@ -161,7 +179,7 @@ class CPUStore(Store):
         for data_id, score in similar_ids_scores:
             data_dict = self.stored_data[data_id]
             # Apply negations
-            if negation_filters and matches_negation(data_dict, negation_filters[0]):
+            if negation_filters and matches_negation(data_dict, negation_filters):
                 continue
             # Apply guard if provided
             if guard and not guard(data_dict):

@@ -143,10 +143,10 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 ## Advanced Probe Features (To Implement)
 
 ### Negation in Probes
-- **Description**: Vector-level negations via subtraction, supports nested structures. Probe `{"user": "alice"}` with negations `{"meta": {"status": "failed"}}` subtracts nested pattern.
-- **Why?**: Guards check presence; negations use HDC algebra for deep pattern exclusion.
-- **Implementation**: Encode full negations dict, subtract from probe_vector; recursive data matching.
-- **Benefit**: Advanced HDC operations at any depth, prepares for distributed filtering.
+- **Description**: User-specified negation expressions as data blobs. Use `{"$not": value}` for exclusions, e.g., negations `{"status": {"$not": "failed"}}`.
+- **Why?**: Allows users to define special markers in their data; we interpret `$not` as negation without hardcoding.
+- **Implementation**: Parse negations dict for `$not` keys; encode cleaned dict for vector subtraction; recursive data check for matches.
+- **Benefit**: Flexible, user-controlled negation expressions at any depth.
 
 ### Wildcard Probes ($any)
 - **Description**: Use `$any` for wildcards. E.g., `{"user": "alice", "action": "$any"}` matches any action for alice.

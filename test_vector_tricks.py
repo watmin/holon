@@ -28,10 +28,10 @@ for res in results_any:
 
 # Should match all alice, regardless of action
 
-# Test nested negation: exclude {"status": "success"}
+# Test user-specified negation: exclude {"status": {"$not": "success"}}
 probe_any_neg = json.dumps({"user": "alice", "action": "$any"})
-results_neg = store.query(probe_any_neg, top_k=10, negations={"status": "success"})
-print(f"\nProbe with $any and flat negation (exclude success): {len(results_neg)} results")
+results_neg = store.query(probe_any_neg, top_k=10, negations={"status": {"$not": "success"}})
+print(f"\nProbe with $any and user-specified negation (exclude success): {len(results_neg)} results")
 for res in results_neg:
     print(f"  {res[2]['user']} - {res[2]['action']} - {res[2]['status']}")
 
