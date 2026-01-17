@@ -93,7 +93,7 @@ def main():
 
     # Query final state
     print("\n📊 Final Knowledge Base:")
-    all_facts = demo.store.query('{"id": {"$any": True}}', top_k=20)
+    all_facts = demo.store.query('{}', top_k=20)  # Simple query for all
     for fact in all_facts:
         print(f"  {fact[2]}")
 
