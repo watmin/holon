@@ -61,6 +61,7 @@ class QueryRequest(BaseModel):
     top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of top results to return")
     threshold: float = Field(0.0, description="Similarity threshold (0-1)")
     guard: Optional[str] = Field(None, description="Guard condition as JSON/EDN string (subset match)")
+    negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters as dict {key: value_to_exclude}")
 
 class QueryResponse(BaseModel):
     results: List[Dict[str, Any]] = Field(..., description="Query results with id, score, data")
@@ -142,7 +143,8 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             request.data_type,
             request.top_k,
             request.threshold,
-            guard=guard_func
+            guard=guard_func,
+            negations=request.negations
         )
 
         # Format response - convert EDN types to JSON-compatible

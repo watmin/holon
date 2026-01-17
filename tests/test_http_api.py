@@ -60,12 +60,29 @@ class TestHTTPAPI:
         # Should return both since both have status
         assert len(result["results"]) >= 2
 
-        # Guard for success only
-        guard_success = {"status": "success"}  # But wait, our subset ignores value, so this won't work as expected
-        # Actually, since we ignore value, {"status": "success"} still checks presence.
-        # For exact value, we need to modify is_subset to check values too.
+    def test_query_with_negations(self):
+        # Insert data
+        data1 = {"user": "alice", "status": "success"}
+        data2 = {"user": "alice", "status": "failed"}
+        client.post("/insert", json={"data": json.dumps(data1)})
+        client.post("/insert", json={"data": json.dumps(data2)})
 
-        # For now, test presence guard.
+        # Query with negations
+        probe = {"user": "alice"}
+        negations = {"status": "failed"}
+        response = client.post("/query", json={
+            "probe": json.dumps(probe),
+            "top_k": 10,
+            "negations": negations
+        })
+        assert response.status_code == 200
+        result = response.json()
+        # Should exclude failed
+        assert len(result["results"]) >= 1
+        for res in result["results"]:
+            assert res["data"]["status"] != "failed"
+
+
 
     def test_query_invalid_guard(self):
         probe = {"user": "alice"}
