@@ -1,0 +1,4 @@
+numpy>=1.21.0
+edn_format>=0.7.0
+pytest>=6.0.0
+psutil>=5.8.0
