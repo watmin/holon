@@ -21,12 +21,13 @@ See [docs/](docs/) for additional documentation and API reference. Check [exampl
 ## Why Holon is Cool
 
 - **Neural-Inspired**: Uses brain-like vector operations for memory that "entangles" data—partial cues retrieve wholes.
-- **Blazing Fast**: ANN scaling makes 5000+ items query in milliseconds.
-- **Flexible Queries**: Fuzzy search + guards/negations/wildcards for precise, composable retrieval.
+- **Blazing Fast**: ANN scaling makes 5000+ items query in milliseconds (500+ inserts/sec, 80+ queries/sec).
+- **Flexible Queries**: Fuzzy search + guards/negations/wildcards/$or for precise, composable retrieval.
 - **AI-Ready**: Perfect for LLM memory—deterministic, no hallucinations.
 - **Unique Algebra**: Vector subtraction for exclusions—pure HDC magic.
+- **Scale Tested**: 5000 blobs, 2000 concurrent queries with 100% accuracy.
 
-## Examples
+## Quick Start
 
 ### Basic Usage
 ```python
@@ -61,6 +62,9 @@ results = store.query('{:user "alice"}', data_type='edn')
 
 ### HTTP API
 ```bash
+# Start server
+python scripts/holon_server.py
+
 # Insert
 curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d '{"data": "{\"event\": \"login\"}"}'
 
@@ -68,44 +72,15 @@ curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d
 curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"probe": "{\"event\": \"login\"}"}'
 ```
 
-### Performance Highlights
-- **Inserts**: 500+ items/sec
-- **Queries**: 80+ queries/sec, sub-0.03s avg
-- **Scale**: Tested with 5000 blobs, 2000 concurrent queries
-- **Accuracy**: 100% fidelity, handles complex structures
-
-### Demo: Quick Start
-```python
-from holon import CPUStore
-
-store = CPUStore()
-store.insert('{"user": "alice", "action": "login"}')
-results = store.query('{"user": "alice"}')  # Fuzzy search
-print(f"Found {len(results)} matches")
-```
-
-### Complex Use Case: AI Agent Memory with Guards
+### Complex Use Case: AI Agent Memory
 ```python
 # Store conversation history
-store.insert('{"session": "123", "user": "alice", "message": "How does HDC work?", "timestamp": 1640995200}')
-store.insert('{"session": "123", "user": "bot", "message": "HDC uses high-dim vectors", "timestamp": 1640995260}')
-store.insert('{"session": "456", "user": "bob", "message": "What is VSA?", "timestamp": 1640995300}')
+store.insert('{"session": "123", "user": "alice", "message": "How does HDC work?"}')
+store.insert('{"session": "123", "user": "bot", "message": "HDC uses high-dim vectors"}')
 
-# Complex query: Find bot responses in session 123
-results = store.query(
-    '{"user": "bot"}',  # Fuzzy: similar to bot messages
-    guard={"session": "123"}  # Exact guard on session
-)
+# Find bot responses in session 123
+results = store.query('{"user": "bot"}', guard={"session": "123"})
 print(f"Bot responses in session 123: {len(results)}")
-```
-
-For HTTP API:
-```bash
-python scripts/holon_server.py  # Start server
-# Complex query with guards
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"probe": "{\"user\": \"bot\"}", "guard": "{\"session\": \"123\"}"}'
 ```
 
 ## Command Reference
