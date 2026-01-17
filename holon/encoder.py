@@ -59,13 +59,20 @@ class Encoder:
         return self._threshold_bipolar(bundled)
 
     def _encode_sequence(self, data: Union[list, tuple]) -> np.ndarray:
-        """Encode a sequence by bundling the encoded items."""
+        """Encode a sequence by binding items to positional vectors and bundling."""
         if not data:
             return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
 
-        item_vectors = [self._encode_recursive(item) for item in data]
-        # Bundle all item vectors
-        bundled = np.sum(item_vectors, axis=0)
+        bound_vectors = []
+        for i, item in enumerate(data):
+            item_vector = self._encode_recursive(item)
+            pos_vector = self.vector_manager.get_position_vector(i)
+            # Bind item to position: item * pos (binding operation)
+            bound = item_vector * pos_vector
+            bound_vectors.append(bound)
+
+        # Bundle all bound vectors
+        bundled = np.sum(bound_vectors, axis=0)
         return self._threshold_bipolar(bundled)
 
     def _encode_set(self, data: Union[frozenset, set]) -> np.ndarray:

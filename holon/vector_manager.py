@@ -15,6 +15,7 @@ class VectorManager:
         self.dimensions = dimensions
         self.backend = backend
         self.atom_vectors: Dict[str, Union[np.ndarray, 'cp.ndarray']] = {}
+        self.position_vectors: Dict[int, Union[np.ndarray, 'cp.ndarray']] = {}
 
         if backend == 'cpu':
             self.np = np
@@ -39,6 +40,15 @@ class VectorManager:
             self.atom_vectors[atom] = vector
         return self.atom_vectors[atom]
 
+    def get_position_vector(self, position: int) -> Union[np.ndarray, 'cp.ndarray']:
+        """
+        Get or create a position vector for sequences.
+        """
+        if position not in self.position_vectors:
+            vector = self.rng.choice([-1, 0, 1], size=self.dimensions).astype(self.np.int8)
+            self.position_vectors[position] = vector
+        return self.position_vectors[position]
+
     def to_cpu(self, vector: Union[np.ndarray, 'cp.ndarray']) -> np.ndarray:
         """Convert vector to CPU numpy array."""
         if self.backend == 'gpu' and CUPY_AVAILABLE:
@@ -54,3 +64,4 @@ class VectorManager:
     def clear(self):
         """Clear all stored vectors."""
         self.atom_vectors.clear()
+        self.position_vectors.clear()
