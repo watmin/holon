@@ -19,8 +19,8 @@ for item in data:
 
 print("Inserted 4 items")
 
-# Test $any: match alice with any action
-probe_any = json.dumps({"user": "alice", "action": "$any"})
+# Test user-specified $any: match alice with any action
+probe_any = json.dumps({"user": "alice", "action": {"$any": True}})
 results_any = store.query(probe_any, top_k=10)
 print(f"\nProbe with $any: {len(results_any)} results")
 for res in results_any:
@@ -29,7 +29,7 @@ for res in results_any:
 # Should match all alice, regardless of action
 
 # Test user-specified negation: exclude {"status": {"$not": "success"}}
-probe_any_neg = json.dumps({"user": "alice", "action": "$any"})
+probe_any_neg = json.dumps({"user": "alice", "action": {"$any": True}})
 results_neg = store.query(probe_any_neg, top_k=10, negations={"status": {"$not": "success"}})
 print(f"\nProbe with $any and user-specified negation (exclude success): {len(results_neg)} results")
 for res in results_neg:
@@ -47,4 +47,12 @@ print(f"\nProbe with deep negation (exclude nested success): {len(results_deep)}
 for res in results_deep:
     print(f"  {res[2]}")
 
-print("\nVector tricks: $any for wildcards, subtraction for negation patterns at any depth")
+# Test $or: match alice OR success
+probe_or = json.dumps({"$or": [{"user": "alice"}, {"status": "success"}]})
+results_or = store.query(probe_or, top_k=10)
+print(f"\nProbe with $or (alice OR success): {len(results_or)} results")
+for res in results_or:
+    status = res[2].get('status', 'N/A')
+    print(f"  {res[2]['user']} - {res[2]['action']} - {status}")
+
+print("\nVector tricks: $any for wildcards, $or for disjunctions, subtraction for negation patterns at any depth")

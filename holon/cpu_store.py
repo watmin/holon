@@ -1,5 +1,6 @@
 import uuid
 import logging
+import json
 import numpy as np
 from typing import Dict, Any, List, Tuple
 from .store import Store
@@ -100,8 +101,24 @@ class CPUStore(Store):
     def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None, negations=None) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
 
-        # Handle $any wildcards
-        clean_probe = {k: v for k, v in parsed_probe.items() if v != "$any"}
+        # Handle $or disjunctions
+        if "$or" in parsed_probe and isinstance(parsed_probe["$or"], list):
+            all_results = []
+            seen_ids = set()
+            for sub_probe in parsed_probe["$or"]:
+                sub_results = self.query(json.dumps(sub_probe), data_type, top_k, threshold, guard, negations)
+                for res in sub_results:
+                    if res[0] not in seen_ids:
+                        all_results.append(res)
+                        seen_ids.add(res[0])
+            return all_results[:top_k]  # Limit to top_k
+
+        # Handle user-specified $any wildcards
+        clean_probe = {}
+        for k, v in parsed_probe.items():
+            if isinstance(v, dict) and "$any" in v:
+                continue  # Skip for encoding
+            clean_probe[k] = v
 
         probe_vector = self.encoder.encode_data(clean_probe)
 
@@ -110,12 +127,18 @@ class CPUStore(Store):
         cleaned_negations = {}
         def parse_negations(neg, cleaned, path=""):
             for k, v in neg.items():
-                if k == "$not":
-                    negation_specs.append((path, v))
-                    cleaned[path.split(".")[-1]] = v  # For vector, use the value
+                if isinstance(v, dict) and "$not" in v:
+                    not_val = v["$not"]
+                    if isinstance(not_val, list):
+                        for val in not_val:
+                            negation_specs.append((path + k, val))
+                        cleaned[k] = not_val[0]  # For vector, use first
+                    else:
+                        negation_specs.append((path + k, not_val))
+                        cleaned[k] = not_val
                 elif isinstance(v, dict):
                     sub_clean = {}
-                    parse_negations(v, sub_clean, path + ("." if path else "") + k)
+                    parse_negations(v, sub_clean, path + k + ".")
                     if sub_clean:
                         cleaned[k] = sub_clean
                 else:
