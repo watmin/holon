@@ -167,6 +167,26 @@ class CPUStore(Store):
 
         negation_filters = negation_specs
 
+        # Helper for guard matching
+        def is_subset(guard, data):
+            for key, value in guard.items():
+                if key not in data:
+                    return False
+                if isinstance(value, dict):
+                    if not isinstance(data[key], dict) or not is_subset(value, data[key]):
+                        return False
+                elif isinstance(value, list):
+                    if not isinstance(data[key], list) or len(value) != len(data[key]):
+                        return False
+                    for g_item, d_item in zip(value, data[key]):
+                        if isinstance(g_item, dict) and any_marker in g_item:
+                            continue
+                        elif g_item != d_item:
+                            return False
+                elif data[key] != value:
+                    return False
+            return True
+
         # Use ANN if available and dataset is large
         if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
             if self.ann_index is None:
@@ -204,8 +224,8 @@ class CPUStore(Store):
             # Apply negations
             if negation_filters and matches_negation(data_dict, negation_filters):
                 continue
-            # Apply guard if provided
-            if guard and not guard(data_dict):
+            # Apply guard if provided (data structure matching)
+            if guard and not is_subset(guard, data_dict):
                 continue  # Skip if guard fails
             results.append((data_id, score, data_dict))
         return results

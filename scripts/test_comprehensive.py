@@ -124,10 +124,9 @@ def run_comprehensive_test():
     # Test 6: Combined (guard + negation + wildcard)
     print("\n⚡ Test 6: Combined Features")
     probe_combined = json.dumps({"action": {"$any": True}, "meta": {"nested": {"flag": True}}})
-    def guard_combined_func(data):
-        return data.get("priority") == "medium"
+    guard_combined = {"priority": "medium"}
     negations_combined = {"status": {"$not": "banned"}}
-    results_combined = store.query(probe_combined, top_k=5, guard=guard_combined_func, negations=negations_combined)
+    results_combined = store.query(probe_combined, top_k=5, guard=guard_combined, negations=negations_combined)
     print(f"  Query: any action + nested flag + medium priority - banned → {len(results_combined)} results")
 
     # Performance summary

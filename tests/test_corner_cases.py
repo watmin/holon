@@ -61,9 +61,8 @@ def test_or_empty():
 def test_guard_exact():
     store = CPUStore()
     store.insert('{"tags": ["a", "b", "c"]}')
-    # Guard for exact list
-    def guard(d):
-        return d.get("tags") == ["a", "b", "c"]
+    # Guard as data structure
+    guard = {"tags": ["a", "b", "c"]}
     results = store.query('{"tags": ["a", "b", "c"]}', guard=guard)
     assert len(results) == 1
 

@@ -142,11 +142,10 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             raise HTTPException(status_code=400, detail="threshold must be between 0.0 and 1.0")
 
         # Process guard if provided
-        guard_func = None
+        guard_data = None
         if request.guard:
             try:
                 guard_data = parse_data(request.guard, request.data_type)
-                guard_func = lambda data: is_subset(guard_data, data)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid guard: {str(e)}")
 
@@ -156,7 +155,7 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             request.data_type,
             request.top_k,
             request.threshold,
-            guard=guard_func,
+            guard=guard_data,
             negations=request.negations,
             any_marker=request.any_marker
         )
