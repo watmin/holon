@@ -107,13 +107,24 @@ class CPUStore(Store):
 
         # Vector-level negation via subtraction
         if negations:
-            for key, value in negations.items():
-                neg_data = {key: value}
-                neg_vector = self.encoder.encode_data(neg_data)
-                probe_vector = probe_vector - neg_vector  # Subtract to exclude pattern
+            neg_vector = self.encoder.encode_data(negations)  # Encode full negations dict
+            probe_vector = probe_vector - neg_vector  # Subtract to exclude pattern
 
-        # Fallback data-based negation
-        negation_filters = list(negations.items()) if negations else []
+        # Fallback data-based negation (recursive check)
+        def matches_negation(data, neg):
+            """Recursive check if data matches negation dict."""
+            for k, v in neg.items():
+                if k not in data:
+                    return False
+                if isinstance(v, dict):
+                    if not isinstance(data[k], dict) or not matches_negation(data[k], v):
+                        return False
+                else:
+                    if data[k] != v:
+                        return False
+            return True
+
+        negation_filters = [negations] if negations else []
 
         # Use ANN if available and dataset is large
         if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
@@ -150,12 +161,7 @@ class CPUStore(Store):
         for data_id, score in similar_ids_scores:
             data_dict = self.stored_data[data_id]
             # Apply negations
-            skip = False
-            for neg_key, neg_value in negation_filters:
-                if neg_key in data_dict and data_dict[neg_key] == neg_value:
-                    skip = True
-                    break
-            if skip:
+            if negation_filters and matches_negation(data_dict, negation_filters[0]):
                 continue
             # Apply guard if provided
             if guard and not guard(data_dict):

@@ -28,14 +28,23 @@ for res in results_any:
 
 # Should match all alice, regardless of action
 
-# Test vector negation: alice with any action, but exclude status success
-# But since vector subtraction, it should reduce similarity for success items
+# Test nested negation: exclude {"status": "success"}
 probe_any_neg = json.dumps({"user": "alice", "action": "$any"})
 results_neg = store.query(probe_any_neg, top_k=10, negations={"status": "success"})
-print(f"\nProbe with $any and negation (exclude success): {len(results_neg)} results")
+print(f"\nProbe with $any and flat negation (exclude success): {len(results_neg)} results")
 for res in results_neg:
     print(f"  {res[2]['user']} - {res[2]['action']} - {res[2]['status']}")
 
-# With vector subtraction, success items should have lower similarity, but since we have data fallback, it will exclude them.
+# Test deep negation: suppose data had {"meta": {"details": {"status": "success"}}}, exclude that
+# But our data is flat. For demo, add nested data.
 
-print("\nVector tricks: $any for wildcards, subtraction for negation patterns")
+nested_data = {"user": "charlie", "meta": {"details": {"status": "success"}}, "action": "login"}
+store.insert(json.dumps(nested_data))
+
+probe_deep = json.dumps({"user": "charlie"})
+results_deep = store.query(probe_deep, top_k=10, negations={"meta": {"details": {"status": "success"}}})
+print(f"\nProbe with deep negation (exclude nested success): {len(results_deep)} results")
+for res in results_deep:
+    print(f"  {res[2]}")
+
+print("\nVector tricks: $any for wildcards, subtraction for negation patterns at any depth")
