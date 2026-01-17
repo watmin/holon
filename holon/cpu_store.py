@@ -71,6 +71,23 @@ class CPUStore(Store):
 
         logging.info(f"ANN index built with {len(self.ann_ids)} vectors")
 
+    def _extract_negations(self, probe: Dict[str, Any]) -> List[Tuple[str, Any]]:
+        """Extract negation filters like {'key': {'$not': value}}."""
+        negations = []
+        for key, value in probe.items():
+            if isinstance(value, dict) and '$not' in value:
+                negations.append((key, value['$not']))
+        return negations
+
+    def _clean_negations(self, probe: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove negation markers for encoding."""
+        clean = {}
+        for key, value in probe.items():
+            if isinstance(value, dict) and '$not' in value:
+                continue  # Skip negated keys for similarity
+            clean[key] = value
+        return clean
+
     def insert(self, data: str, data_type: str = 'json') -> str:
         import time
         start = time.time()
@@ -99,7 +116,13 @@ class CPUStore(Store):
 
     def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
-        probe_vector = self.encoder.encode_data(parsed_probe)
+
+        # Extract negation filters
+        negation_filters = self._extract_negations(parsed_probe)
+        # Remove negations from probe for encoding
+        clean_probe = self._clean_negations(parsed_probe)
+
+        probe_vector = self.encoder.encode_data(clean_probe)
 
         # Use ANN if available and dataset is large
         if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
@@ -135,6 +158,14 @@ class CPUStore(Store):
         results = []
         for data_id, score in similar_ids_scores:
             data_dict = self.stored_data[data_id]
+            # Apply negations
+            skip = False
+            for neg_key, neg_value in negation_filters:
+                if neg_key in data_dict and data_dict[neg_key] == neg_value:
+                    skip = True
+                    break
+            if skip:
+                continue
             # Apply guard if provided
             if guard and not guard(data_dict):
                 continue  # Skip if guard fails

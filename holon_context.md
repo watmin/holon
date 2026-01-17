@@ -140,6 +140,24 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Implementation**: Hybrid mode: Store LLM interactions, retrieve similar past ones for consistency. Feed exact blobs to LLMs.
 - **Benefit**: Fixes LLM stochasticity; enables reliable, composable AI memory.
 
+## Advanced Probe Features (To Implement)
+
+### Negation in Probes
+- **Description**: Allow complex probes with negation for rejections beyond schema-based guards. E.g., `{"foo": {"$not": "bar"}}` to exclude items where foo == "bar".
+- **Why?**: Guards check presence/subset; negation enables value-based exclusions in fuzzy search.
+- **Implementation**: Extend probe parsing to recognize `$not` markers; post-process similarity results to filter out negated conditions.
+- **Benefit**: Nuanced queries like "similar to X but not Y".
+
+### Time Indexing and Queries
+- **Description**: Support time-based queries (e.g., "events after timestamp T").
+- **Implementation**: Add time fields to data; use two encoders: linear for absolute time (range queries), circular for periodic (daily/weekly patterns). Encode time separately, combine with data vector.
+- **Benefit**: Temporal memory—query by recency or patterns (e.g., "what happened last week").
+
+### Other Potential Features
+- **Range Queries**: Support numerical ranges (e.g., age between 20-30).
+- **Compound Logic**: AND/OR for complex conditions.
+- **Substructure Boosting**: Weight partial matches higher for better snippet retrieval.
+
 ## Repository Structure
 ```
 holon/              # Core package
