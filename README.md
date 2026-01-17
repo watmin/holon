@@ -13,6 +13,9 @@ EDN (Extensible Data Notation) is fully supported, providing richer data structu
 
 The core concept uses Vector Symbolic Architectures to encode structured data by preserving relationships: maps bind keys to values, sequences bundle items, sets aggregate with indicators. Each scalar gets a unique high-dimensional vector, and structural operations (binding/bundling) create representations that enable similarity-based querying of partial structures.
 
+### Why "Holon"?
+Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
+
 See [docs/](docs/) for additional documentation, API reference, and examples.
 
 ## Why Holon is Cool
