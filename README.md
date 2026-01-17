@@ -113,6 +113,26 @@ python scripts/holon_server.py
 # API available at http://localhost:8000
 ```
 
+### Running Benchmarks
+Experience Holon's performance on your machine:
+
+```bash
+# Quick accuracy test
+python scripts/test_accuracy.py
+
+# Comprehensive test suite
+python scripts/run_all_tests.py
+
+# Extreme stress test (5000 items, 1000 queries)
+python scripts/extreme_query_challenge.py
+
+# HTTP API stress test (2000 inserts/queries)
+python scripts/extreme_http_test.py
+```
+
+**Sample Results** (on Intel Ultra 7, 54GB RAM):
+- Extreme Challenge: 5000 items inserted in 9.79s (510/sec), 1000 queries in 12.22s (81/sec), avg 0.012s/query.
+
 ### Extending Holon
 - **Add Encoders**: Subclass `Encoder` in `holon/encoder.py` for new data types.
 - **Custom Markers**: Modify parsing in `cpu_store.py` for new query operators.
