@@ -130,4 +130,9 @@ htmlcov/
 # Distribution
 build/
 dist/
-*.egg-info/
+*.egg-info/-e 
+# Logs
+extreme_log.txt
+
+# Venv
+holon_env/

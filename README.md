@@ -66,6 +66,45 @@ curl -X POST http://localhost:8000/query \
   -d '{"probe": "{\"user\": \"bot\"}", "guard": "{\"session\": \"123\"}"}'
 ```
 
+## Command Reference
+
+### Installation
+```bash
+git clone https://github.com/watmin/holon.git
+cd holon
+pip install -e .
+```
+
+### Running Tests
+```bash
+# All tests
+python -m pytest tests/
+
+# Specific test
+python scripts/test_accuracy.py
+
+# Comprehensive test suite
+python scripts/run_all_tests.py
+
+# Extreme performance test
+python scripts/extreme_query_challenge.py
+```
+
+### Starting the Server
+```bash
+python scripts/holon_server.py
+# API available at http://localhost:8000
+```
+
+### Extending Holon
+- **Add Encoders**: Subclass `Encoder` in `holon/encoder.py` for new data types.
+- **Custom Markers**: Modify parsing in `cpu_store.py` for new query operators.
+- **Vector Ops**: Extend `vector_manager.py` for custom algebras.
+- **API Endpoints**: Add routes in `scripts/holon_server.py`.
+- **Tests**: Add to `tests/` following pytest conventions.
+
+See [docs/](docs/) for API docs and examples.
+
 ## Key Concepts
 
 - **Structural Encoding**: Data structures are encoded recursively preserving relationships (maps bind keys to values, sequences bundle items, etc.).
