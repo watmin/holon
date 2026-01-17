@@ -2,8 +2,10 @@
 
 ## Development Setup
 1. Clone: `git clone https://github.com/watmin/holon.git`
-2. Install: `pip install -e .`
-3. Test: `python -m pytest tests/`
+2. Create venv: `python -m venv holon_env`
+3. Activate: `. holon_env/bin/activate` (Linux/Mac) or `holon_env\Scripts\activate` (Windows)
+4. Install: `pip install -r requirements.txt && pip install -e .`
+5. Test: `python -m pytest tests/`
 
 ## Adding Features
 - **Encoders**: Subclass `Encoder` for new data types.

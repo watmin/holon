@@ -162,17 +162,14 @@ From the user's perspective, Holon provides an abstract "store" interface for in
 
 ### Installation
 
-Clone the repository and install dependencies:
+Clone and install in a virtual environment:
 
 ```bash
 git clone https://github.com/watmin/holon.git
 cd holon
+python -m venv holon_env
+. holon_env/bin/activate  # Linux/Mac
 pip install -r requirements.txt
-```
-
-For development, install in editable mode:
-
-```bash
 pip install -e .
 ```
 
