@@ -26,6 +26,48 @@ See [docs/](docs/) for additional documentation, API reference, and examples.
 - **AI-Ready**: Perfect for LLM memory—deterministic, no hallucinations.
 - **Unique Algebra**: Vector subtraction for exclusions—pure HDC magic.
 
+## Examples
+
+### Basic Usage
+```python
+from holon import CPUStore
+
+store = CPUStore()
+store.insert('{"name": "Alice", "role": "developer"}')
+results = store.query('{"role": "developer"}')
+print(f"Found {len(results)} developers")
+```
+
+### Advanced Queries
+```python
+# Wildcards
+store.query('{"role": {"$any": true}}')  # Any role
+
+# Guards
+store.query('{"name": "Alice"}', guard={"role": "developer"})
+
+# Negations
+store.query('{"role": "developer"}', negations={"name": {"$not": "Alice"}})
+
+# Disjunctions
+store.query('{"$or": [{"role": "developer"}, {"role": "designer"}]}')
+```
+
+### EDN Support
+```python
+store.insert('{:user "alice" :actions [:login :edit]}', data_type='edn')
+results = store.query('{:user "alice"}', data_type='edn')
+```
+
+### HTTP API
+```bash
+# Insert
+curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d '{"data": "{\"event\": \"login\"}"}'
+
+# Query
+curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"probe": "{\"event\": \"login\"}"}'
+```
+
 ### Performance Highlights
 - **Inserts**: 500+ items/sec
 - **Queries**: 80+ queries/sec, sub-0.03s avg
