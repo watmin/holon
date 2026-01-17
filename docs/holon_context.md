@@ -158,6 +158,12 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Implementation**: Query each sub-probe, union results deduplicating by ID.
 - **Benefit**: Complex, composable queries.
 
+### Advanced Pattern Matching (Future)
+- **Positional $any**: Support patterns like `{"sequence": [1, 2, {"$any": true}, 4]}` for list matching (Prolog-style).
+- **Structured Negations**: Allow `{"$not": {"user": "alice", "status": "success"}}` to exclude entire matching objects.
+- **Implementation**: Extend parsing to handle value patterns, recursive structure matching.
+- **Benefit**: Full Prolog-like pattern matching for entangled data.
+
 ### Time Indexing and Queries
 - **Description**: Support time-based queries (e.g., "events after timestamp T").
 - **Implementation**: Add time fields to data; use two encoders: linear for absolute time (range queries), circular for periodic (daily/weekly patterns). Encode time separately, combine with data vector.
