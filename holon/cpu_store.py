@@ -98,7 +98,7 @@ class CPUStore(Store):
 
         return data_id
 
-    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None, negations=None) -> List[Tuple[str, float, Dict[str, Any]]]:
+    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None, negations=None, any_marker="$any") -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
 
         # Handle $or disjunctions
@@ -113,10 +113,10 @@ class CPUStore(Store):
                         seen_ids.add(res[0])
             return all_results[:top_k]  # Limit to top_k
 
-        # Handle user-specified $any wildcards
+        # Handle user-specified any wildcards
         clean_probe = {}
         for k, v in parsed_probe.items():
-            if isinstance(v, dict) and "$any" in v:
+            if isinstance(v, dict) and any_marker in v:
                 continue  # Skip for encoding
             clean_probe[k] = v
 

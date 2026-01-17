@@ -148,10 +148,10 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Implementation**: Parse negations dict for `$not` keys; encode cleaned dict for vector subtraction; recursive data check for matches.
 - **Benefit**: Flexible, user-controlled negation expressions at any depth.
 
-### Wildcard Probes ($any)
-- **Description**: User-specified wildcards. E.g., `{"user": "alice", "action": {"$any": true}}` matches any action for alice.
-- **Implementation**: Skip keys with `{"$any": true}` during encoding.
-- **Benefit**: Flexible, user-controlled wildcards.
+### Wildcard Probes (Configurable)
+- **Description**: User-specified wildcards with configurable marker (default `$any`). E.g., `{"user": "alice", "action": {"$any": true}}` matches any action.
+- **Implementation**: Skip keys with `{marker: true}` during encoding; marker set via API.
+- **Benefit**: Avoids conflicts with user data—users choose the marker.
 
 ### Disjunctive Probes ($or)
 - **Description**: OR logic for probes. E.g., `{"$or": [{"user": "alice"}, {"status": "success"}]}` matches alice OR success items.

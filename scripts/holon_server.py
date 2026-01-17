@@ -46,8 +46,8 @@ def is_subset(guard: Dict[str, Any], data: Dict[str, Any]) -> bool:
             if not isinstance(data[key], list) or len(value) != len(data[key]):
                 return False
             for g_item, d_item in zip(value, data[key]):
-                if isinstance(g_item, dict) and "$any" in g_item:
-                    continue  # $any matches anything
+                if isinstance(g_item, dict) and request.any_marker in g_item:
+                    continue  # any_marker matches anything
                 elif g_item != d_item:
                     return False
         # For other types, check exact match
@@ -72,8 +72,9 @@ class QueryRequest(BaseModel):
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
     top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of top results to return")
     threshold: float = Field(0.0, description="Similarity threshold (0-1)")
-    guard: Optional[str] = Field(None, description="Guard condition as JSON string (pattern match with $any support)")
+    guard: Optional[str] = Field(None, description="Guard condition as JSON string (pattern match)")
     negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters as dict {key: value_to_exclude}")
+    any_marker: str = Field("$any", description="Marker for wildcards in probe/guard")
 
 class QueryResponse(BaseModel):
     results: List[Dict[str, Any]] = Field(..., description="Query results with id, score, data")
@@ -156,7 +157,8 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             request.top_k,
             request.threshold,
             guard=guard_func,
-            negations=request.negations
+            negations=request.negations,
+            any_marker=request.any_marker
         )
 
         # Format response - convert EDN types to JSON-compatible
