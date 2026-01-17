@@ -39,10 +39,28 @@ results = store.query('{"user": "alice"}')  # Fuzzy search
 print(f"Found {len(results)} matches")
 ```
 
+### Complex Use Case: AI Agent Memory with Guards
+```python
+# Store conversation history
+store.insert('{"session": "123", "user": "alice", "message": "How does HDC work?", "timestamp": 1640995200}')
+store.insert('{"session": "123", "user": "bot", "message": "HDC uses high-dim vectors", "timestamp": 1640995260}')
+store.insert('{"session": "456", "user": "bob", "message": "What is VSA?", "timestamp": 1640995300}')
+
+# Complex query: Find bot responses in session 123, excluding old timestamps
+results = store.query(
+    '{"user": "bot"}',  # Fuzzy: similar to bot messages
+    guard=lambda d: d.get("session") == "123" and d.get("timestamp", 0) > 1640995200  # Exact guard
+)
+print(f"Bot responses in session 123: {len(results)}")
+```
+
 For HTTP API:
 ```bash
 python scripts/holon_server.py  # Start server
-# Then query via curl
+# Complex query with guards
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"probe": "{\"user\": \"bot\"}", "guard": "{\"session\": \"123\"}"}'
 ```
 
 ## Key Concepts
