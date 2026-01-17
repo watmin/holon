@@ -8,6 +8,7 @@ setup(
     version="0.1.0",
     description="Programmatic Neural Memory using VSA and HDC",
     author="watministrator & Grok (xAI)",
+    url="https://github.com/watmin/holon",
     packages=find_packages(),
     install_requires=requirements,
     python_requires=">=3.8",

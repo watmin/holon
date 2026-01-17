@@ -33,7 +33,7 @@ From the user's perspective, Holon provides an abstract "store" interface for in
 Clone the repository and install dependencies:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/watmin/holon.git
 cd holon
 pip install -r requirements.txt
 ```
