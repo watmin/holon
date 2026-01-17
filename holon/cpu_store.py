@@ -72,18 +72,18 @@ class CPUStore(Store):
         logging.info(f"ANN index built with {len(self.ann_ids)} vectors")
 
     def _extract_negations(self, probe: Dict[str, Any]) -> List[Tuple[str, Any]]:
-        """Extract negation filters like {'key': {'$not': value}}."""
+        """Extract negation filters like {'key': {'$_not': value}}."""
         negations = []
         for key, value in probe.items():
-            if isinstance(value, dict) and '$not' in value:
-                negations.append((key, value['$not']))
+            if isinstance(value, dict) and '$_not' in value:
+                negations.append((key, value['$_not']))
         return negations
 
     def _clean_negations(self, probe: Dict[str, Any]) -> Dict[str, Any]:
         """Remove negation markers for encoding."""
         clean = {}
         for key, value in probe.items():
-            if isinstance(value, dict) and '$not' in value:
+            if isinstance(value, dict) and '$_not' in value:
                 continue  # Skip negated keys for similarity
             clean[key] = value
         return clean

@@ -143,9 +143,9 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 ## Advanced Probe Features (To Implement)
 
 ### Negation in Probes
-- **Description**: Allow complex probes with negation for rejections beyond schema-based guards. E.g., `{"foo": {"$not": "bar"}}` to exclude items where foo == "bar".
+- **Description**: Allow complex probes with negation for rejections beyond schema-based guards. E.g., `{"foo": {"$_not": "bar"}}` to exclude items where foo == "bar".
 - **Why?**: Guards check presence/subset; negation enables value-based exclusions in fuzzy search.
-- **Implementation**: Extend probe parsing to recognize `$not` markers; post-process similarity results to filter out negated conditions.
+- **Implementation**: Extend probe parsing to recognize `$_not` markers; post-process similarity results to filter out negated conditions.
 - **Benefit**: Nuanced queries like "similar to X but not Y".
 
 ### Time Indexing and Queries
