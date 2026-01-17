@@ -9,7 +9,7 @@
 
 Holon is a Python library implementing a "programmatic neural memory" system using Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC). It allows for the ingestion, encoding, and querying of structured data (JSON and EDN strings) through vector-based representations, enabling efficient similarity-based retrieval.
 
-EDN (Extensible Data Notation) is fully supported, providing richer data structures than JSON including keywords (:keyword), sets (#{...}), symbols, booleans, nil, and complex nested structures. Every scalar value in EDN forms is atomized and encoded into the vector representation.
+EDN (Extensible Data Notation) is fully supported, providing richer data structures than JSON including keywords (`:keyword`), sets (`#{...}`), symbols, booleans, nil, and complex nested structures. Every scalar value in EDN forms is atomized and encoded into the vector representation.
 
 The core concept uses Vector Symbolic Architectures to encode structured data by preserving relationships: maps bind keys to values, sequences bundle items, sets aggregate with indicators. Each scalar gets a unique high-dimensional vector, and structural operations (binding/bundling) create representations that enable similarity-based querying of partial structures.
 
