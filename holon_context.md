@@ -1,0 +1,159 @@
+# Holon: Neural Memory System - Project Context
+
+## Project Overview
+Holon is a high-performance implementation of Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC) for structured data storage and similarity search. It provides neural-inspired memory capabilities with efficient similarity-based querying.
+
+## Core Architecture
+- **VSA/HDC Foundation**: Bipolar vector representations with binding/bundling operations
+- **Structural Encoding**: Recursive encoding preserving data relationships (maps, sequences, sets)
+- **Similarity Search**: Cosine/dot product similarity with optimized algorithms
+- **Backend Support**: CPU (NumPy) and GPU (CuPy) with auto-detection
+
+## Key Components Implemented
+
+### Core Engine (holon/)
+- **vector_manager.py**: High-dimensional vector allocation and caching
+- **encoder.py**: Structural encoding with binding operations
+- **similarity.py**: Optimized similarity search with heap selection
+- **cpu_store.py**: Main storage interface with CPU/GPU backend support
+- **atomizer.py**: Data parsing and atomization for JSON/EDN
+
+### API Layer (scripts/)
+- **holon_server.py**: FastAPI REST API for HTTP access
+- **performance_test.py**: Benchmarking and optimization testing
+
+### Testing & Examples
+- **tests/**: Unit tests with pytest
+- **examples/**: JSON and EDN usage examples
+- **scripts/**: Performance testing and API clients
+
+## Performance Characteristics
+
+### Benchmarks (16k dimensions)
+- **Memory**: 70KB per item (int8 vectors, 16KB each)
+- **Insertion**: 200-250 items/sec (parallel processing)
+- **Query**: 0.002-0.01s per query (heap optimization)
+- **Scalability**: Practical for 10k-50k items
+
+### Optimizations Implemented
+- **Heap Selection**: O(N log K) for top-k queries
+- **Parallel Processing**: Multi-core encoding with ProcessPoolExecutor
+- **Int8 Vectors**: 8x memory reduction vs float64
+- **SIMD Operations**: NumPy leverages CPU vector instructions
+- **GPU Ready**: CuPy integration for RTX 4090 acceleration
+
+## Current State
+- ✅ **Core VSA/HDC implementation** complete
+- ✅ **CPU performance optimizations** implemented
+- ✅ **GPU acceleration framework** ready
+- ✅ **HTTP REST API** with FastAPI
+- ✅ **JSON/EDN support** with type conversion
+- ✅ **Comprehensive testing** and documentation
+- ✅ **Repository organization** clean and documented
+
+## Architecture Decisions Made
+
+### Vector Representation
+- **Bipolar {-1, 0, 1}** for HDC properties
+- **16k dimensions** as default (configurable)
+- **Int8 dtype** for memory efficiency
+
+### Encoding Strategy
+- **Recursive structural encoding** preserving relationships
+- **Map binding**: key * value operations
+- **Sequence bundling**: sum of encoded items
+- **Set handling**: item aggregation with indicators
+
+### Query Optimization
+- **Heap-based top-k** for efficient selection
+- **Parallel processing** for large datasets
+- **Dot product similarity** with normalization
+
+### API Design
+- **RESTful endpoints**: /insert, /batch_insert, /query, /health
+- **Content negotiation**: JSON/EDN input/output
+- **Query limits**: Configurable top_k with system maximum
+- **Error handling**: Comprehensive validation
+
+## Scaling Limits Identified
+- **10k items**: Excellent performance (milliseconds queries)
+- **50k items**: Good performance with optimizations
+- **100k+ items**: Requires ANN indexing for practicality
+- **Memory bound**: 70KB/item with current encoding
+
+## Technology Stack
+- **Python 3.11+**
+- **NumPy**: CPU vector operations
+- **CuPy**: GPU acceleration
+- **FastAPI**: HTTP API framework
+- **pytest**: Testing framework
+
+## Key Insights & Learnings
+
+### Performance Bottlenecks
+- **Encoding complexity**: Recursive operations on nested data
+- **Memory allocation**: Frequent vector creations
+- **Query scaling**: O(N) brute force becomes limiting
+
+### Optimization Successes
+- **Parallel processing**: 2.5x insertion speedup
+- **Heap selection**: Massive query time reduction
+- **Int8 vectors**: 8x memory efficiency
+- **SIMD utilization**: Automatic CPU vector instruction usage
+
+### VSA/HDC Validation
+- **Structural preservation**: Relationships maintained in vectors
+- **Similarity effectiveness**: Partial matching works for substructures
+- **Scalability challenges**: Distributed representations need indexing at scale
+
+## Future Development Path
+
+### Immediate Next Steps
+- **ANN Indexing**: Implement HNSW/FAISS for large datasets
+- **GPU Optimization**: Advanced CuPy kernels
+- **Durable Storage**: Database persistence layer
+
+### Long-term Vision
+- **Distributed Processing**: Multi-node VSA operations
+- **Hybrid Approaches**: VSA + traditional indexing
+- **Advanced Encoding**: Hierarchical and manifold-aware representations
+
+## Repository Structure
+```
+holon/              # Core package
+├── __init__.py     # Package exports
+├── cpu_store.py    # Storage interface
+├── encoder.py      # Encoding engine
+├── vector_manager.py # Vector management
+├── atomizer.py     # Data parsing
+└── similarity.py   # Query optimization
+
+scripts/            # Utilities
+├── holon_server.py # HTTP API
+└── performance_test.py # Benchmarking
+
+docs/               # Documentation
+├── README.md       # API & usage
+├── architecture.md # Technical design
+├── api_design.md   # API specification
+└── limits_and_performance.md # Performance guide
+
+examples/           # Usage examples
+tests/              # Unit tests
+```
+
+## Critical Files to Understand
+- **holon/cpu_store.py**: Main interface and backend logic
+- **holon/encoder.py**: Core VSA/HDC encoding implementation
+- **holon/similarity.py**: Query optimization algorithms
+- **scripts/holon_server.py**: HTTP API implementation
+- **docs/limits_and_performance.md**: Performance characteristics
+
+## Current Working State
+- **All core functionality** implemented and tested
+- **Performance optimizations** active and effective
+- **API fully functional** with proper error handling
+- **Documentation complete** with usage guides
+- **Repository clean** and ready for collaboration
+
+This context file ensures continuity if development sessions are interrupted, providing complete project state and technical foundation.
