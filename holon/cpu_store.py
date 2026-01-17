@@ -1,11 +1,21 @@
 import uuid
 import logging
+import numpy as np
 from typing import Dict, Any, List, Tuple
 from .store import Store
 from .atomizer import parse_data
 from .vector_manager import VectorManager
 from .encoder import Encoder
 from .similarity import find_similar_vectors
+
+try:
+    import faiss
+    FAISS_AVAILABLE = True
+except ImportError:
+    faiss = None
+    FAISS_AVAILABLE = False
+
+ANN_THRESHOLD = 1000  # Switch to ANN when > 1000 items
 
 
 class CPUStore(Store):
@@ -30,6 +40,37 @@ class CPUStore(Store):
         self.stored_data: Dict[str, Dict[str, Any]] = {}  # id -> original data dict
         self.stored_vectors: Dict[str, Any] = {}  # id -> encoded vector
 
+        # ANN indexing
+        self.ann_index = None
+        self.ann_ids: List[str] = []  # Ordered list of IDs for FAISS index mapping
+        self.ann_vectors = None  # Numpy array for FAISS
+
+    def _build_ann_index(self):
+        """Build FAISS ANN index when dataset grows large."""
+        if not FAISS_AVAILABLE or len(self.stored_vectors) <= ANN_THRESHOLD:
+            return
+
+        # Convert stored vectors to numpy array
+        vectors_list = []
+        ids_list = []
+        for data_id, vec in self.stored_vectors.items():
+            if isinstance(vec, np.ndarray):
+                vectors_list.append(vec.astype(np.float32))
+            else:
+                # Handle cupy, convert to numpy
+                vectors_list.append(vec.get().astype(np.float32))
+            ids_list.append(data_id)
+
+        self.ann_vectors = np.stack(vectors_list)
+        self.ann_ids = ids_list
+
+        # Create FAISS index for inner product (dot product)
+        dim = self.dimensions
+        self.ann_index = faiss.IndexFlatIP(dim)
+        self.ann_index.add(self.ann_vectors)
+
+        logging.info(f"ANN index built with {len(self.ann_ids)} vectors")
+
     def insert(self, data: str, data_type: str = 'json') -> str:
         import time
         start = time.time()
@@ -44,20 +85,59 @@ class CPUStore(Store):
         self.stored_data[data_id] = parsed
         self.stored_vectors[data_id] = encoded_vector
 
+        # Invalidate ANN index if it exists (since we added a new vector)
+        if self.ann_index is not None:
+            self.ann_index = None
+            self.ann_vectors = None
+            self.ann_ids = []
+
         # Log timing for first few inserts
         if len(self.stored_data) <= 5:
             logging.info(f"INSERT_TIMING: parse={parse_time:.4f}s, encode={encode_time:.4f}s, total={parse_time+encode_time:.4f}s")
 
         return data_id
 
-    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0) -> List[Tuple[str, float, Dict[str, Any]]]:
+    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
         probe_vector = self.encoder.encode_data(parsed_probe)
-        similar_ids_scores = find_similar_vectors(probe_vector, self.stored_vectors, top_k, threshold)
+
+        # Use ANN if available and dataset is large
+        if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
+            if self.ann_index is None:
+                self._build_ann_index()
+
+            if self.ann_index is not None:
+                # Ensure probe_vector is numpy float32
+                if isinstance(probe_vector, np.ndarray):
+                    query_vec = probe_vector.astype(np.float32).reshape(1, -1)
+                else:
+                    query_vec = probe_vector.get().astype(np.float32).reshape(1, -1)
+
+                # FAISS search returns scores and indices
+                scores, indices = self.ann_index.search(query_vec, top_k)
+
+                similar_ids_scores = []
+                for i, idx in enumerate(indices[0]):
+                    if idx != -1:  # Valid index
+                        score = float(scores[0][i]) / self.dimensions  # Normalize like dot similarity
+                        if score >= threshold:
+                            data_id = self.ann_ids[idx]
+                            similar_ids_scores.append((data_id, score))
+
+                similar_ids_scores.sort(key=lambda x: x[1], reverse=True)
+            else:
+                # Fallback to brute-force
+                similar_ids_scores = find_similar_vectors(probe_vector, self.stored_vectors, top_k, threshold)
+        else:
+            # Use brute-force for small datasets
+            similar_ids_scores = find_similar_vectors(probe_vector, self.stored_vectors, top_k, threshold)
+
         results = []
         for data_id, score in similar_ids_scores:
-            # Convert GPU vectors back to CPU for data access if needed
             data_dict = self.stored_data[data_id]
+            # Apply guard if provided
+            if guard and not guard(data_dict):
+                continue  # Skip if guard fails
             results.append((data_id, score, data_dict))
         return results
 

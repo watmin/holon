@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 from holon import CPUStore
+from holon.atomizer import parse_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,21 @@ store = CPUStore(backend='auto')
 MAX_QUERY_RESULTS = 100  # System maximum for top_k
 DEFAULT_QUERY_RESULTS = 10
 
+def is_subset(guard: Dict[str, Any], data: Dict[str, Any]) -> bool:
+    """Check if guard dict is a subset of data dict (recursive)."""
+    for key, value in guard.items():
+        if key not in data:
+            return False
+        if isinstance(value, dict) and isinstance(data[key], dict):
+            if not is_subset(value, data[key]):
+                return False
+        # For non-dict, just check presence (ignore value as per user's note)
+    return True
+
+# Configuration
+MAX_QUERY_RESULTS = 100  # System maximum for top_k
+DEFAULT_QUERY_RESULTS = 10
+
 class InsertRequest(BaseModel):
     data: str = Field(..., description="Data to insert (JSON or EDN string)")
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
@@ -44,6 +60,7 @@ class QueryRequest(BaseModel):
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
     top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of top results to return")
     threshold: float = Field(0.0, description="Similarity threshold (0-1)")
+    guard: Optional[str] = Field(None, description="Guard condition as JSON/EDN string (subset match)")
 
 class QueryResponse(BaseModel):
     results: List[Dict[str, Any]] = Field(..., description="Query results with id, score, data")
@@ -110,12 +127,22 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
         if not (0.0 <= request.threshold <= 1.0):
             raise HTTPException(status_code=400, detail="threshold must be between 0.0 and 1.0")
 
+        # Process guard if provided
+        guard_func = None
+        if request.guard:
+            try:
+                guard_data = parse_data(request.guard, request.data_type)
+                guard_func = lambda data: is_subset(guard_data, data)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid guard: {str(e)}")
+
         # Execute query
         results = store.query(
             request.probe,
             request.data_type,
             request.top_k,
-            request.threshold
+            request.threshold,
+            guard=guard_func
         )
 
         # Format response - convert EDN types to JSON-compatible

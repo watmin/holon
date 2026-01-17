@@ -109,7 +109,7 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 ## Future Development Path
 
 ### Immediate Next Steps
-- **ANN Indexing**: Implement HNSW/FAISS for large datasets
+- **ANN Indexing**: Implement HNSW/FAISS for large datasets ✅ COMPLETED
 - **GPU Optimization**: Advanced CuPy kernels
 - **Durable Storage**: Database persistence layer
 
@@ -117,6 +117,28 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Distributed Processing**: Multi-node VSA operations
 - **Hybrid Approaches**: VSA + traditional indexing
 - **Advanced Encoding**: Hierarchical and manifold-aware representations
+
+## Proposed Improvements for AI Memory Use Case
+
+### Enhanced Partial Matching
+- **Description**: Boost substructure detection for snippet-based queries. Ensure "what do I remember about <snippet>" reliably finds containing blobs.
+- **Implementation**: Modify `encoder.py` to weight partial overlaps higher; add query modes like "subquery" for subset matching.
+- **Benefit**: Deeper entanglement for partial data retrieval.
+
+### Hierarchical Encoding
+- **Description**: Encode data at multiple levels (whole, sections, snippets) for better partial retrieval.
+- **Implementation**: Create "summary vectors" for sub-parts in `encoder.py`, stored alongside main vectors. Multi-level similarity checks in queries.
+- **Benefit**: Tiny snippets reliably pull full contexts.
+
+### Memory API Primitives
+- **Description**: Simple, composable API for AI memory operations.
+- **Implementation**: Wrap Holon in functions like `remember(data)`, `recall(snippet)`, `forget(id)`. Make it lambda-friendly for deterministic workflows.
+- **Benefit**: Easier integration with LLMs/agents for composable AI.
+
+### Integration with LLMs
+- **Description**: Use Holon as a "memory layer" for LLMs to enable deterministic, high-fidelity recall.
+- **Implementation**: Hybrid mode: Store LLM interactions, retrieve similar past ones for consistency. Feed exact blobs to LLMs.
+- **Benefit**: Fixes LLM stochasticity; enables reliable, composable AI memory.
 
 ## Repository Structure
 ```

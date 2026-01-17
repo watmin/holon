@@ -16,15 +16,16 @@ class Store(ABC):
         pass
 
     @abstractmethod
-    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0) -> List[Tuple[str, float, Dict[str, Any]]]:
+    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard: callable = None) -> List[Tuple[str, float, Dict[str, Any]]]:
         """
         Query the store with a probe data blob.
-        Returns a list of (id, similarity_score, original_data) tuples for top matches.
+        Returns a list of (id, similarity_score, original_data) tuples for top matches that pass the guard.
 
         :param probe: The query probe as a string.
         :param data_type: 'json' or 'edn'.
         :param top_k: Number of top results to return.
         :param threshold: Minimum similarity score to include in results.
+        :param guard: Optional callable (data_dict -> bool) to filter results post-similarity.
         :return: List of tuples (data_id, score, data_dict).
         """
         pass
