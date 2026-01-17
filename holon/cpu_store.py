@@ -99,10 +99,21 @@ class CPUStore(Store):
 
     def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None, negations=None) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
-        probe_vector = self.encoder.encode_data(parsed_probe)
 
-        # Prepare negation filters
-        negation_filters = negations.items() if negations else []
+        # Handle $any wildcards
+        clean_probe = {k: v for k, v in parsed_probe.items() if v != "$any"}
+
+        probe_vector = self.encoder.encode_data(clean_probe)
+
+        # Vector-level negation via subtraction
+        if negations:
+            for key, value in negations.items():
+                neg_data = {key: value}
+                neg_vector = self.encoder.encode_data(neg_data)
+                probe_vector = probe_vector - neg_vector  # Subtract to exclude pattern
+
+        # Fallback data-based negation
+        negation_filters = list(negations.items()) if negations else []
 
         # Use ANN if available and dataset is large
         if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
