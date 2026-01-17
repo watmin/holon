@@ -33,14 +33,26 @@ MAX_QUERY_RESULTS = 100  # System maximum for top_k
 DEFAULT_QUERY_RESULTS = 10
 
 def is_subset(guard: Dict[str, Any], data: Dict[str, Any]) -> bool:
-    """Check if guard dict is a subset of data dict (recursive)."""
+    """Check if guard dict is a subset of data dict (recursive, with $any support)."""
     for key, value in guard.items():
         if key not in data:
             return False
-        if isinstance(value, dict) and isinstance(data[key], dict):
+        if isinstance(value, dict):
+            if not isinstance(data[key], dict):
+                return False
             if not is_subset(value, data[key]):
                 return False
-        # For non-dict, just check presence (ignore value as per user's note)
+        elif isinstance(value, list):
+            if not isinstance(data[key], list) or len(value) != len(data[key]):
+                return False
+            for g_item, d_item in zip(value, data[key]):
+                if isinstance(g_item, dict) and "$any" in g_item:
+                    continue  # $any matches anything
+                elif g_item != d_item:
+                    return False
+        # For other types, check exact match
+        elif data[key] != value:
+            return False
     return True
 
 # Configuration
@@ -60,7 +72,7 @@ class QueryRequest(BaseModel):
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
     top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of top results to return")
     threshold: float = Field(0.0, description="Similarity threshold (0-1)")
-    guard: Optional[str] = Field(None, description="Guard condition as JSON/EDN string (subset match)")
+    guard: Optional[str] = Field(None, description="Guard condition as JSON string (pattern match with $any support)")
     negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters as dict {key: value_to_exclude}")
 
 class QueryResponse(BaseModel):
