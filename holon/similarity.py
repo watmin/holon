@@ -36,7 +36,7 @@ def find_similar_vectors(
     threshold: float = 0.0
 ) -> List[Tuple[str, float]]:
     """
-    Find top-k similar vectors to the probe vector using heap optimization and parallel processing.
+    Find top-k similar vectors to the probe vector using heap optimization.
 
     :param probe_vector: The query vector.
     :param stored_vectors: Dict of id to vector.
@@ -44,16 +44,8 @@ def find_similar_vectors(
     :param threshold: Minimum similarity.
     :return: List of (id, similarity) tuples, sorted descending.
     """
-    import heapq
-    import concurrent.futures
-    import threading
-
-    # For small datasets, use single-threaded approach
-    if len(stored_vectors) < 1000:
-        return _find_similar_vectors_single(probe_vector, stored_vectors, top_k, threshold)
-
-    # For large datasets, use parallel processing
-    return _find_similar_vectors_parallel(probe_vector, stored_vectors, top_k, threshold)
+    # Use single-threaded optimized approach
+    return _find_similar_vectors_single(probe_vector, stored_vectors, top_k, threshold)
 
 def _find_similar_vectors_single(
     probe_vector: Union[np.ndarray, 'cp.ndarray'],

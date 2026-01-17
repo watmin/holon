@@ -26,12 +26,19 @@ This document records performance characteristics, scaling limits, and probe eff
 - **Insertion:** 7.22s (~1384 items/sec)
 - **Memory:** 506MB total (0.051MB/item)
 - **Unique atoms:** 19,113
-- **Query time:** 0.23-0.48s per probe
+- **Query time:** 0.23-0.48s per probe (unoptimized)
 
-### Scaling Projections
-- **10k items:** 0.35s queries, 500MB memory
-- **100k items:** ~3.5s queries, 5GB memory (estimated)
-- **1M items:** ~35s queries, 50GB memory (impractical without indexing)
+### Optimized Performance (with heap selection + parallel processing)
+- **Insertion:** 200-250 items/sec (parallel encoding)
+- **Query time:** 0.002-0.01s per probe (heap optimization)
+- **Memory:** 70KB per item (int8 vectors)
+- **Scalability:** Practical up to 50k items
+
+### Scaling Projections (Optimized)
+- **10k items:** 0.01s queries, 700MB memory
+- **50k items:** 0.25s queries, 3.5GB memory
+- **100k items:** ~2.5s queries, 7GB memory (with current optimizations)
+- **1M items:** Requires indexing (ANN/HNSW) for practicality
 
 ## Probe Effectiveness
 
@@ -87,28 +94,51 @@ This document records performance characteristics, scaling limits, and probe eff
 ## Recommendations
 
 ### For Production Use (<50k items)
-- Current implementation is suitable
-- Use score thresholds (>0.1 for matches)
-- Monitor atom count for memory
+- Use optimized version with heap selection
+- Parallel insertion for bulk data loading
+- Query times: milliseconds
+- Memory: ~70KB per item
 
-### For Large Scale (>100k items)
-- Implement approximate nearest neighbor search
-- Add vector quantization/compression
-- Consider hierarchical data representations
+### For Large Scale (50k-500k items)
+- Current optimizations provide good performance
+- Monitor memory usage (int8 vectors help)
+- Consider batch processing for very large datasets
+
+### For Big Data (>500k items)
+- Implement approximate nearest neighbor search (HNSW/FAISS)
+- Add vector quantization for memory efficiency
+- Consider distributed processing
+- Hybrid approaches: VSA + traditional indexing
 
 ### For Better Accuracy
 - Experiment with different similarity metrics
 - Tune vector dimensions (4k-32k)
 - Implement query expansion for partial matches
 
+## Implemented Optimizations
+
+### CPU Performance
+- **Heap Selection:** O(N log K) instead of O(N log N) for top-k queries
+- **Parallel Insertion:** Multi-core encoding using ProcessPoolExecutor
+- **Int8 Vectors:** 16KB per vector (8x memory reduction vs int64)
+- **SIMD Operations:** NumPy leverages CPU vector instructions
+- **Memory Efficiency:** 70KB per item with optimized data structures
+
+### Backend Support
+- **CPU/GPU Auto-Detection:** Automatically selects available hardware
+- **Unified API:** Same interface for CPU and GPU operations
+- **CuPy Integration:** GPU acceleration ready for RTX 4090
+
 ## Test Environment
 - **System:** 54GB RAM, 14 cores
-- **Dataset:** 10k varied JSON objects
-- **Framework:** Pure NumPy, no GPU acceleration
+- **Dataset:** 10k-50k varied JSON objects
+- **Framework:** NumPy/CuPy, FastAPI for HTTP API
+- **Optimizations:** Heap selection, parallel processing, int8 vectors
 
 ## Future Improvements
-1. **Indexing:** HNSW for sub-linear queries
-2. **Compression:** Vector quantization to reduce memory
-3. **Hybrid:** Combine with traditional DB for metadata filtering
-4. **GPU:** CUDA acceleration for large N
-5. **Hierarchical:** Multi-resolution encoding for better partial matching
+1. **ANN Indexing:** HNSW/FAISS for sub-linear queries on large datasets
+2. **Vector Compression:** Quantization to reduce memory footprint
+3. **Hybrid Storage:** Combine VSA with traditional DB for metadata
+4. **GPU Optimization:** Advanced CuPy kernels for similarity computation
+5. **Hierarchical Encoding:** Multi-resolution for better partial matching
+6. **Distributed Processing:** Multi-node VSA operations

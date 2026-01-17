@@ -118,9 +118,24 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             request.threshold
         )
 
-        # Format response
+        # Format response - convert EDN types to JSON-compatible
+        def convert_for_json(obj):
+            """Convert EDN types to JSON-compatible Python types."""
+            if isinstance(obj, dict):
+                return {convert_for_json(k): convert_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_for_json(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return [convert_for_json(item) for item in obj]
+            elif isinstance(obj, frozenset):
+                return list(obj)
+            elif hasattr(obj, 'name'):  # EDN Keyword/Symbol
+                return obj.name if hasattr(obj, 'name') else str(obj)
+            else:
+                return obj
+
         formatted_results = [
-            {"id": data_id, "score": score, "data": data}
+            {"id": data_id, "score": score, "data": convert_for_json(data)}
             for data_id, score, data in results
         ]
 

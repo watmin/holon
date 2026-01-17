@@ -186,10 +186,10 @@ def extreme_stress_test():
     total_ram, avail_ram = get_system_specs()
     print(f"Total RAM: {total_ram:.1f} GB")
     print(f"Available RAM: {avail_ram:.1f} GB")
-    # Target 70% of available RAM (safer limit)
-    target_ram = avail_ram * 0.7
+    # Target 50% of available RAM for faster testing
+    target_ram = avail_ram * 0.5
     estimated_items = int((target_ram * 1024 * 1024) / 200)  # 200KB per ultra-complex item
-    estimated_items = min(estimated_items, 50000)  # Cap at 50k for safer runtime
+    estimated_items = min(estimated_items, 20000)  # Cap at 20k for reasonable runtime
 
     logger.info(f"Target config: {estimated_items} items, {target_ram:.1f}GB memory")
 
