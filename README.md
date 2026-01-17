@@ -46,10 +46,10 @@ store.insert('{"session": "123", "user": "alice", "message": "How does HDC work?
 store.insert('{"session": "123", "user": "bot", "message": "HDC uses high-dim vectors", "timestamp": 1640995260}')
 store.insert('{"session": "456", "user": "bob", "message": "What is VSA?", "timestamp": 1640995300}')
 
-# Complex query: Find bot responses in session 123, excluding old timestamps
+# Complex query: Find bot responses in session 123
 results = store.query(
     '{"user": "bot"}',  # Fuzzy: similar to bot messages
-    guard=lambda d: d.get("session") == "123" and d.get("timestamp", 0) > 1640995200  # Exact guard
+    guard={"session": "123"}  # Exact guard on session
 )
 print(f"Bot responses in session 123: {len(results)}")
 ```
