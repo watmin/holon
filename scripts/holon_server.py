@@ -112,12 +112,9 @@ async def insert_item(request: InsertRequest, req: Request):
 
 @app.post("/batch_insert", response_model=BatchInsertResponse)
 async def batch_insert_items(request: BatchInsertRequest, req: Request):
-    """Insert multiple data items."""
+    """Insert multiple data items with optimized bulk indexing."""
     try:
-        ids = []
-        for item in request.items:
-            data_id = store.insert(item, request.data_type)
-            ids.append(data_id)
+        ids = store.batch_insert(request.items, request.data_type)
         logger.info(f"Batch inserted {len(ids)} items")
         return BatchInsertResponse(ids=ids)
     except Exception as e:

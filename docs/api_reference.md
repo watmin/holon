@@ -24,6 +24,27 @@ Insert a data blob.
 }
 ```
 
+#### POST /batch_insert
+Insert multiple data items efficiently with optimized indexing.
+
+**Request**:
+```json
+{
+  "items": [
+    "{\"user\": \"alice\", \"action\": \"login\"}",
+    "{\"user\": \"bob\", \"action\": \"logout\"}"
+  ],
+  "data_type": "json"
+}
+```
+
+**Response**:
+```json
+{
+  "ids": ["uuid1", "uuid2"]
+}
+```
+
 #### POST /query
 Query the memory.
 
