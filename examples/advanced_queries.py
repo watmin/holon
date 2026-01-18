@@ -3,6 +3,7 @@
 Advanced Queries Example: Guards, Negations, Wildcards, Disjunctions
 """
 
+import json
 from holon import CPUStore
 
 def main():
@@ -17,7 +18,7 @@ def main():
     ]
 
     for item in data:
-        store.insert(f'{item}')
+        store.insert(json.dumps(item))
 
     print("=== Advanced Queries Examples ===\n")
 

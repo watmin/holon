@@ -46,7 +46,7 @@ def is_subset(guard: Dict[str, Any], data: Dict[str, Any]) -> bool:
             if not isinstance(data[key], list) or len(value) != len(data[key]):
                 return False
             for g_item, d_item in zip(value, data[key]):
-                if isinstance(g_item, dict) and request.any_marker in g_item:
+                if isinstance(g_item, dict) and "$any" in g_item:
                     continue  # any_marker matches anything
                 elif g_item != d_item:
                     return False

@@ -25,7 +25,7 @@ for res in results_normal:
 
 # Probe with negation: exclude failed
 probe_neg = json.dumps({"user": "alice", "action": "login"})
-results_neg = store.query(probe_neg, top_k=10, negations={"status": "failed"})
+results_neg = store.query(probe_neg, top_k=10, negations={"status": {"$not": "failed"}})
 print(f"\nNegated probe results: {len(results_neg)}")
 for res in results_neg:
     print(f"  Status: {res[2]['status']}")

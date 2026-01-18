@@ -30,7 +30,7 @@ for res in results_no_guard:
     print(f"  User: {res[2]['user']}, Action: {res[2]['action']}, Status: {res[2]['status']}, IP: {res[2]['ip']}")
 
 # Query with guard: only success status
-guard_success = lambda d: d.get('status') == 'success'
+guard_success = {"status": "success"}
 results_guarded = store.query(probe, top_k=10, guard=guard_success)
 print(f"\nQuery with guard (status=='success'): {len(results_guarded)} results")
 for res in results_guarded:
@@ -47,13 +47,13 @@ else:
     print("❌ Guard failed to filter.")
 
 # Test nested guard: require 'ip' key present
-guard_ip = lambda d: 'ip' in d
+guard_ip = {"ip": None}
 results_ip_guard = store.query(probe, top_k=10, guard=guard_ip)
 print(f"\nQuery with guard ('ip' present): {len(results_ip_guard)} results")
 # Should be same as no guard since all have ip
 
 # Test guard that excludes some: require 'extra' field
-guard_extra = lambda d: 'extra' in d
+guard_extra = {"extra": None}
 results_extra_guard = store.query(probe, top_k=10, guard=guard_extra)
 print(f"\nQuery with guard ('extra' present): {len(results_extra_guard)} results")
 print("  Should be 1 result (the one with extra field)")
