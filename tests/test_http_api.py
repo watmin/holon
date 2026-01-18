@@ -4,12 +4,15 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 from fastapi.testclient import TestClient
-from holon_server import app  # Import the FastAPI app
+from holon_server import app, store  # Import the FastAPI app and store
 
 client = TestClient(app)
 
 
 class TestHTTPAPI:
+    def setup_method(self, method):
+        store.clear()
+
     def test_insert_json(self):
         data = {"user": "alice", "action": "login"}
         response = client.post("/insert", json={"data": json.dumps(data)})
@@ -96,4 +99,7 @@ class TestHTTPAPI:
     def test_health_endpoint(self):
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"status": "healthy"}
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "backend" in data
+        assert "items_count" in data

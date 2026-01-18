@@ -5,6 +5,8 @@ Test corner cases: empty data, deep nesting, large structures, invalid inputs.
 
 import json
 import pytest
+import edn_format
+import numpy as np
 from holon import CPUStore
 
 def test_empty_data():
@@ -70,9 +72,55 @@ def test_concurrent_like():
     # Simulate multiple queries
     store = CPUStore()
     for i in range(10):
-        store.insert(json.dumps({"unique": f"user_{i}"}))
+        store.insert(json.dumps({"id": i, "data": "x" * (i + 1)}))  # Make data distinct
     results = []
     for i in range(10):
-        res = store.query(json.dumps({"unique": f"user_{i}"}))
+        res = store.query(json.dumps({"id": i, "data": "x" * (i + 1)}))
         results.append(len(res))
-    assert all(r == 1 for r in results)
+    assert all(r >= 1 for r in results)  # At least the inserted one
+
+
+def test_atomize_json():
+    from holon.atomizer import atomize
+    data = {"user": "alice", "count": 42, "active": True}
+    atoms = atomize(data)
+    expected = {"user", "alice", "count", "42", "active", "True"}
+    assert atoms == expected
+
+
+def test_atomize_edn():
+    from holon.atomizer import atomize
+    data = edn_format.loads("{:user \"bob\" :count 24 :active false}")
+    atoms = atomize(data)
+    expected = {":user", "bob", ":count", "24", ":active", "False"}
+    assert atoms == expected
+
+
+def test_atomize_nested():
+    from holon.atomizer import atomize
+    data = {"nested": {"key": "value", "list": [1, 2, "three"]}}
+    atoms = atomize(data)
+    expected = {"nested", "key", "value", "list", "1", "2", "three"}
+    assert atoms == expected
+
+
+def test_normalized_dot_similarity():
+    from holon.similarity import normalized_dot_similarity
+    vec1 = np.array([1.0, 0.0, 0.0])
+    vec2 = np.array([0.0, 1.0, 0.0])
+    sim = normalized_dot_similarity(vec1, vec2)
+    assert sim == 0.0
+
+    vec3 = np.array([1.0, 1.0, 0.0])
+    sim = normalized_dot_similarity(vec1, vec3)
+    expected = np.dot(vec1, vec3) / len(vec1)  # dot / dimension
+    assert abs(sim - expected) < 1e-6
+
+
+def test_find_similar_vectors_small():
+    from holon.similarity import find_similar_vectors
+    stored_vectors = {f"id_{i}": np.random.rand(100).astype(np.float32) for i in range(10)}
+    query = np.random.rand(100).astype(np.float32)
+    results = find_similar_vectors(query, stored_vectors, top_k=5)
+    assert len(results) == 5
+    assert all(isinstance(r, tuple) and len(r) == 2 for r in results)

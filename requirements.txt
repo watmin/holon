@@ -6,4 +6,5 @@ fastapi>=0.100.0
 uvicorn>=0.20.0
 requests>=2.25.0
 faiss-cpu>=1.7.0
-httpx>=0.20.0numba>=0.56.0
+httpx>=0.20.0
+numba>=0.56.0

@@ -52,3 +52,4 @@ class TestCPUStore:
         assert store.delete(data_id) is False  # Already deleted
         with pytest.raises(KeyError):
             store.get(data_id)
+

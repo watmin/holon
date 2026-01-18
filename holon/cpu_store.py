@@ -27,12 +27,16 @@ class CPUStore(Store):
         if backend == 'auto':
             try:
                 import cupy as cp
-                cp.cuda.runtime.getDeviceCount()  # Check GPU availability
-                self.backend = 'gpu'
-                print("🎮 Auto-selected GPU backend")
-            except (ImportError, cp.cuda.runtime.CUDARuntimeError):
+                try:
+                    cp.cuda.runtime.getDeviceCount()  # Check GPU availability
+                    self.backend = 'gpu'
+                    print("🎮 Auto-selected GPU backend")
+                except cp.cuda.runtime.CUDARuntimeError:
+                    self.backend = 'cpu'
+                    print("💻 Auto-selected CPU backend (no GPU available)")
+            except ImportError:
                 self.backend = 'cpu'
-                print("💻 Auto-selected CPU backend")
+                print("💻 Auto-selected CPU backend (cupy not available)")
         else:
             self.backend = backend
 
@@ -183,7 +187,7 @@ class CPUStore(Store):
                             continue
                         elif g_item != d_item:
                             return False
-                elif data[key] != value:
+                elif value is not None and data[key] != value:
                     return False
             return True
 
@@ -241,3 +245,11 @@ class CPUStore(Store):
             del self.stored_vectors[data_id]
             return True
         return False
+
+    def clear(self):
+        """Clear all stored data (for testing)."""
+        self.stored_data.clear()
+        self.stored_vectors.clear()
+        self.ann_index = None
+        self.ann_ids.clear()
+        self.ann_vectors = None
