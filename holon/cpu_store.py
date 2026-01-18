@@ -48,6 +48,9 @@ class CPUStore(Store):
         # ANN indexing
         self.ann_index = None
         self.ann_ids: List[str] = []  # Ordered list of IDs for FAISS index mapping
+
+        # Bulk insert optimization
+        self.bulk_mode = False  # When True, defer ANN rebuilds during rapid insertions
         self.ann_vectors = None  # Numpy array for FAISS
 
     def _build_ann_index(self):
@@ -90,8 +93,8 @@ class CPUStore(Store):
         self.stored_data[data_id] = parsed
         self.stored_vectors[data_id] = encoded_vector
 
-        # Invalidate ANN index if it exists (since we added a new vector)
-        if self.ann_index is not None:
+        # Invalidate ANN index if it exists (unless in bulk mode)
+        if self.ann_index is not None and not self.bulk_mode:
             self.ann_index = None
             self.ann_vectors = None
             self.ann_ids = []
@@ -253,3 +256,34 @@ class CPUStore(Store):
         self.ann_index = None
         self.ann_ids.clear()
         self.ann_vectors = None
+
+    def start_bulk_insert(self):
+        """Enter bulk insert mode: defer ANN index rebuilding for faster insertions."""
+        self.bulk_mode = True
+        # Invalidate any existing index to ensure consistency
+        self.ann_index = None
+        self.ann_vectors = None
+        self.ann_ids = []
+
+    def end_bulk_insert(self):
+        """Exit bulk insert mode and rebuild ANN index if needed."""
+        self.bulk_mode = False
+        # Force rebuild on next query if above threshold
+        if len(self.stored_data) >= ANN_THRESHOLD:
+            self._build_ann_index()
+
+    def batch_insert(self, items: List[str], data_type: str = 'json') -> List[str]:
+        """
+        Insert multiple items efficiently by deferring ANN rebuilds.
+
+        :param items: List of data strings to insert.
+        :param data_type: 'json' or 'edn'.
+        :return: List of IDs for the inserted items.
+        """
+        self.start_bulk_insert()
+        ids = []
+        for item in items:
+            id_ = self.insert(item, data_type)
+            ids.append(id_)
+        self.end_bulk_insert()
+        return ids
