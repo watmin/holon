@@ -173,3 +173,74 @@ class TestCPUStore:
         results = store.query('{}', guard={'status': ['active']}, top_k=10, threshold=0.0)
         assert len(results) == 2  # Item1 and Item3
 
+    def test_new_encoder_modes(self):
+        """Test the new encoder modes (ngram, chained, positional)"""
+        from holon.encoder import ListEncodeMode
+
+        store = CPUStore(dimensions=1000)
+
+        # Test data with different encoding modes
+        test_data = [
+            '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown", "fox"]}, "type": "ngram_test"}',
+            '{"words": {"_encode_mode": "chained", "sequence": ["hello", "world"]}, "type": "chained_test"}',
+            '{"words": {"_encode_mode": "positional", "sequence": ["foo", "bar"]}, "type": "positional_test"}',
+            '{"words": {"_encode_mode": "bundle", "sequence": ["simple", "list"]}, "type": "bundle_test"}',
+        ]
+
+        ids = []
+        for data in test_data:
+            id_ = store.insert(data)
+            ids.append(id_)
+
+        # Verify all inserts succeeded
+        assert len(ids) == 4
+        for id_ in ids:
+            assert id_ is not None
+
+        # Test that we can retrieve the data back
+        for id_ in ids:
+            retrieved = store.get(id_)
+            assert retrieved is not None
+            assert 'type' in retrieved
+
+        # Test query with ngram-encoded data
+        probe = '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown"]}}'
+        results = store.query(probe, top_k=5, threshold=0.0)
+        assert len(results) >= 1  # Should find the ngram_test item
+
+    def test_vector_bootstrapping_api(self):
+        """Test the encode functionality for vector bootstrapping"""
+        from holon.encoder import Encoder, VectorManager
+
+        # Test the encoder directly
+        vm = VectorManager(dimensions=1000)
+        encoder = Encoder(vm)
+
+        # Test different encoding modes
+        test_data = {
+            'words': {
+                '_encode_mode': 'ngram',
+                'sequence': ['test', 'vector', 'encoding']
+            }
+        }
+
+        # Encode the data
+        vector = encoder.encode_data(test_data)
+
+        # Verify vector properties
+        assert vector is not None
+        assert len(vector) == 1000
+        assert all(val in [-1, 0, 1] for val in vector)  # Bipolar values
+
+        # Test that different data produces different vectors
+        test_data2 = {
+            'words': {
+                '_encode_mode': 'ngram',
+                'sequence': ['different', 'test', 'data']
+            }
+        }
+        vector2 = encoder.encode_data(test_data2)
+
+        # Vectors should be different (with high probability in high dimensions)
+        assert not all(v1 == v2 for v1, v2 in zip(vector, vector2))
+

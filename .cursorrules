@@ -1,0 +1,46 @@
+# Cursor Rules for Holon Project
+
+## Virtual Environment Usage
+ALWAYS use `./scripts/run_with_venv.sh` when running Python commands instead of bare `python` or `pytest`.
+
+### Correct Usage:
+```bash
+# ✅ Good - uses venv helper
+./scripts/run_with_venv.sh python scripts/some_script.py
+./scripts/run_with_venv.sh pytest tests/
+
+# ❌ Bad - doesn't use venv helper
+python scripts/some_script.py
+pytest tests/
+```
+
+### Why This Matters:
+- Ensures consistent virtual environment activation
+- Prevents dependency conflicts
+- Maintains isolated development environment
+- Required for proper package imports and execution
+
+## Project Structure
+- Main library code: `holon/` directory
+- Scripts and demos: `scripts/` directory
+- Tests: `tests/` directory
+- Documentation: `docs/` directory
+- Examples: `examples/` directory
+
+## Development Workflow
+1. Always activate venv: `./scripts/run_with_venv.sh`
+2. Run tests: `./scripts/run_with_venv.sh python -m pytest tests/`
+3. Run demos: `./scripts/run_with_venv.sh python scripts/some_demo.py`
+4. Start server: `./scripts/run_with_venv.sh python scripts/holon_server.py`
+
+## Testing
+- Use pytest for all tests
+- Tests are in `tests/` directory
+- Run full test suite: `./scripts/run_with_venv.sh python -m pytest tests/`
+- Run specific test: `./scripts/run_with_venv.sh python -m pytest tests/test_specific.py`
+
+## Code Style
+- Follow PEP 8
+- Use type hints
+- Add docstrings
+- Keep functions focused and small

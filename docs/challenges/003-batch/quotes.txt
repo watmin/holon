@@ -1,0 +1,23 @@
+"What one fool can do, another can."
+(From the Prologue/epigraph – the book's most famous motivational line, emphasizing that if someone else grasps it, so can you.)
+
+"d which merely means 'a little bit of.'"
+(Chapter I – brilliant simple explanation of the differential symbol, great for lambda calc parallels to small/incremental changes.)
+
+"Z which is merely a long S... 'the sum of.'"
+(Chapter I – explains the integral sign as summation, useful for discussing accumulation or folding in functional programming.)
+
+"Everything depends upon relative minuteness."
+(Chapter II – philosophical gem on infinitesimals, echoes lambda calc's focus on abstraction over scale.)
+
+"dy dx is the slope of the tangent."
+(Later chapters, e.g., around maxima/minima – straightforward definition of the derivative, handy for rate-of-change analogies.)
+
+"Integration is the reverse of differentiation."
+(Integration chapters – clean, memorable core idea, perfect for contrasting construction vs. deconstruction in lambda terms.)
+
+"The integral is simply the whole lot."
+(Integration section – witty summary of summing the bits back to the original, great for totality or closure concepts.)
+
+"Some calculus-tricks are quite easy."
+(Prologue – sets a light tone, counters intimidation, very usable for motivational framing.)

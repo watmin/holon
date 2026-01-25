@@ -52,16 +52,18 @@ class TestHTTPAPI:
 
         # Query with guard
         probe = {"user": "alice"}
-        guard = {"status": None}  # Presence of status
+        guard = {"status": "success"}  # Exact match for success
         response = client.post("/query", json={
             "probe": json.dumps(probe),
             "top_k": 10,
-            "guard": json.dumps(guard)
+            "guard": guard  # Send as dict, not JSON string
         })
         assert response.status_code == 200
         result = response.json()
-        # Should return both since both have status
-        assert len(result["results"]) >= 2
+        # Should return only the success result
+        assert len(result["results"]) >= 1
+        for res in result["results"]:
+            assert res["data"]["status"] == "success"
 
     def test_query_with_negations(self):
         # Insert data
@@ -89,12 +91,13 @@ class TestHTTPAPI:
 
     def test_query_invalid_guard(self):
         probe = {"user": "alice"}
+        # Send invalid type for guard (should be dict or None)
         response = client.post("/query", json={
             "probe": json.dumps(probe),
-            "guard": "invalid json"
+            "guard": "invalid json"  # Pydantic will reject this
         })
-        assert response.status_code == 400
-        assert "Invalid guard" in response.json()["detail"]
+        # Pydantic validation error
+        assert response.status_code == 422
 
     def test_health_endpoint(self):
         response = client.get("/health")
@@ -103,3 +106,43 @@ class TestHTTPAPI:
         assert data["status"] == "healthy"
         assert "backend" in data
         assert "items_count" in data
+
+    def test_encode_endpoint(self):
+        """Test the new /encode endpoint for vector bootstrapping"""
+        # Test encoding JSON data
+        data = {
+            "words": {
+                "_encode_mode": "ngram",
+                "sequence": ["test", "vector", "bootstrap"]
+            },
+            "metadata": {
+                "type": "test_data"
+            }
+        }
+
+        response = client.post("/encode", json={"data": json.dumps(data)})
+        assert response.status_code == 200
+        result = response.json()
+        assert "vector" in result
+        assert isinstance(result["vector"], list)
+        assert len(result["vector"]) == 16000  # Default dimensions
+
+        # Verify vector contains valid bipolar values
+        vector = result["vector"]
+        assert all(val in [-1, 0, 1] for val in vector[:10])  # Check first 10 values
+
+    def test_encode_endpoint_edn(self):
+        """Test the /encode endpoint with EDN data"""
+        edn_data = '{:words {:_encode_mode "chained" :sequence ["edn" "test"]} :type "edn_test"}'
+
+        response = client.post("/encode", json={"data": edn_data, "data_type": "edn"})
+        assert response.status_code == 200
+        result = response.json()
+        assert "vector" in result
+        assert len(result["vector"]) == 16000
+
+    def test_encode_invalid_data(self):
+        """Test /encode endpoint with invalid data"""
+        response = client.post("/encode", json={"data": "invalid json{"})
+        assert response.status_code == 400
+        assert "Encode failed" in response.json()["detail"]

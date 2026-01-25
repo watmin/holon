@@ -91,6 +91,13 @@ class HealthResponse(BaseModel):
     backend: str = Field(..., description="Storage backend type")
     items_count: int = Field(..., description="Number of stored items")
 
+class EncodeRequest(BaseModel):
+    data: str = Field(..., description="Data to encode (JSON or EDN string)")
+    data_type: str = Field("json", description="Data format: 'json' or 'edn'")
+
+class EncodeResponse(BaseModel):
+    vector: List[float] = Field(..., description="Encoded vector as list of floats")
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
@@ -121,6 +128,27 @@ async def batch_insert_items(request: BatchInsertRequest, req: Request):
     except Exception as e:
         logger.error(f"Batch insert failed: {e}")
         raise HTTPException(status_code=400, detail=f"Batch insert failed: {str(e)}")
+
+@app.post("/encode", response_model=EncodeResponse)
+async def encode_data(request: EncodeRequest):
+    """Encode data into a vector without storing it."""
+    try:
+        # Parse the data
+        parsed = parse_data(request.data, request.data_type)
+
+        # Encode to vector
+        encoded_vector = store.encoder.encode_data(parsed)
+
+        # Convert to CPU numpy array and then to list
+        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        vector_list = cpu_vector.tolist()
+
+        logger.info(f"Encoded data to vector of dimension {len(vector_list)}")
+        return EncodeResponse(vector=vector_list)
+
+    except Exception as e:
+        logger.error(f"Encode failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Encode failed: {str(e)}")
 
 @app.post("/query", response_model=QueryResponse)
 async def query_items(request: QueryRequest, req: Request, res: Response):
