@@ -10,7 +10,7 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **ANN Scaling**: FAISS-based approximate nearest neighbor search for 100k+ items with 100% accuracy preservation.
 - **Advanced Querying**:
   - Fuzzy similarity search.
-  - Guards: Schema-based filtering (presence checks).
+  - Guards: Schema-based filtering with structured $or for compound conditions.
   - Negations: Value-based exclusions, supporting lists and nested structures.
   - User-specified expressions: $any wildcards, $or disjunctions, $not markers.
 - **Ephemeral Mode**: In-memory storage (Redis-like) with plans for durable (MongoDB+Qdrant-like) persistence.
@@ -25,9 +25,10 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **examples/**: Usage examples.
 
 ## Getting Started
-1. **Install**: `pip install -e .`
-2. **Run Server**: `python scripts/holon_server.py`
-3. **API Test**: `curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d '{"data": "{\"user\": \"alice\"}"}'`
+1. **Install**: `pip install -e .` (use virtual environment: `python -m venv holon_env && source holon_env/bin/activate`)
+2. **Run Solution**: `./scripts/run_with_venv.sh python scripts/001-batch/001-solution.py` (Personal Task Memory demo)
+3. **Run Server**: `./scripts/run_with_venv.sh python scripts/holon_server.py`
+4. **API Test**: `curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d '{"data": "{\"user\": \"alice\"}"}'`
 
 ## Running Tests
 - **Unit Tests**: `python -m pytest tests/ -v`
@@ -46,6 +47,9 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Constraints**: Arbitrary user data supported; special markers user-defined to avoid conflicts.
 
 ## Recent Changes
+- **Structured $or in Guards**: Enhanced guard system with compound conditions like `{"$or": [{"priority": "high", "status": "todo"}, {"project": "side"}]}`
+- **Personal Task Memory Solution**: Complete fuzzy task retrieval system (scripts/001-batch/001-solution.py)
+- **Script Organization**: Restructured to match docs/challenges/ hierarchy with venv runner script
 - ANN integration with FAISS.
 - Guards and negations with vector-level ops.
 - Advanced probes ($any, $or, structured $not).

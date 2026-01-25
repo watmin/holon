@@ -87,28 +87,44 @@ results = store.query('{"user": "bot"}', guard={"session": "123"})
 print(f"Bot responses in session 123: {len(results)}")
 ```
 
+### Advanced Guards with Structured OR
+```python
+# Complex compound conditions using structured $or
+results = store.query('{}', guard={
+    "$or": [
+        {"priority": "high", "status": "todo"},  # High priority tasks that are todo
+        {"project": "side", "category": "urgent"} # OR urgent side projects
+    ]
+})
+print(f"High priority todo OR urgent side projects: {len(results)}")
+
+# Run the personal task memory demo
+python scripts/001-batch/001-solution.py
+```
+
 ## Command Reference
 
 ### Installation
 ```bash
 git clone https://github.com/watmin/holon.git
 cd holon
+python -m venv holon_env
+source holon_env/bin/activate  # Linux/Mac
 pip install -e .
 ```
 
 ### Running Tests
 ```bash
-# All tests
-python -m pytest tests/
+# All tests (use venv runner)
+./scripts/run_with_venv.sh python -m pytest tests/
 
-# Specific test
-python scripts/test_accuracy.py
+# Run personal task memory solution
+./scripts/run_with_venv.sh python scripts/001-batch/001-solution.py
 
-# Comprehensive test suite
-python scripts/run_all_tests.py
-
-# Extreme performance test
-python scripts/extreme_query_challenge.py
+# Other scripts
+./scripts/run_with_venv.sh python scripts/test_accuracy.py
+./scripts/run_with_venv.sh python scripts/run_all_tests.py
+./scripts/run_with_venv.sh python scripts/extreme_query_challenge.py
 ```
 
 ### Starting the Server
