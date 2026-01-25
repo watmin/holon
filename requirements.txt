@@ -8,4 +8,4 @@ requests>=2.25.0
 faiss-cpu>=1.7.0
 httpx>=0.20.0
 numba>=0.56.0
-PyPDF2>=2.0.0  # For PDF processing in challenge demos (optional)
+# PyPDF2>=2.0.0  # For PDF processing in challenge demos (optional)

@@ -1,11 +1,14 @@
 import json
+
 import edn_format
+
 try:
     import ujson as json_fast
 except ImportError:
     json_fast = json
-from edn_format.immutable_dict import ImmutableDict
 from typing import Any, Set, Union
+
+from edn_format.immutable_dict import ImmutableDict
 
 
 def parse_data(data: str, data_type: str) -> Any:
@@ -16,9 +19,9 @@ def parse_data(data: str, data_type: str) -> Any:
     :param data_type: 'json' or 'edn'.
     :return: Parsed data (dict, list, etc.).
     """
-    if data_type == 'json':
+    if data_type == "json":
         return json_fast.loads(data)
-    elif data_type == 'edn':
+    elif data_type == "edn":
         return edn_format.loads(data)
     else:
         raise ValueError(f"Unsupported data_type: {data_type}")
@@ -57,7 +60,7 @@ def atomize(data: Any) -> Set[str]:
             atoms.add("nil")
         elif isinstance(obj, bool):
             atoms.add(str(obj).lower())
-        elif str(obj).lower() in ['true', 'false']:
+        elif str(obj).lower() in ["true", "false"]:
             atoms.add(str(obj).lower())
         # Ignore other types
 

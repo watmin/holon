@@ -1,8 +1,10 @@
-import pytest
 import json
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts", "server"))
 from fastapi.testclient import TestClient
 from holon_server import app, store  # Import the FastAPI app and store
 
@@ -22,7 +24,7 @@ class TestHTTPAPI:
         assert result["id"] is not None
 
     def test_insert_edn(self):
-        data = "{:user \"bob\" :action \"logout\"}"
+        data = '{:user "bob" :action "logout"}'
         response = client.post("/insert", json={"data": data, "data_type": "edn"})
         assert response.status_code == 200
         result = response.json()
@@ -53,11 +55,14 @@ class TestHTTPAPI:
         # Query with guard
         probe = {"user": "alice"}
         guard = {"status": "success"}  # Exact match for success
-        response = client.post("/query", json={
-            "probe": json.dumps(probe),
-            "top_k": 10,
-            "guard": guard  # Send as dict, not JSON string
-        })
+        response = client.post(
+            "/query",
+            json={
+                "probe": json.dumps(probe),
+                "top_k": 10,
+                "guard": guard,  # Send as dict, not JSON string
+            },
+        )
         assert response.status_code == 200
         result = response.json()
         # Should return only the success result
@@ -75,11 +80,10 @@ class TestHTTPAPI:
         # Query with negations
         probe = {"user": "alice"}
         negations = {"status": "failed"}
-        response = client.post("/query", json={
-            "probe": json.dumps(probe),
-            "top_k": 10,
-            "negations": negations
-        })
+        response = client.post(
+            "/query",
+            json={"probe": json.dumps(probe), "top_k": 10, "negations": negations},
+        )
         assert response.status_code == 200
         result = response.json()
         # Should exclude failed
@@ -87,15 +91,16 @@ class TestHTTPAPI:
         for res in result["results"]:
             assert res["data"]["status"] != "failed"
 
-
-
     def test_query_invalid_guard(self):
         probe = {"user": "alice"}
         # Send invalid type for guard (should be dict or None)
-        response = client.post("/query", json={
-            "probe": json.dumps(probe),
-            "guard": "invalid json"  # Pydantic will reject this
-        })
+        response = client.post(
+            "/query",
+            json={
+                "probe": json.dumps(probe),
+                "guard": "invalid json",  # Pydantic will reject this
+            },
+        )
         # Pydantic validation error
         assert response.status_code == 422
 
@@ -113,11 +118,9 @@ class TestHTTPAPI:
         data = {
             "words": {
                 "_encode_mode": "ngram",
-                "sequence": ["test", "vector", "bootstrap"]
+                "sequence": ["test", "vector", "bootstrap"],
             },
-            "metadata": {
-                "type": "test_data"
-            }
+            "metadata": {"type": "test_data"},
         }
 
         response = client.post("/encode", json={"data": json.dumps(data)})

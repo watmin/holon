@@ -18,11 +18,12 @@ VSA Encoding Strategy:
 - Dates are encoded as structured temporal components
 """
 
-import uuid
 import json
 import random
+import uuid
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
+
 from holon import CPUStore
 
 
@@ -35,17 +36,17 @@ class BugReportStore:
 
     def insert_bug_report(self, bug_report: Dict[str, Any]) -> str:
         """Insert a bug report with specialized encoding for bug-specific fields."""
-        bug_id = bug_report.get('id', str(uuid.uuid4()))
+        bug_id = bug_report.get("id", str(uuid.uuid4()))
 
         # Ensure ID is set
-        bug_report['id'] = bug_id
+        bug_report["id"] = bug_id
 
         # Convert sets to lists for JSON serialization (but keep original for storage)
         json_ready_bug = self._prepare_for_json(bug_report)
 
         # Convert to JSON string for Holon insertion
         json_data = json.dumps(json_ready_bug)
-        vector_id = self.store.insert(json_data, 'json')
+        vector_id = self.store.insert(json_data, "json")
 
         # Store original for retrieval and analysis
         self.bug_reports[vector_id] = bug_report
@@ -63,28 +64,43 @@ class BugReportStore:
         else:
             return data
 
-    def find_similar_bugs(self, probe_bug: Dict[str, Any], top_k: int = 10,
-                         threshold: float = 0.0) -> List[Tuple[str, float, Dict]]:
+    def find_similar_bugs(
+        self, probe_bug: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
+    ) -> List[Tuple[str, float, Dict]]:
         """Find bugs similar to the probe using Holon's similarity search."""
         json_probe = json.dumps(self._prepare_for_json(probe_bug))
-        results = self.store.query(json_probe, 'json', top_k=top_k, threshold=threshold)
+        results = self.store.query(json_probe, "json", top_k=top_k, threshold=threshold)
 
         # Return with original bug report data
-        return [(bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results]
+        return [
+            (bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results
+        ]
 
-    def query_with_filters(self, probe: Dict[str, Any] = None,
-                          guard: Dict[str, Any] = None,
-                          negations: Dict[str, Any] = None,
-                          top_k: int = 10) -> List[Tuple[str, float, Dict]]:
+    def query_with_filters(
+        self,
+        probe: Dict[str, Any] = None,
+        guard: Dict[str, Any] = None,
+        negations: Dict[str, Any] = None,
+        top_k: int = 10,
+    ) -> List[Tuple[str, float, Dict]]:
         """Advanced query with guards and negations."""
         json_probe = json.dumps(probe or {})
-        results = self.store.query(json_probe, 'json',
-                                  guard=guard, negations=negations,
-                                  top_k=top_k, threshold=0.0)
+        results = self.store.query(
+            json_probe,
+            "json",
+            guard=guard,
+            negations=negations,
+            top_k=top_k,
+            threshold=0.0,
+        )
 
-        return [(bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results]
+        return [
+            (bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results
+        ]
 
-    def cluster_similar_bugs(self, similarity_threshold: float = 0.7) -> List[List[Dict]]:
+    def cluster_similar_bugs(
+        self, similarity_threshold: float = 0.7
+    ) -> List[List[Dict]]:
         """Cluster bugs by similarity for duplicate detection."""
         clusters = []
         processed_ids = set()
@@ -98,7 +114,9 @@ class BugReportStore:
             processed_ids.add(bug_id)
 
             # Search for similar bugs
-            similar = self.find_similar_bugs(bug_report, top_k=20, threshold=similarity_threshold)
+            similar = self.find_similar_bugs(
+                bug_report, top_k=20, threshold=similarity_threshold
+            )
 
             for sim_id, sim_score, sim_bug in similar:
                 if sim_id not in processed_ids:
@@ -116,20 +134,49 @@ def generate_synthetic_bug_reports(count: int = 45) -> List[Dict[str, Any]]:
 
     # Realistic components and their typical issues
     components = {
-        ':ui': ['button not responding', 'modal dialog freeze', 'layout broken', 'form validation error',
-                'navigation crash', 'theme not loading', 'scrollbar missing', 'tooltip positioning'],
-        ':backend': ['database connection timeout', 'API rate limit exceeded', 'server error 500',
-                    'authentication failure', 'data serialization error', 'cache invalidation bug',
-                    'background job failure', 'webhook delivery failed'],
-        ':auth': ['login page crash', 'password reset not working', 'OAuth provider error',
-                 'session timeout issue', 'permission denied', 'two-factor auth broken',
-                 'social login failure', 'account lockout problem'],
-        ':mobile': ['app crash on startup', 'push notification not working', 'offline sync failure',
-                   'camera permission denied', 'GPS location error', 'battery drain issue',
-                   'memory leak', 'network connectivity problem']
+        ":ui": [
+            "button not responding",
+            "modal dialog freeze",
+            "layout broken",
+            "form validation error",
+            "navigation crash",
+            "theme not loading",
+            "scrollbar missing",
+            "tooltip positioning",
+        ],
+        ":backend": [
+            "database connection timeout",
+            "API rate limit exceeded",
+            "server error 500",
+            "authentication failure",
+            "data serialization error",
+            "cache invalidation bug",
+            "background job failure",
+            "webhook delivery failed",
+        ],
+        ":auth": [
+            "login page crash",
+            "password reset not working",
+            "OAuth provider error",
+            "session timeout issue",
+            "permission denied",
+            "two-factor auth broken",
+            "social login failure",
+            "account lockout problem",
+        ],
+        ":mobile": [
+            "app crash on startup",
+            "push notification not working",
+            "offline sync failure",
+            "camera permission denied",
+            "GPS location error",
+            "battery drain issue",
+            "memory leak",
+            "network connectivity problem",
+        ],
     }
 
-    severities = [':critical', ':high', ':medium', ':low']
+    severities = [":critical", ":high", ":medium", ":low"]
     severity_weights = [0.1, 0.3, 0.4, 0.2]  # More medium/low bugs
 
     # Stack trace templates
@@ -137,27 +184,37 @@ def generate_synthetic_bug_reports(count: int = 45) -> List[Dict[str, Any]]:
         "TypeError: Cannot read property 'map' of undefined\n    at Component.render (/app/src/components/List.js:45:12)\n    at ReactCompositeComponent._renderValidatedComponent (/app/node_modules/react/lib/ReactCompositeComponent.js:789:34)",
         "NullPointerException: Attempt to invoke virtual method 'java.lang.String.length()' on a null object reference\n    at com.example.App.onCreate(App.java:123)\n    at android.app.Activity.performCreate(Activity.java:5990)",
         "AuthenticationError: JWT token expired\n    at AuthMiddleware.validateToken (/app/middleware/auth.js:67:9)\n    at Router.handle (/app/node_modules/express/lib/router/index.js:174:19)",
-        "DatabaseError: connection to server at \"localhost\" (127.0.0.1), port 5432 failed: Connection refused\n    at Client._connect (/app/node_modules/pg/lib/client.js:89:11)"
+        'DatabaseError: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused\n    at Client._connect (/app/node_modules/pg/lib/client.js:89:11)',
     ]
 
     # Environment combinations
     environments = [
-        {'os': ':windows', 'browser': ':chrome', 'version': '91.0.4472'},
-        {'os': ':macos', 'browser': ':safari', 'version': '14.1.1'},
-        {'os': ':linux', 'browser': ':firefox', 'version': '89.0.2'},
-        {'os': ':ios', 'browser': ':safari', 'version': '14.0.1'},
-        {'os': ':android', 'browser': ':chrome', 'version': '91.0.4472'},
-        {'os': ':windows', 'browser': ':edge', 'version': '91.0.864'},
+        {"os": ":windows", "browser": ":chrome", "version": "91.0.4472"},
+        {"os": ":macos", "browser": ":safari", "version": "14.1.1"},
+        {"os": ":linux", "browser": ":firefox", "version": "89.0.2"},
+        {"os": ":ios", "browser": ":safari", "version": "14.0.1"},
+        {"os": ":android", "browser": ":chrome", "version": "91.0.4472"},
+        {"os": ":windows", "browser": ":edge", "version": "91.0.864"},
     ]
 
     # Common labels
-    all_labels = {'regression', 'performance', 'security', 'ux', 'data-loss',
-                  'blocking', 'intermittent', 'startup', 'memory', 'network'}
+    all_labels = {
+        "regression",
+        "performance",
+        "security",
+        "ux",
+        "data-loss",
+        "blocking",
+        "intermittent",
+        "startup",
+        "memory",
+        "network",
+    }
 
     def random_date(days_back: int = 90) -> str:
         """Generate a random date within the last N days."""
         past_date = datetime.now() - timedelta(days=random.randint(0, days_back))
-        return past_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return past_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def generate_title(component: str, issue_type: str) -> str:
         """Generate realistic bug titles."""
@@ -167,7 +224,7 @@ def generate_synthetic_bug_reports(count: int = 45) -> List[Dict[str, Any]]:
             f"Critical bug: {issue_type} causes app freeze",
             f"User unable to {issue_type} - {component.replace(':', '')} issue",
             f"Regression: {issue_type} broken after latest update",
-            f"Performance issue with {issue_type} in {component.replace(':', '')}"
+            f"Performance issue with {issue_type} in {component.replace(':', '')}",
         ]
         return random.choice(templates)
 
@@ -190,18 +247,18 @@ def generate_synthetic_bug_reports(count: int = 45) -> List[Dict[str, Any]]:
         # Generate stack trace (sometimes truncated to first 3 lines)
         stacktrace = random.choice(stack_templates)
         if random.random() < 0.7:  # 70% have truncated stack traces
-            lines = stacktrace.split('\n')
-            stacktrace = '\n'.join(lines[:min(3, len(lines))])
+            lines = stacktrace.split("\n")
+            stacktrace = "\n".join(lines[: min(3, len(lines))])
 
         bug_report = {
-            'id': str(uuid.uuid4()),
-            'title': title,
-            'component': component,
-            'severity': severity,
-            'stacktrace': stacktrace,
-            'environment': env,
-            'labels': labels,
-            'reported_at': random_date(90)
+            "id": str(uuid.uuid4()),
+            "title": title,
+            "component": component,
+            "severity": severity,
+            "stacktrace": stacktrace,
+            "environment": env,
+            "labels": labels,
+            "reported_at": random_date(90),
         }
 
         bug_reports.append(bug_report)
@@ -219,14 +276,14 @@ def demonstrate_vsa_encoding():
 
     # Example bug report to show encoding
     sample_bug = {
-        'id': 'sample-123',
-        'title': 'Login crash on mobile Safari',
-        'component': ':auth',
-        'severity': ':critical',
-        'stacktrace': 'TypeError: Cannot read property \'auth\' of null\n    at LoginComponent.authenticate()',
-        'environment': {'os': ':ios', 'browser': ':safari', 'version': '14.0.1'},
-        'labels': {'blocking', 'mobile', 'regression'},
-        'reported_at': '2024-01-15T10:30:00Z'
+        "id": "sample-123",
+        "title": "Login crash on mobile Safari",
+        "component": ":auth",
+        "severity": ":critical",
+        "stacktrace": "TypeError: Cannot read property 'auth' of null\n    at LoginComponent.authenticate()",
+        "environment": {"os": ":ios", "browser": ":safari", "version": "14.0.1"},
+        "labels": {"blocking", "mobile", "regression"},
+        "reported_at": "2024-01-15T10:30:00Z",
     }
 
     print("Sample Bug Report Structure:")
@@ -241,7 +298,9 @@ def demonstrate_vsa_encoding():
     print("VSA Encoding Strategy:")
     print("- title: Text encoded as bundle of word vectors")
     print("- component/severity: Keywords get dedicated high-dimensional vectors")
-    print("- environment: Map structure - binds keys ('os', 'browser', 'version') to values")
+    print(
+        "- environment: Map structure - binds keys ('os', 'browser', 'version') to values"
+    )
     print("- labels: Set encoded as bundle of items with set indicator")
     print("- stacktrace: Free text encoded as sequence of words/tokens")
     print("- reported_at: Date string encoded as atomic value")
@@ -255,11 +314,13 @@ def demonstrate_queries(bug_store: BugReportStore):
     print("=" * 50)
 
     # Query 1: Find bugs similar to a crash on login with Google OAuth
-    print("1. Similarity Search: 'Find all bugs similar to crash on login with Google OAuth'")
+    print(
+        "1. Similarity Search: 'Find all bugs similar to crash on login with Google OAuth'"
+    )
     probe_bug = {
-        'title': 'crash on login with Google OAuth',
-        'component': ':auth',
-        'environment': {'browser': ':chrome'}
+        "title": "crash on login with Google OAuth",
+        "component": ":auth",
+        "environment": {"browser": ":chrome"},
     }
 
     results = bug_store.find_similar_bugs(probe_bug, top_k=5)
@@ -270,33 +331,35 @@ def demonstrate_queries(bug_store: BugReportStore):
 
     # Query 2: High severity bugs in auth component
     print("2. Structured Filtering: 'High severity :auth component bugs'")
-    guard = {
-        'severity': ':high',
-        'component': ':auth'
-    }
+    guard = {"severity": ":high", "component": ":auth"}
 
     results = bug_store.query_with_filters(guard=guard, top_k=10)
     print(f"Found {len(results)} high severity auth bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
-        print(f"  {i}. {bug['title']} (severity: {bug['severity']}, reported: {bug['reported_at']})")
+        print(
+            f"  {i}. {bug['title']} (severity: {bug['severity']}, reported: {bug['reported_at']})"
+        )
     print()
 
     # Query 3: Bugs NOT related to mobile but similar to iOS crash reports
-    print("3. Negation + Fuzzy: 'Bugs NOT related to mobile but similar to iOS crash reports'")
-    probe_bug = {
-        'title': 'iOS crash',
-        'environment': {'os': ':ios'}
-    }
+    print(
+        "3. Negation + Fuzzy: 'Bugs NOT related to mobile but similar to iOS crash reports'"
+    )
+    probe_bug = {"title": "iOS crash", "environment": {"os": ":ios"}}
 
     negations = {
-        'labels': {'$not_contains': 'mobile'},
-        'component': {'$not': ':mobile'}
+        "labels": {"$not_contains": "mobile"},
+        "component": {"$not": ":mobile"},
     }
 
     results = bug_store.find_similar_bugs(probe_bug, top_k=5)
     # Filter out mobile-related results manually for demo
-    non_mobile_results = [(bid, score, bug) for bid, score, bug in results
-                         if 'mobile' not in bug.get('labels', set()) and bug.get('component') != ':mobile']
+    non_mobile_results = [
+        (bid, score, bug)
+        for bid, score, bug in results
+        if "mobile" not in bug.get("labels", set())
+        and bug.get("component") != ":mobile"
+    ]
 
     print(f"Found {len(non_mobile_results)} non-mobile bugs similar to iOS crashes:")
     for i, (bug_id, score, bug) in enumerate(non_mobile_results[:3], 1):
@@ -326,7 +389,9 @@ def demonstrate_clustering(bug_store: BugReportStore):
     if clusters:
         largest_cluster = max(clusters, key=len)
         print("🔍 Detailed View of Largest Cluster:")
-        print(f"This cluster contains {len(largest_cluster)} potentially duplicate bugs:")
+        print(
+            f"This cluster contains {len(largest_cluster)} potentially duplicate bugs:"
+        )
         for bug in largest_cluster:
             print(f"  • {bug['title']} ({bug['severity']}) - {bug['component']}")
         print()
@@ -340,17 +405,20 @@ def demonstrate_triage_queries(bug_store: BugReportStore):
     # Critical bugs in auth component
     print("1. Critical Auth Security Issues:")
     results = bug_store.query_with_filters(
-        guard={'component': ':auth', 'severity': ':critical'},
-        top_k=10
+        guard={"component": ":auth", "severity": ":critical"}, top_k=10
     )
     if results:
         for bug_id, score, bug in results:
-            labels_str = ', '.join(bug['labels'])
+            labels_str = ", ".join(bug["labels"])
             print(f"  🚨 {bug['title']} (labels: {labels_str})")
     else:
         # Show all critical bugs instead
-        critical_results = bug_store.query_with_filters(guard={'severity': ':critical'}, top_k=5)
-        print(f"  No critical auth bugs found. Here are all {len(critical_results)} critical bugs:")
+        critical_results = bug_store.query_with_filters(
+            guard={"severity": ":critical"}, top_k=5
+        )
+        print(
+            f"  No critical auth bugs found. Here are all {len(critical_results)} critical bugs:"
+        )
         for bug_id, score, bug in critical_results:
             print(f"  🚨 {bug['title']} ({bug['component']})")
     print()
@@ -359,7 +427,9 @@ def demonstrate_triage_queries(bug_store: BugReportStore):
     print("2. Recent Regressions:")
     # Since date filtering is complex, just show all regression bugs
     all_bugs = list(bug_store.bug_reports.values())
-    regression_bugs = [bug for bug in all_bugs if 'regression' in bug.get('labels', set())]
+    regression_bugs = [
+        bug for bug in all_bugs if "regression" in bug.get("labels", set())
+    ]
 
     print(f"Found {len(regression_bugs)} regression bugs:")
     for bug in regression_bugs[:3]:
@@ -368,13 +438,19 @@ def demonstrate_triage_queries(bug_store: BugReportStore):
 
     # Mobile performance issues
     print("3. Mobile Performance & Memory Issues:")
-    mobile_bugs = [bug for bug in all_bugs if bug.get('component') == ':mobile']
-    perf_memory_bugs = [bug for bug in mobile_bugs
-                       if 'performance' in bug.get('labels', set()) or 'memory' in bug.get('labels', set())]
+    mobile_bugs = [bug for bug in all_bugs if bug.get("component") == ":mobile"]
+    perf_memory_bugs = [
+        bug
+        for bug in mobile_bugs
+        if "performance" in bug.get("labels", set())
+        or "memory" in bug.get("labels", set())
+    ]
 
     print(f"Found {len(perf_memory_bugs)} mobile performance/memory bugs:")
     for bug in perf_memory_bugs[:5]:
-        print(f"  📱 {bug['title']} (severity: {bug['severity']}, labels: {', '.join(bug['labels'])})")
+        print(
+            f"  📱 {bug['title']} (severity: {bug['severity']}, labels: {', '.join(bug['labels'])})"
+        )
     print()
 
 

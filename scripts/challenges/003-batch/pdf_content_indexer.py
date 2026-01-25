@@ -3,13 +3,14 @@
 PDF Content Indexer - Index full PDF content with coordinates for quote finding.
 """
 
-import re
-from typing import List, Dict, Any, Tuple
-from pathlib import Path
 import json
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 try:
     import pypdf
+
     HAS_PYPDF = True
 except ImportError:
     HAS_PYPDF = False
@@ -29,7 +30,7 @@ class PDFContentIndexer:
         """Index full PDF content into coordinate-addressable chunks."""
         print(f"📖 Indexing PDF content: {self.pdf_path}")
 
-        with open(self.pdf_path, 'rb') as file:
+        with open(self.pdf_path, "rb") as file:
             pdf_reader = pypdf.PdfReader(file)
 
             indexed_chunks = []
@@ -41,7 +42,7 @@ class PDFContentIndexer:
                     text = page.extractText()
 
                 # Clean and process text
-                text = re.sub(r'\s+', ' ', text).strip()
+                text = re.sub(r"\s+", " ", text).strip()
 
                 if not text:
                     continue
@@ -51,7 +52,9 @@ class PDFContentIndexer:
 
                 indexed_chunks.extend(chunks)
 
-                print(f"📄 Page {page_num}: {len(chunks)} chunks, {len(text.split())} words")
+                print(
+                    f"📄 Page {page_num}: {len(chunks)} chunks, {len(text.split())} words"
+                )
 
         print(f"✅ Indexed {len(indexed_chunks)} content chunks from PDF")
         return indexed_chunks
@@ -61,14 +64,14 @@ class PDFContentIndexer:
         chunks = []
 
         # Split into sentences (basic chunking)
-        sentences = re.split(r'(?<=[.!?])\s+', page_text.strip())
+        sentences = re.split(r"(?<=[.!?])\s+", page_text.strip())
 
         chunk_size = 3  # sentences per chunk
         chunk_num = 0
 
         for i in range(0, len(sentences), chunk_size):
-            chunk_sentences = sentences[i:i+chunk_size]
-            chunk_text = ' '.join(chunk_sentences).strip()
+            chunk_sentences = sentences[i : i + chunk_size]
+            chunk_text = " ".join(chunk_sentences).strip()
 
             if len(chunk_text.split()) < 5:  # Skip very small chunks
                 continue
@@ -86,21 +89,21 @@ class PDFContentIndexer:
             words_before = len(page_text[:start_char].split())
 
             chunk = {
-                'id': f"page_{page_num}_chunk_{chunk_num}",
-                'content': chunk_text,
-                'coordinates': {
-                    'page': page_num,
-                    'chunk_num': chunk_num,
-                    'char_start': start_char,
-                    'char_end': end_char,
-                    'word_start': words_before,
-                    'word_count': len(chunk_text.split())
+                "id": f"page_{page_num}_chunk_{chunk_num}",
+                "content": chunk_text,
+                "coordinates": {
+                    "page": page_num,
+                    "chunk_num": chunk_num,
+                    "char_start": start_char,
+                    "char_end": end_char,
+                    "word_start": words_before,
+                    "word_count": len(chunk_text.split()),
                 },
-                'metadata': {
-                    'source': 'pdf_content_index',
-                    'chunk_type': 'sentence_group',
-                    'sentence_count': len(chunk_sentences)
-                }
+                "metadata": {
+                    "source": "pdf_content_index",
+                    "chunk_type": "sentence_group",
+                    "sentence_count": len(chunk_sentences),
+                },
             }
 
             chunks.append(chunk)
@@ -113,42 +116,50 @@ class PDFContentIndexer:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'metadata': {
-                    'source_pdf': str(self.pdf_path),
-                    'indexing_method': 'coordinate_chunking',
-                    'total_chunks': len(chunks),
-                    'pages_indexed': len(set(c['coordinates']['page'] for c in chunks))
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "metadata": {
+                        "source_pdf": str(self.pdf_path),
+                        "indexing_method": "coordinate_chunking",
+                        "total_chunks": len(chunks),
+                        "pages_indexed": len(
+                            set(c["coordinates"]["page"] for c in chunks)
+                        ),
+                    },
+                    "chunks": chunks,
                 },
-                'chunks': chunks
-            }, f, indent=2, ensure_ascii=False)
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
         print(f"💾 Saved {len(chunks)} indexed chunks to {output_file}")
 
     def create_chunk_unit(self, chunk: Dict[str, Any]) -> Dict[str, Any]:
         """Create a Holon unit for a content chunk with coordinates."""
         # Normalize chunk text
-        words = self._normalize_text(chunk['content'])
+        words = self._normalize_text(chunk["content"])
 
         unit = {
-            'text': {
-                '_encode_mode': 'ngram',  # N-gram encoding for fuzzy text matching
-                'sequence': words
+            "text": {
+                "_encode_mode": "ngram",  # N-gram encoding for fuzzy text matching
+                "sequence": words,
             },
-            'coordinates': chunk['coordinates'],
-            'metadata': {
-                'chunk_id': chunk['id'],
-                'word_count': len(words),
-                'source': 'pdf_index'
-            }
+            "coordinates": chunk["coordinates"],
+            "metadata": {
+                "chunk_id": chunk["id"],
+                "word_count": len(words),
+                "source": "pdf_index",
+            },
         }
         return unit
 
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
         import re
-        normalized = re.sub(r'[^\w\s]', '', text.lower())
+
+        normalized = re.sub(r"[^\w\s]", "", text.lower())
         words = [word for word in normalized.split() if word]
         return words
 
@@ -171,9 +182,11 @@ class PDFQuoteLocator:
 
     def __init__(self, indexed_chunks: List[Dict[str, Any]]):
         self.chunks = indexed_chunks
-        self.chunk_lookup = {chunk['id']: chunk for chunk in chunks}
+        self.chunk_lookup = {chunk["id"]: chunk for chunk in chunks}
 
-    def find_quote_locations(self, quote_text: str, min_similarity: float = 0.8) -> List[Dict[str, Any]]:
+    def find_quote_locations(
+        self, quote_text: str, min_similarity: float = 0.8
+    ) -> List[Dict[str, Any]]:
         """Find locations where a quote appears in the indexed content."""
         print(f"🔍 Locating quote: '{quote_text[:50]}...'")
 
@@ -182,7 +195,7 @@ class PDFQuoteLocator:
         locations = []
 
         for chunk in self.chunks:
-            chunk_text_lower = chunk['content'].lower()
+            chunk_text_lower = chunk["content"].lower()
 
             # Exact substring match
             if quote_lower in chunk_text_lower:
@@ -191,41 +204,52 @@ class PDFQuoteLocator:
                 word_start = len(chunk_text_lower[:start_pos].split())
 
                 location = {
-                    'coordinates': chunk['coordinates'],
-                    'similarity': 1.0,  # Exact match
-                    'match_type': 'exact',
-                    'chunk_content': chunk['content'],
-                    'quote_found': quote_text,
-                    'position_in_chunk': {
-                        'word_start': word_start,
-                        'word_end': word_start + len(quote_lower.split()),
-                        'char_start': start_pos,
-                        'char_end': start_pos + len(quote_lower)
-                    }
+                    "coordinates": chunk["coordinates"],
+                    "similarity": 1.0,  # Exact match
+                    "match_type": "exact",
+                    "chunk_content": chunk["content"],
+                    "quote_found": quote_text,
+                    "position_in_chunk": {
+                        "word_start": word_start,
+                        "word_end": word_start + len(quote_lower.split()),
+                        "char_start": start_pos,
+                        "char_end": start_pos + len(quote_lower),
+                    },
                 }
                 locations.append(location)
-                print(f"   🎯 Exact match at: Page {chunk['coordinates']['page']}, Chunk {chunk['coordinates']['chunk_num']}")
+                print(
+                    f"   🎯 Exact match at: Page {chunk['coordinates']['page']}, Chunk {chunk['coordinates']['chunk_num']}"
+                )
 
             # Fuzzy matching for partial matches
             elif min_similarity < 1.0:
                 # Simple fuzzy match using sequence matcher
                 import difflib
+
                 matcher = difflib.SequenceMatcher(None, quote_lower, chunk_text_lower)
                 similarity = matcher.ratio()
 
                 if similarity >= min_similarity:
                     location = {
-                        'coordinates': chunk['coordinates'],
-                        'similarity': similarity,
-                        'match_type': 'fuzzy',
-                        'chunk_content': chunk['content'],
-                        'best_match': self._find_best_substring_match(quote_lower, chunk_text_lower),
-                        'position_in_chunk': None  # Would need more complex analysis
+                        "coordinates": chunk["coordinates"],
+                        "similarity": similarity,
+                        "match_type": "fuzzy",
+                        "chunk_content": chunk["content"],
+                        "best_match": self._find_best_substring_match(
+                            quote_lower, chunk_text_lower
+                        ),
+                        "position_in_chunk": None,  # Would need more complex analysis
                     }
                     locations.append(location)
 
         # Sort by similarity (exact matches first)
-        locations.sort(key=lambda x: (-x['similarity'], x['coordinates']['page'], x['coordinates']['chunk_num']))
+        locations.sort(
+            key=lambda x: (
+                -x["similarity"],
+                x["coordinates"]["page"],
+                x["coordinates"]["chunk_num"],
+            )
+        )
 
         print(f"✅ Found {len(locations)} quote locations")
         return locations
@@ -242,12 +266,16 @@ class PDFQuoteLocator:
         best_ratio = 0
 
         # Try different window sizes
-        for window_size in [len(quote_words), len(quote_words)+1, len(quote_words)-1]:
+        for window_size in [
+            len(quote_words),
+            len(quote_words) + 1,
+            len(quote_words) - 1,
+        ]:
             if window_size <= 0:
                 continue
 
             for i in range(len(text_words) - window_size + 1):
-                window = ' '.join(text_words[i:i+window_size])
+                window = " ".join(text_words[i : i + window_size])
                 ratio = difflib.SequenceMatcher(None, quote, window.lower()).ratio()
 
                 if ratio > best_ratio:
@@ -262,7 +290,9 @@ def main():
     project_root = Path(__file__).parent.parent.parent.parent
 
     # Check for PDF
-    pdf_file = project_root / "docs" / "challenges" / "003-batch" / "calculus-made-easy.pdf"
+    pdf_file = (
+        project_root / "docs" / "challenges" / "003-batch" / "calculus-made-easy.pdf"
+    )
     index_output = Path(__file__).parent / "pdf_content_index.json"
 
     if not pdf_file.exists():
@@ -278,7 +308,9 @@ def main():
         print("\n📊 Indexing Summary:")
         print(f"   Total chunks: {len(chunks)}")
         print(f"   Pages indexed: {len(set(c['coordinates']['page'] for c in chunks))}")
-        print(f"   Avg words per chunk: {sum(c['coordinates']['word_count'] for c in chunks) // len(chunks)}")
+        print(
+            f"   Avg words per chunk: {sum(c['coordinates']['word_count'] for c in chunks) // len(chunks)}"
+        )
 
         # Demonstrate quote location
         locator = PDFQuoteLocator(chunks)
@@ -288,7 +320,7 @@ def main():
             "calculus made easy",
             "differential calculus",
             "integral calculus",
-            "function of x"
+            "function of x",
         ]
 
         print("\n🎯 Quote Location Demo:")
@@ -300,17 +332,19 @@ def main():
             if locations:
                 print("   📍 Found locations:")
                 for i, loc in enumerate(locations[:3], 1):  # Top 3
-                    coord = loc['coordinates']
+                    coord = loc["coordinates"]
                     print(".3f")
                     print(f"      📄 Chunk preview: {loc['chunk_content'][:80]}...")
-                    if loc.get('quote_found'):
+                    if loc.get("quote_found"):
                         print(f"      🎯 Exact match: '{loc['quote_found']}'")
                     print()
             else:
                 print("   ❌ No locations found")
 
         print("\n✅ PDF Content Indexing Complete!")
-        print("🎯 Users can now query for quotes and get exact PDF coordinates for manual verification!")
+        print(
+            "🎯 Users can now query for quotes and get exact PDF coordinates for manual verification!"
+        )
 
     except Exception as e:
         print(f"❌ Processing failed: {e}")

@@ -19,7 +19,7 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **atomizer.py**: Data parsing and atomization for JSON/EDN
 
 ### API Layer (scripts/)
-- **holon_server.py**: FastAPI REST API for HTTP access
+- **holon_server.py**: FastAPI REST API for HTTP access (in scripts/server/)
 - **performance_test.py**: Benchmarking and optimization testing
 
 ### Testing & Examples
@@ -209,7 +209,8 @@ holon/              # Core package
 └── similarity.py   # Query optimization
 
 scripts/            # Utilities
-├── holon_server.py # HTTP API
+├── server/
+│   └── holon_server.py # HTTP API
 └── performance_test.py # Benchmarking
 
 docs/               # Documentation
@@ -226,7 +227,7 @@ tests/              # Unit tests
 - **holon/cpu_store.py**: Main interface and backend logic
 - **holon/encoder.py**: Core VSA/HDC encoding implementation
 - **holon/similarity.py**: Query optimization algorithms
-- **scripts/holon_server.py**: HTTP API implementation
+- **scripts/server/holon_server.py**: HTTP API implementation
 - **docs/limits_and_performance.md**: Performance characteristics
 
 ## Current Working State

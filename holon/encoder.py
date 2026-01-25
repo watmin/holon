@@ -1,12 +1,15 @@
-import numpy as np
-import edn_format
-from edn_format.immutable_dict import ImmutableDict
-from typing import Dict, Any, Set, Union, List, Sequence
 from enum import Enum
+from typing import Any, Dict, List, Sequence, Set, Union
+
+import edn_format
+import numpy as np
+from edn_format.immutable_dict import ImmutableDict
+
 from .vector_manager import VectorManager
 
 try:
     import cupy as cp
+
     CUPY_AVAILABLE = True
 except ImportError:
     cp = None
@@ -15,14 +18,19 @@ except ImportError:
 
 class ListEncodeMode(str, Enum):
     """Encoding modes for sequences/lists."""
+
     POSITIONAL = "positional"  # Absolute position binding (default, current behavior)
-    CHAINED = "chained"       # Relative chained binding for fuzzy subsequence matching
-    NGRAM = "ngram"           # N-gram pairs/triples for local order preservation
-    BUNDLE = "bundle"         # Pure bundling (multiset, no order)
+    CHAINED = "chained"  # Relative chained binding for fuzzy subsequence matching
+    NGRAM = "ngram"  # N-gram pairs/triples for local order preservation
+    BUNDLE = "bundle"  # Pure bundling (multiset, no order)
 
 
 class Encoder:
-    def __init__(self, vector_manager: VectorManager, default_list_mode: ListEncodeMode = ListEncodeMode.POSITIONAL):
+    def __init__(
+        self,
+        vector_manager: VectorManager,
+        default_list_mode: ListEncodeMode = ListEncodeMode.POSITIONAL,
+    ):
         self.vector_manager = vector_manager
         self.backend = vector_manager.backend
         self.default_list_mode = default_list_mode
@@ -54,7 +62,9 @@ class Encoder:
             # Scalar value
             return self._encode_scalar(data)
 
-    def _encode_map(self, data: Union[dict, ImmutableDict], list_mode=None, **kwargs) -> np.ndarray:
+    def _encode_map(
+        self, data: Union[dict, ImmutableDict], list_mode=None, **kwargs
+    ) -> np.ndarray:
         """Encode a map by binding keys to values. Supports encoding mode hints."""
         if not data:
             return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
@@ -71,7 +81,9 @@ class Encoder:
                 value = {k: v for k, v in value.items() if k != "_encode_mode"}
 
             key_vector = self._encode_scalar(key)
-            value_vector = self._encode_recursive(value, list_mode=effective_list_mode, **kwargs)
+            value_vector = self._encode_recursive(
+                value, list_mode=effective_list_mode, **kwargs
+            )
             # Bind key and value
             bound = key_vector * value_vector
             bound_vectors.append(bound)
@@ -80,7 +92,9 @@ class Encoder:
         bundled = np.sum(bound_vectors, axis=0)
         return self._threshold_bipolar(bundled)
 
-    def encode_list(self, seq: Sequence[Any], mode: ListEncodeMode | str | None = None) -> np.ndarray:
+    def encode_list(
+        self, seq: Sequence[Any], mode: ListEncodeMode | str | None = None
+    ) -> np.ndarray:
         """
         Encode a sequence with configurable encoding mode.
 
@@ -126,7 +140,11 @@ class Encoder:
         elif mode == ListEncodeMode.NGRAM:
             # N-gram encoding (pairs by default, with singles for robustness)
             if len(seq) < 2:
-                return self.bundle(item_vecs) if item_vecs else np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+                return (
+                    self.bundle(item_vecs)
+                    if item_vecs
+                    else np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+                )
 
             # Create bigram bindings
             pairs = []
@@ -189,9 +207,9 @@ class Encoder:
             # Fallback for unknown types
             return self.vector_manager.get_vector(str(data))
 
-    def _threshold_bipolar(self, vector) -> Union[np.ndarray, 'cp.ndarray']:
+    def _threshold_bipolar(self, vector) -> Union[np.ndarray, "cp.ndarray"]:
         """Threshold summed vector to bipolar {-1, 0, 1}."""
-        if self.backend == 'gpu' and CUPY_AVAILABLE:
+        if self.backend == "gpu" and CUPY_AVAILABLE:
             return cp.where(vector > 0, 1, cp.where(vector < 0, -1, 0)).astype(cp.int8)
         else:
             return np.where(vector > 0, 1, np.where(vector < 0, -1, 0)).astype(np.int8)

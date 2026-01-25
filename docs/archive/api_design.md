@@ -16,7 +16,7 @@ class Store(ABC):
         """
         Insert a data blob (JSON or EDN string) into the store.
         Returns a unique ID for the inserted data.
-        
+
         :param data: The data blob as a string.
         :param data_type: 'json' or 'edn'.
         :return: Unique identifier for the data.
@@ -28,7 +28,7 @@ class Store(ABC):
         """
         Query the store with a probe data blob.
         Returns a list of (id, similarity_score, original_data) tuples for top matches.
-        
+
         :param probe: The query probe as a string.
         :param data_type: 'json' or 'edn'.
         :param top_k: Number of top results to return.
@@ -41,7 +41,7 @@ class Store(ABC):
     def get(self, data_id: str) -> Dict[str, Any]:
         """
         Retrieve original data by ID.
-        
+
         :param data_id: Unique identifier.
         :return: Original data as a dictionary.
         """
@@ -51,7 +51,7 @@ class Store(ABC):
     def delete(self, data_id: str) -> bool:
         """
         Delete data by ID.
-        
+
         :param data_id: Unique identifier.
         :return: True if deleted, False otherwise.
         """

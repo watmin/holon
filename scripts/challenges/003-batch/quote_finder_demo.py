@@ -6,8 +6,8 @@ Demonstrates the complete Holon quote finder system with real data.
 
 import json
 import logging
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List
 
 from holon import CPUStore
 from holon.encoder import ListEncodeMode
@@ -15,6 +15,7 @@ from holon.encoder import ListEncodeMode
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class ComprehensiveQuoteFinder:
     """Complete quote finder system with real data validation."""
@@ -25,32 +26,32 @@ class ComprehensiveQuoteFinder:
 
     def load_processed_quotes(self, json_file: str) -> List[Dict[str, Any]]:
         """Load processed quotes from JSON file."""
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        quotes = data['quotes']
+        quotes = data["quotes"]
         print(f"📚 Loaded {len(quotes)} processed quotes from {json_file}")
         return quotes
 
     def create_quote_unit(self, quote: Dict[str, Any]) -> Dict[str, Any]:
         """Create a Holon unit for a quote (metadata-only storage)."""
         # Normalize the quote text for searching
-        words = self._normalize_text(quote['text'])
+        words = self._normalize_text(quote["text"])
 
         # Create unit with n-gram encoding for the words
         unit = {
-            'words': {
-                '_encode_mode': 'ngram',  # Use n-gram encoding for fuzzy matching
-                'sequence': words
+            "words": {
+                "_encode_mode": "ngram",  # Use n-gram encoding for fuzzy matching
+                "sequence": words,
             },
-            'metadata': {
-                'chapter': quote['chapter'],
-                'page': quote['page'],
-                'paragraph': quote['paragraph'],
-                'book_title': quote['book_title'],
-                'word_count': quote['word_count'],
-                'line_number': quote['line_number']
-            }
+            "metadata": {
+                "chapter": quote["chapter"],
+                "page": quote["page"],
+                "paragraph": quote["paragraph"],
+                "book_title": quote["book_title"],
+                "word_count": quote["word_count"],
+                "line_number": quote["line_number"],
+            },
         }
 
         return unit
@@ -58,8 +59,9 @@ class ComprehensiveQuoteFinder:
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text: lowercase, remove punctuation, split into words."""
         import re
+
         # Remove punctuation and lowercase
-        normalized = re.sub(r'[^\w\s]', '', text.lower())
+        normalized = re.sub(r"[^\w\s]", "", text.lower())
         # Split into words and filter out empty strings
         words = [word for word in normalized.split() if word]
         return words
@@ -77,7 +79,7 @@ class ComprehensiveQuoteFinder:
             self.processed_quotes.append(quote)
 
         # Batch insert for efficiency
-        ids = self.store.batch_insert(units_data, data_type='json')
+        ids = self.store.batch_insert(units_data, data_type="json")
         print(f"✅ Successfully ingested {len(ids)} quote units")
         return ids
 
@@ -86,12 +88,7 @@ class ComprehensiveQuoteFinder:
         words = self._normalize_text(query_text)
 
         # Create the same encoding structure as stored units
-        encode_data = {
-            'words': {
-                '_encode_mode': 'ngram',
-                'sequence': words
-            }
-        }
+        encode_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
         # Use the encoder directly (simulating the API)
         vector = self.store.encoder.encode_data(encode_data)
@@ -100,8 +97,14 @@ class ComprehensiveQuoteFinder:
         cpu_vector = self.store.vector_manager.to_cpu(vector)
         return cpu_vector.tolist()
 
-    def search_quotes(self, query_text: str, top_k: int = 10, threshold: float = 0.0,
-                     chapter_filter: str = None, page_filter: int = None) -> List[Dict[str, Any]]:
+    def search_quotes(
+        self,
+        query_text: str,
+        top_k: int = 10,
+        threshold: float = 0.0,
+        chapter_filter: str = None,
+        page_filter: int = None,
+    ) -> List[Dict[str, Any]]:
         """Search for quotes using bootstrapped vector and metadata filters."""
         print(f"🔍 Searching for: '{query_text}'")
 
@@ -110,21 +113,16 @@ class ComprehensiveQuoteFinder:
 
         # Create probe using n-gram encoding
         words = self._normalize_text(query_text)
-        probe_data = {
-            'words': {
-                '_encode_mode': 'ngram',
-                'sequence': words
-            }
-        }
+        probe_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
         # Build guard for filters
         guard = {}
         if chapter_filter:
-            guard['metadata'] = {'chapter': chapter_filter}
+            guard["metadata"] = {"chapter": chapter_filter}
         if page_filter:
-            if 'metadata' not in guard:
-                guard['metadata'] = {}
-            guard['metadata']['page'] = page_filter
+            if "metadata" not in guard:
+                guard["metadata"] = {}
+            guard["metadata"]["page"] = page_filter
 
         # If no guard specified, remove it
         if not guard:
@@ -133,10 +131,10 @@ class ComprehensiveQuoteFinder:
         # Query the store
         results = self.store.query(
             probe=json.dumps(probe_data),
-            data_type='json',
+            data_type="json",
             top_k=top_k,
             threshold=threshold,
-            guard=guard
+            guard=guard,
         )
 
         print(f"📊 Query returned {len(results)} raw results")
@@ -148,23 +146,27 @@ class ComprehensiveQuoteFinder:
             original_quote = None
             for quote in self.processed_quotes:
                 # Match by metadata (since we don't store full text)
-                if (quote['chapter'] == data['metadata']['chapter'] and
-                    quote['page'] == data['metadata']['page'] and
-                    quote['line_number'] == data['metadata']['line_number']):
+                if (
+                    quote["chapter"] == data["metadata"]["chapter"]
+                    and quote["page"] == data["metadata"]["page"]
+                    and quote["line_number"] == data["metadata"]["line_number"]
+                ):
                     original_quote = quote
                     break
 
             enriched_result = {
-                'id': data_id,
-                'score': score,
-                'metadata': data['metadata'],
-                'reconstructed_text': original_quote['text'] if original_quote else 'Text not found',
-                'search_words': words,
-                'query_text': query_text,
-                'validation': {
-                    'metadata_match': original_quote is not None,
-                    'text_available': original_quote is not None
-                }
+                "id": data_id,
+                "score": score,
+                "metadata": data["metadata"],
+                "reconstructed_text": original_quote["text"]
+                if original_quote
+                else "Text not found",
+                "search_words": words,
+                "query_text": query_text,
+                "validation": {
+                    "metadata_match": original_quote is not None,
+                    "text_available": original_quote is not None,
+                },
             }
 
             enriched_results.append(enriched_result)
@@ -183,7 +185,9 @@ class ComprehensiveQuoteFinder:
         # Show what we have
         print("\n📚 Available Quotes:")
         for i, quote in enumerate(quotes, 1):
-            print(f"   {i}. [{quote['chapter']}] Page {quote['page']}: \"{quote['text']}\"")
+            print(
+                f"   {i}. [{quote['chapter']}] Page {quote['page']}: \"{quote['text']}\""
+            )
         print()
 
         # Ingest into Holon
@@ -192,30 +196,30 @@ class ComprehensiveQuoteFinder:
         # Demonstration scenarios
         scenarios = [
             {
-                'name': 'Exact Quote Match',
-                'query': 'Everything depends upon relative minuteness',
-                'description': 'Should find exact match with high score'
+                "name": "Exact Quote Match",
+                "query": "Everything depends upon relative minuteness",
+                "description": "Should find exact match with high score",
             },
             {
-                'name': 'Fuzzy Phrase Match',
-                'query': 'depends on relative smallness',
-                'description': 'Similar words, different structure'
+                "name": "Fuzzy Phrase Match",
+                "query": "depends on relative smallness",
+                "description": "Similar words, different structure",
             },
             {
-                'name': 'Partial Quote Match',
-                'query': 'slope of the tangent',
-                'description': 'Subset of a longer quote'
+                "name": "Partial Quote Match",
+                "query": "slope of the tangent",
+                "description": "Subset of a longer quote",
             },
             {
-                'name': 'Integration Concept',
-                'query': 'integration is the reverse',
-                'description': 'Key calculus concept'
+                "name": "Integration Concept",
+                "query": "integration is the reverse",
+                "description": "Key calculus concept",
             },
             {
-                'name': 'Calculus Tricks',
-                'query': 'calculus tricks are easy',
-                'description': 'Book title reference'
-            }
+                "name": "Calculus Tricks",
+                "query": "calculus tricks are easy",
+                "description": "Book title reference",
+            },
         ]
 
         for scenario in scenarios:
@@ -223,15 +227,19 @@ class ComprehensiveQuoteFinder:
             print(f"   {scenario['description']}")
             print("-" * 50)
 
-            results = self.search_quotes(scenario['query'], threshold=0.0)
+            results = self.search_quotes(scenario["query"], threshold=0.0)
 
             if results:
                 print(f"   ✅ Found {len(results)} results:")
                 for i, result in enumerate(results, 1):
                     print(f"   {i}. Score: {result['score']:.3f}")
                     print(f"      Text: \"{result['reconstructed_text']}\"")
-                    print(f"      Metadata: {result['metadata']['chapter']} | Page {result['metadata']['page']}")
-                    print(f"      Validation: {'✅' if result['validation']['metadata_match'] else '❌'}")
+                    print(
+                        f"      Metadata: {result['metadata']['chapter']} | Page {result['metadata']['page']}"
+                    )
+                    print(
+                        f"      Validation: {'✅' if result['validation']['metadata_match'] else '❌'}"
+                    )
                     if i >= 3:  # Show top 3
                         break
             else:
@@ -243,7 +251,7 @@ class ComprehensiveQuoteFinder:
         print("-" * 40)
 
         # Search for integration quotes
-        integration_results = self.search_quotes('integration', threshold=0.0)
+        integration_results = self.search_quotes("integration", threshold=0.0)
         print(f"   Integration mentions: {len(integration_results)} found")
 
         # Bootstrap vector demo

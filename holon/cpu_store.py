@@ -1,16 +1,19 @@
-import uuid
-import logging
 import json
+import logging
+import uuid
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, Any, List, Tuple
-from .store import Store
+
 from .atomizer import parse_data
-from .vector_manager import VectorManager
 from .encoder import Encoder
 from .similarity import find_similar_vectors
+from .store import Store
+from .vector_manager import VectorManager
 
 try:
     import faiss
+
     FAISS_AVAILABLE = True
 except ImportError:
     faiss = None
@@ -20,22 +23,23 @@ ANN_THRESHOLD = 1000  # Switch to ANN when > 1000 items
 
 
 class CPUStore(Store):
-    def __init__(self, dimensions: int = 16000, backend: str = 'auto'):
+    def __init__(self, dimensions: int = 16000, backend: str = "auto"):
         self.dimensions = dimensions
 
         # Auto-select backend
-        if backend == 'auto':
+        if backend == "auto":
             try:
                 import cupy as cp
+
                 try:
                     cp.cuda.runtime.getDeviceCount()  # Check GPU availability
-                    self.backend = 'gpu'
+                    self.backend = "gpu"
                     print("🎮 Auto-selected GPU backend")
                 except cp.cuda.runtime.CUDARuntimeError:
-                    self.backend = 'cpu'
+                    self.backend = "cpu"
                     print("💻 Auto-selected CPU backend (no GPU available)")
             except ImportError:
-                self.backend = 'cpu'
+                self.backend = "cpu"
                 print("💻 Auto-selected CPU backend (cupy not available)")
         else:
             self.backend = backend
@@ -79,8 +83,9 @@ class CPUStore(Store):
 
         logging.info(f"ANN index built with {len(self.ann_ids)} vectors")
 
-    def insert(self, data: str, data_type: str = 'json') -> str:
+    def insert(self, data: str, data_type: str = "json") -> str:
         import time
+
         start = time.time()
         parsed = parse_data(data, data_type)
         parse_time = time.time() - start
@@ -101,11 +106,23 @@ class CPUStore(Store):
 
         # Log timing for first few inserts
         if len(self.stored_data) <= 5:
-            logging.info(f"INSERT_TIMING: parse={parse_time:.4f}s, encode={encode_time:.4f}s, total={parse_time+encode_time:.4f}s")
+            logging.info(
+                f"INSERT_TIMING: parse={parse_time:.4f}s, "
+                f"encode={encode_time:.4f}s, total={parse_time+encode_time:.4f}s"
+            )
 
         return data_id
 
-    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard=None, negations=None, any_marker="$any") -> List[Tuple[str, float, Dict[str, Any]]]:
+    def query(
+        self,
+        probe: str,
+        data_type: str = "json",
+        top_k: int = 10,
+        threshold: float = 0.0,
+        guard=None,
+        negations=None,
+        any_marker="$any",
+    ) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
 
         # Handle $or disjunctions
@@ -113,7 +130,9 @@ class CPUStore(Store):
             all_results = []
             seen_ids = set()
             for sub_probe in parsed_probe["$or"]:
-                sub_results = self.query(json.dumps(sub_probe), data_type, top_k, threshold, guard, negations)
+                sub_results = self.query(
+                    json.dumps(sub_probe), data_type, top_k, threshold, guard, negations
+                )
                 for res in sub_results:
                     if res[0] not in seen_ids:
                         all_results.append(res)
@@ -127,11 +146,18 @@ class CPUStore(Store):
                 continue  # Skip for encoding
             clean_probe[k] = v
 
-        probe_vector = self.encoder.encode_data(clean_probe)
+        try:
+            probe_vector = self.encoder.encode_data(clean_probe)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to encode query probe: {e}. "
+                "Check that your query structure matches the expected data format (JSON or EDN)."
+            )
 
         # Parse user-specified $not markers in negations
         negation_specs = []
         cleaned_negations = {}
+
         def parse_negations(neg, cleaned, path=""):
             for k, v in neg.items():
                 if isinstance(v, dict) and "$not" in v:
@@ -150,6 +176,7 @@ class CPUStore(Store):
                         cleaned[k] = sub_clean
                 else:
                     cleaned[k] = v
+
         if negations:
             parse_negations(negations, cleaned_negations)
 
@@ -179,7 +206,9 @@ class CPUStore(Store):
             # Handle top-level $or in guards for powerful OR logic
             if "$or" in guard and isinstance(guard["$or"], list):
                 # Any of the OR conditions must match
-                return any(is_subset(or_condition, data) for or_condition in guard["$or"])
+                return any(
+                    is_subset(or_condition, data) for or_condition in guard["$or"]
+                )
 
             for key, value in guard.items():
                 if key not in data:
@@ -188,9 +217,13 @@ class CPUStore(Store):
                     # Handle nested $or
                     if "$or" in value and isinstance(value["$or"], list):
                         # For nested $or, any of the conditions for this key must match
-                        if not any(is_subset({key: or_val}, data) for or_val in value["$or"]):
+                        if not any(
+                            is_subset({key: or_val}, data) for or_val in value["$or"]
+                        ):
                             return False
-                    elif not isinstance(data[key], dict) or not is_subset(value, data[key]):
+                    elif not isinstance(data[key], dict) or not is_subset(
+                        value, data[key]
+                    ):
                         return False
                 elif isinstance(value, list):
                     # Support OR logic: if guard has a list and data has a scalar that's IN the list,
@@ -231,7 +264,9 @@ class CPUStore(Store):
                 similar_ids_scores = []
                 for i, idx in enumerate(indices[0]):
                     if idx != -1:  # Valid index
-                        score = float(scores[0][i]) / self.dimensions  # Normalize like dot similarity
+                        score = (
+                            float(scores[0][i]) / self.dimensions
+                        )  # Normalize like dot similarity
                         if score >= threshold:
                             data_id = self.ann_ids[idx]
                             similar_ids_scores.append((data_id, score))
@@ -239,10 +274,14 @@ class CPUStore(Store):
                 similar_ids_scores.sort(key=lambda x: x[1], reverse=True)
             else:
                 # Fallback to brute-force
-                similar_ids_scores = find_similar_vectors(probe_vector, self.stored_vectors, top_k, threshold)
+                similar_ids_scores = find_similar_vectors(
+                    probe_vector, self.stored_vectors, top_k, threshold
+                )
         else:
             # Use brute-force for small datasets
-            similar_ids_scores = find_similar_vectors(probe_vector, self.stored_vectors, top_k, threshold)
+            similar_ids_scores = find_similar_vectors(
+                probe_vector, self.stored_vectors, top_k, threshold
+            )
 
         results = []
         for data_id, score in similar_ids_scores:
@@ -258,7 +297,10 @@ class CPUStore(Store):
 
     def get(self, data_id: str) -> Dict[str, Any]:
         if data_id not in self.stored_data:
-            raise KeyError(f"Data ID {data_id} not found")
+            raise KeyError(
+                f"Data ID '{data_id}' not found. "
+                "Make sure the data was previously inserted and not deleted."
+            )
         return self.stored_data[data_id]
 
     def delete(self, data_id: str) -> bool:
@@ -291,7 +333,7 @@ class CPUStore(Store):
         if len(self.stored_data) >= ANN_THRESHOLD:
             self._build_ann_index()
 
-    def batch_insert(self, items: List[str], data_type: str = 'json') -> List[str]:
+    def batch_insert(self, items: List[str], data_type: str = "json") -> List[str]:
         """
         Insert multiple items efficiently by deferring ANN rebuilds.
 

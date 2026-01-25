@@ -6,8 +6,10 @@ This demonstrates rule-based reasoning where facts are stored in Holon,
 rules are queries that match patterns, and forward chaining adds derived facts.
 """
 
-from holon import CPUStore
 import json
+
+from holon import CPUStore
+
 
 class ReteDemo:
     def __init__(self):
@@ -29,11 +31,7 @@ class ReteDemo:
 
     def add_rule(self, name, conditions, action):
         """Add a rule: conditions (query dict), action (function to call on matches)."""
-        self.rules.append({
-            "name": name,
-            "conditions": conditions,
-            "action": action
-        })
+        self.rules.append({"name": name, "conditions": conditions, "action": action})
         print(f"📋 Added rule: {name}")
 
     def run_forward_chaining(self, max_iterations=3):
@@ -82,6 +80,7 @@ class ReteDemo:
         results = self.store.query(json.dumps(query), guard=guard, top_k=10)
         return [r[2] for r in results]
 
+
 def main():
     demo = ReteDemo()
 
@@ -89,18 +88,27 @@ def main():
     def parent_rule(fact):
         # If someone is a parent, infer they have children
         if "parent_of" in fact:
-            return {"person": fact["person"], "has_children": True, "finding": "parent_inferred", "derived_from": "parent_rule"}
+            return {
+                "person": fact["person"],
+                "has_children": True,
+                "finding": "parent_inferred",
+                "derived_from": "parent_rule",
+            }
 
     def grandparent_rule(fact):
         # If someone has children and is parent of someone who has children
         if fact.get("has_children") and "person" in fact:
             # Check if this person is parent of someone with children
             grandparents = demo.store.query(
-                json.dumps({"parent_of": fact["person"], "has_children": True}),
-                top_k=5
+                json.dumps({"parent_of": fact["person"], "has_children": True}), top_k=5
             )
             if grandparents:
-                return {"person": fact["person"], "is_grandparent": True, "finding": "grandparent_inferred", "derived_from": "grandparent_rule"}
+                return {
+                    "person": fact["person"],
+                    "is_grandparent": True,
+                    "finding": "grandparent_inferred",
+                    "derived_from": "grandparent_rule",
+                }
 
     demo.add_rule("infer_has_children", {"parent_of": {"$any": True}}, parent_rule)
     demo.add_rule("infer_grandparent", {"has_children": True}, grandparent_rule)
@@ -127,6 +135,7 @@ def main():
     # Query again to verify
     parents_replay = demo.query_derived({"finding": "parent_inferred"})
     print(f"  After replay - Parents: {len(parents_replay)}")
+
 
 if __name__ == "__main__":
     main()

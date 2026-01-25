@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 class Store(ABC):
     @abstractmethod
-    def insert(self, data: str, data_type: str = 'json') -> str:
+    def insert(self, data: str, data_type: str = "json") -> str:
         """
         Insert a data blob (JSON or EDN string) into the store.
         Returns a unique ID for the inserted data.
@@ -16,10 +16,18 @@ class Store(ABC):
         pass
 
     @abstractmethod
-    def query(self, probe: str, data_type: str = 'json', top_k: int = 10, threshold: float = 0.0, guard: callable = None) -> List[Tuple[str, float, Dict[str, Any]]]:
+    def query(
+        self,
+        probe: str,
+        data_type: str = "json",
+        top_k: int = 10,
+        threshold: float = 0.0,
+        guard: callable = None,
+    ) -> List[Tuple[str, float, Dict[str, Any]]]:
         """
         Query the store with a probe data blob.
-        Returns a list of (id, similarity_score, original_data) tuples for top matches that pass the guard.
+        Returns a list of (id, similarity_score, original_data) tuples for top matches
+        that pass the guard.
 
         :param probe: The query probe as a string.
         :param data_type: 'json' or 'edn'.

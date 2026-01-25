@@ -6,9 +6,9 @@ Uses coordinate system where paragraphs are base units and quotes are located wi
 
 import json
 import logging
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from holon import CPUStore
 from holon.encoder import ListEncodeMode
@@ -16,6 +16,7 @@ from holon.encoder import ListEncodeMode
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class ParagraphQuoteFinder:
     """Quote finder using paragraph-based coordinate system."""
@@ -26,35 +27,36 @@ class ParagraphQuoteFinder:
 
     def load_processed_paragraphs(self, json_file: str) -> List[Dict[str, Any]]:
         """Load processed paragraphs with coordinates."""
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        paragraphs = data['paragraphs']
+        paragraphs = data["paragraphs"]
         print(f"📚 Loaded {len(paragraphs)} paragraphs with coordinate system")
         return paragraphs
 
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
         import re
-        normalized = re.sub(r'[^\w\s]', '', text.lower())
+
+        normalized = re.sub(r"[^\w\s]", "", text.lower())
         words = [word for word in normalized.split() if word]
         return words
 
     def create_paragraph_unit(self, paragraph: Dict[str, Any]) -> Dict[str, Any]:
         """Create a Holon unit for a paragraph with coordinate metadata."""
-        words = self._normalize_text(paragraph['text'])
+        words = self._normalize_text(paragraph["text"])
 
         unit = {
-            'text': {
-                '_encode_mode': 'ngram',  # N-gram encoding for fuzzy text matching
-                'sequence': words
+            "text": {
+                "_encode_mode": "ngram",  # N-gram encoding for fuzzy text matching
+                "sequence": words,
             },
-            'coordinates': paragraph['coordinates'],
-            'metadata': {
-                'book_title': paragraph['book_title'],
-                'id': paragraph['id'],
-                'word_count': len(words)
-            }
+            "coordinates": paragraph["coordinates"],
+            "metadata": {
+                "book_title": paragraph["book_title"],
+                "id": paragraph["id"],
+                "word_count": len(words),
+            },
         }
         return unit
 
@@ -71,7 +73,7 @@ class ParagraphQuoteFinder:
             self.paragraphs.append(paragraph)
 
         # Batch insert for efficiency
-        ids = self.store.batch_insert(units_data, data_type='json')
+        ids = self.store.batch_insert(units_data, data_type="json")
         print(f"✅ Successfully ingested {len(ids)} paragraph units")
         return ids
 
@@ -81,7 +83,7 @@ class ParagraphQuoteFinder:
         matches = []
 
         for paragraph in self.paragraphs:
-            para_text_lower = paragraph['text'].lower()
+            para_text_lower = paragraph["text"].lower()
 
             # Check if quote appears in paragraph
             if quote_lower in para_text_lower:
@@ -97,24 +99,25 @@ class ParagraphQuoteFinder:
                     quote_words = len(quote_lower.split())
 
                     match = {
-                        'paragraph_id': paragraph['id'],
-                        'coordinates': paragraph['coordinates'],
-                        'similarity': similarity,
-                        'quote_position': {
-                            'word_start': words_before,
-                            'word_end': words_before + quote_words,
-                            'char_start': start_pos,
-                            'char_end': start_pos + len(quote_lower)
+                        "paragraph_id": paragraph["id"],
+                        "coordinates": paragraph["coordinates"],
+                        "similarity": similarity,
+                        "quote_position": {
+                            "word_start": words_before,
+                            "word_end": words_before + quote_words,
+                            "char_start": start_pos,
+                            "char_end": start_pos + len(quote_lower),
                         },
-                        'paragraph_text': paragraph['text'],
-                        'matched_quote': quote_text
+                        "paragraph_text": paragraph["text"],
+                        "matched_quote": quote_text,
                     }
                     matches.append(match)
 
-        return sorted(matches, key=lambda x: x['similarity'], reverse=True)
+        return sorted(matches, key=lambda x: x["similarity"], reverse=True)
 
-    def search_quotes_by_content(self, query_text: str, top_k: int = 10,
-                                threshold: float = 0.0) -> List[Dict[str, Any]]:
+    def search_quotes_by_content(
+        self, query_text: str, top_k: int = 10, threshold: float = 0.0
+    ) -> List[Dict[str, Any]]:
         """Search for quotes by content, returning paragraph coordinates."""
         print(f"🔍 Searching for quote content: '{query_text}'")
 
@@ -129,19 +132,14 @@ class ParagraphQuoteFinder:
         print("🔄 No exact matches, using vector similarity search...")
 
         words = self._normalize_text(query_text)
-        probe_data = {
-            'text': {
-                '_encode_mode': 'ngram',
-                'sequence': words
-            }
-        }
+        probe_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
         # Query the store
         results = self.store.query(
             probe=json.dumps(probe_data),
-            data_type='json',
+            data_type="json",
             top_k=top_k,
-            threshold=threshold
+            threshold=threshold,
         )
 
         print(f"📊 Vector search returned {len(results)} paragraph matches")
@@ -152,22 +150,24 @@ class ParagraphQuoteFinder:
             # Find the corresponding paragraph
             paragraph = None
             for p in self.paragraphs:
-                if p['id'] == data['metadata']['id']:
+                if p["id"] == data["metadata"]["id"]:
                     paragraph = p
                     break
 
             if paragraph:
                 # Check if the query appears in this paragraph
                 quote_matches = self.find_quote_in_paragraphs(query_text)
-                relevant_matches = [m for m in quote_matches if m['paragraph_id'] == paragraph['id']]
+                relevant_matches = [
+                    m for m in quote_matches if m["paragraph_id"] == paragraph["id"]
+                ]
 
                 result = {
-                    'paragraph_id': paragraph['id'],
-                    'coordinates': data['coordinates'],
-                    'similarity_score': score,
-                    'paragraph_text': paragraph['text'],
-                    'quote_matches': relevant_matches,
-                    'search_query': query_text
+                    "paragraph_id": paragraph["id"],
+                    "coordinates": data["coordinates"],
+                    "similarity_score": score,
+                    "paragraph_text": paragraph["text"],
+                    "quote_matches": relevant_matches,
+                    "search_query": query_text,
                 }
                 enriched_results.append(result)
 
@@ -185,10 +185,12 @@ class ParagraphQuoteFinder:
         # Show coordinate system
         print("\n📍 Coordinate System Examples:")
         for i, p in enumerate(paragraphs[:5]):
-            coord = p['coordinates']
-            print(f"   {p['id']}: {coord['chapter']} | Para {coord['paragraph_num']} | Pages {coord['page_start']}-{coord['page_end']}")
+            coord = p["coordinates"]
+            print(
+                f"   {p['id']}: {coord['chapter']} | Para {coord['paragraph_num']} | Pages {coord['page_start']}-{coord['page_end']}"
+            )
             print(f"      Text: {p['text'][:80]}...")
-            if p['contains_quotes']:
+            if p["contains_quotes"]:
                 print(f"      Contains quotes: {p['contains_quotes']}")
             print()
 
@@ -212,15 +214,19 @@ class ParagraphQuoteFinder:
             if matches:
                 print(f"   ✅ Found in {len(matches)} paragraph(s):")
                 for i, match in enumerate(matches[:3]):  # Show top 3
-                    coord = match['coordinates']
+                    coord = match["coordinates"]
                     print(f"   {i+1}. {match['paragraph_id']}")
-                    print(f"      📍 Coordinate: {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}")
+                    print(
+                        f"      📍 Coordinate: {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}"
+                    )
                     print(".3f")
                     print(f"      📄 Paragraph: {match['paragraph_text'][:100]}...")
 
-                    if match.get('quote_matches'):
-                        for qm in match['quote_matches']:
-                            print(f"      🎯 Quote found at word positions {qm['quote_position']['word_start']}-{qm['quote_position']['word_end']}")
+                    if match.get("quote_matches"):
+                        for qm in match["quote_matches"]:
+                            print(
+                                f"      🎯 Quote found at word positions {qm['quote_position']['word_start']}-{qm['quote_position']['word_end']}"
+                            )
                     print()
             else:
                 print("   ❌ No matches found")

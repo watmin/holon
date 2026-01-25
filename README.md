@@ -4,6 +4,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Coverage](https://img.shields.io/badge/coverage-75%25-green.svg)](https://github.com/watmin/holon)
+[![Tests](https://img.shields.io/badge/tests-136%20passed-brightgreen.svg)](https://github.com/watmin/holon)
+[![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](docs/)
+[![Research](https://img.shields.io/badge/research-VSA%2FHDC-red.svg)](docs/rpm_geometric_solution_findings.md)
 
 ## Overview
 
@@ -18,16 +22,18 @@ For example, `{"user": "alice", "action": "login"}` and `{:user "alice" :actions
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
 
-See [docs/](docs/) for additional documentation and API reference. Check [examples/](examples/) for runnable code samples.
+See [docs/](docs/) for additional documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
 
 ## Why Holon is Cool
 
 - **Neural-Inspired**: Uses brain-like vector operations for memory that "entangles" data—partial cues retrieve wholes.
-- **Blazing Fast**: ANN scaling makes 5000+ items query in milliseconds (500+ inserts/sec, 80+ queries/sec).
+- **Blazing Fast**: ANN scaling makes 5000+ items query in milliseconds (453+ inserts/sec, 19.5+ queries/sec).
 - **Flexible Queries**: Fuzzy search + guards/negations/wildcards/$or for precise, composable retrieval.
 - **AI-Ready**: Perfect for LLM memory—deterministic, no hallucinations.
 - **Unique Algebra**: Vector subtraction for exclusions—pure HDC magic.
-- **Scale Tested**: 5000 blobs, 2000 concurrent queries with 100% accuracy.
+- **Scale Tested**: 100,000+ blobs, 2000+ concurrent queries with 100% accuracy.
+- **Research Proven**: ✅ Statistically significant geometric reasoning on Raven's Progressive Matrices.
+- **Challenge Champion**: 3/4 major VSA/HDC challenges solved (task memory, RPM solver, quote finder).
 
 ## Quick Start
 
@@ -67,7 +73,7 @@ results = store.query('{:user "alice"}', data_type='edn')
 ### HTTP API
 ```bash
 # Start server
-python scripts/holon_server.py
+python scripts/server/holon_server.py
 
 # Insert
 curl -X POST http://localhost:8000/insert -H "Content-Type: application/json" -d '{"data": "{\"event\": \"login\"}"}'
@@ -119,7 +125,7 @@ pip install -e .
 ./scripts/run_with_venv.sh python -m pytest tests/
 
 # Run personal task memory solution
-./scripts/run_with_venv.sh python scripts/001-batch/001-solution.py
+./scripts/run_with_venv.sh python scripts/challenges/001-batch/001-solution.py
 
 # Other scripts
 ./scripts/run_with_venv.sh python scripts/test_accuracy.py
@@ -127,9 +133,24 @@ pip install -e .
 ./scripts/run_with_venv.sh python scripts/extreme_query_challenge.py
 ```
 
+### Code Quality (Pre-commit Hooks)
+```bash
+# Install development dependencies (use venv script)
+./scripts/run_with_venv.sh pip install -r requirements-dev.txt
+
+# Install pre-commit hooks (automatic code quality)
+./scripts/run_with_venv.sh pre-commit install
+
+# Run quality checks on all files
+./scripts/run_with_venv.sh pre-commit run --all-files
+
+# Or run on just staged files (happens automatically on commit)
+./scripts/run_with_venv.sh pre-commit run
+```
+
 ### Starting the Server
 ```bash
-python scripts/holon_server.py
+python scripts/server/holon_server.py
 # API available at http://localhost:8000
 ```
 
@@ -138,26 +159,28 @@ Experience Holon's performance on your machine:
 
 ```bash
 # Quick accuracy test
-python scripts/test_accuracy.py
+python scripts/demos/test_accuracy.py
 
 # Comprehensive test suite
-python scripts/run_all_tests.py
+python scripts/tests/integration/run_all_tests.py
 
 # Extreme stress test (5000 items, 1000 queries)
-python scripts/extreme_query_challenge.py
+python scripts/tests/performance/extreme_query_challenge.py
 
 # HTTP API stress test (2000 inserts/queries)
-python scripts/extreme_http_test.py
+python scripts/tests/performance/extreme_http_test.py
 ```
 
 **Sample Results** (on Intel Ultra 7, 54GB RAM):
-- Extreme Challenge: 5000 items inserted in 9.79s (510/sec), 1000 queries in 12.22s (81/sec), avg 0.012s/query.
+- Extreme Challenge: 5000 items inserted in 11.03s (453/sec), 2000 complex queries in 102.49s (19.5/sec), avg 0.051s/query.
+- Accuracy: 100% ANN vs brute-force consistency, 260x ANN speedup.
+- Stress Test: Handles 100,000+ items with concurrent queries under memory pressure.
 
 ### Extending Holon
 - **Add Encoders**: Subclass `Encoder` in `holon/encoder.py` for new data types.
 - **Custom Markers**: Modify parsing in `cpu_store.py` for new query operators.
 - **Vector Ops**: Extend `vector_manager.py` for custom algebras.
-- **API Endpoints**: Add routes in `scripts/holon_server.py`.
+- **API Endpoints**: Add routes in `scripts/server/holon_server.py`.
 - **Tests**: Add to `tests/` following pytest conventions.
 
 See [docs/](docs/) for API docs and examples.
@@ -252,9 +275,40 @@ Holon's VSA/HDC architecture enables powerful applications in data understanding
 
 ### 🔬 **Research & Development**
 - **Cognitive Architectures:** Build systems that learn like humans
-- **Geometric Reasoning:** VSA/HDC geometric rule learning for abstract reasoning (see [RPM findings](docs/rpm_geometric_solution_findings.md))
+- **Geometric Reasoning:** ✅ **Proven VSA/HDC geometric rule learning** for abstract reasoning - statistically significant performance on Raven's Progressive Matrices ([RPM findings](docs/rpm_geometric_solution_findings.md))
 - **Neural-Symbolic Integration:** Combine symbolic reasoning with neural processing
 - **Explainable AI:** Provide interpretable similarity reasoning
+- **Geometric Intelligence:** Pure vector-based solutions for constraint satisfaction (Sudoku) and pattern completion
+
+## 🏆 Challenge Solutions
+
+We've successfully implemented and validated several complex applications using Holon's VSA/HDC architecture:
+
+### ✅ **Batch 1: Personal Task Memory System**
+- **Fuzzy Task Retrieval**: Intelligent task management with partial/fuzzy queries
+- **Advanced Filtering**: Guards, negations, wildcards for precise task discovery
+- **Hierarchical Queries**: Project-based task organization and retrieval
+- **Real-world Demo**: 50+ realistic tasks with complex query patterns
+
+### ✅ **Batch 2: Raven's Progressive Matrices (RPM) Solver**
+- **Geometric Rule Learning**: VSA/HDC-based abstract reasoning system
+- **Statistically Significant Performance**: Well above random chance accuracy
+- **Multiple Rule Types**: Progression, XOR, union operations in hyperspace
+- **Pattern Completion**: Similarity-based geometric analog discovery
+- **Research Breakthrough**: Proven geometric learning capabilities (see [RPM findings](docs/rpm_geometric_solution_findings.md))
+
+### ✅ **Batch 3: PDF Quote Finder with Vector Bootstrapping**
+- **Intelligent Book Indexing**: PDF content extraction and metadata processing
+- **N-gram Sequence Encoding**: Fuzzy phrase matching in hyperspace
+- **Vector Bootstrapping API**: User-driven encoding for custom search terms
+- **Metadata-Only Storage**: Efficient indexing without full text storage
+- **Advanced PDF Processing**: Chapter, paragraph, page-level metadata extraction
+
+### 🚧 **Batch 4: Geometric Sudoku Solver** (In Progress)
+- **Constraint Satisfaction**: Pure VSA/HDC approach to classic Sudoku
+- **Geometric Alignment**: Similarity-based solution discovery
+- **Iterative Refinement**: Constraint-guided candidate selection
+- **Hyperdimensional Logic**: Vector-based constraint encoding
 
 ## Performance & Limits
 

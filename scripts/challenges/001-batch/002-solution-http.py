@@ -7,39 +7,47 @@ as structured data and enable similarity search, ingredient substitution,
 and advanced querying using Holon's HTTP API (network service).
 """
 
-import requests
 import json
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+import requests
 
 # HTTP API Configuration
 BASE_URL = "http://localhost:8000"
 
+
 def http_insert(data: str, data_type: str = "edn") -> str:
     """Insert data via HTTP API."""
-    response = requests.post(f"{BASE_URL}/insert", json={
-        "data": data,
-        "data_type": data_type
-    })
+    response = requests.post(
+        f"{BASE_URL}/insert", json={"data": data, "data_type": data_type}
+    )
     response.raise_for_status()
     return response.json()["id"]
 
+
 def http_batch_insert(items: List[str], data_type: str = "edn") -> List[str]:
     """Batch insert data via HTTP API."""
-    response = requests.post(f"{BASE_URL}/batch_insert", json={
-        "items": items,
-        "data_type": data_type
-    })
+    response = requests.post(
+        f"{BASE_URL}/batch_insert", json={"items": items, "data_type": data_type}
+    )
     response.raise_for_status()
     return response.json()["ids"]
 
-def http_query(probe: str, data_type: str = "edn", top_k: int = 10, threshold: float = 0.0,
-               guard: str = None, negations: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+
+def http_query(
+    probe: str,
+    data_type: str = "edn",
+    top_k: int = 10,
+    threshold: float = 0.0,
+    guard: str = None,
+    negations: Dict[str, Any] = None,
+) -> List[Dict[str, Any]]:
     """Query data via HTTP API."""
     query_data = {
         "probe": probe,
         "data_type": data_type,
         "top_k": top_k,
-        "threshold": threshold
+        "threshold": threshold,
     }
     if guard:
         query_data["guard"] = guard
@@ -71,9 +79,9 @@ def create_sample_recipes():
                 {"item": "tomato sauce", "amount": 24, "unit": ":oz"},
                 {"item": "onion", "amount": 1, "unit": ":medium"},
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
-                {"item": "italian seasoning", "amount": 1, "unit": ":tbsp"}
+                {"item": "italian seasoning", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"comfort" "family" "baking"}'
+            "tags": '#{"comfort" "family" "baking"}',
         },
         {
             "name": "Vegan Eggplant Parmesan",
@@ -88,11 +96,10 @@ def create_sample_recipes():
                 {"item": "tomato sauce", "amount": 24, "unit": ":oz"},
                 {"item": "basil", "amount": 0.25, "unit": ":cup"},
                 {"item": "olive oil", "amount": 3, "unit": ":tbsp"},
-                {"item": "garlic powder", "amount": 1, "unit": ":tsp"}
+                {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"vegan" "italian" "vegetarian"}'
+            "tags": '#{"vegan" "italian" "vegetarian"}',
         },
-
         # Asian recipes
         {
             "name": "Pad Thai",
@@ -110,9 +117,9 @@ def create_sample_recipes():
                 {"item": "fish sauce", "amount": 2, "unit": ":tbsp"},
                 {"item": "tamarind paste", "amount": 1, "unit": ":tbsp"},
                 {"item": "palm sugar", "amount": 1, "unit": ":tbsp"},
-                {"item": "chili flakes", "amount": 0.5, "unit": ":tsp"}
+                {"item": "chili flakes", "amount": 0.5, "unit": ":tsp"},
             ],
-            "tags": '#{"thai" "noodles" "quick" "spicy"}'
+            "tags": '#{"thai" "noodles" "quick" "spicy"}',
         },
         {
             "name": "Mapo Tofu",
@@ -129,11 +136,10 @@ def create_sample_recipes():
                 {"item": "ginger", "amount": 1, "unit": ":tbsp"},
                 {"item": "green onions", "amount": 3, "unit": ":stalks"},
                 {"item": "cornstarch", "amount": 1, "unit": ":tbsp"},
-                {"item": "sesame oil", "amount": 1, "unit": ":tsp"}
+                {"item": "sesame oil", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"chinese" "spicy" "quick" "comfort"}'
+            "tags": '#{"chinese" "spicy" "quick" "comfort"}',
         },
-
         # Mexican recipes
         {
             "name": "Chicken Tacos",
@@ -150,9 +156,9 @@ def create_sample_recipes():
                 {"item": "onion", "amount": 1, "unit": ":small"},
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
                 {"item": "chili powder", "amount": 1, "unit": ":tsp"},
-                {"item": "garlic powder", "amount": 1, "unit": ":tsp"}
+                {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "quick" "gluten-free" "protein"}'
+            "tags": '#{"mexican" "quick" "gluten-free" "protein"}',
         },
         {
             "name": "Vegan Burrito Bowl",
@@ -168,11 +174,10 @@ def create_sample_recipes():
                 {"item": "salsa", "amount": 0.5, "unit": ":cup"},
                 {"item": "lime", "amount": 1, "unit": ":whole"},
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
-                {"item": "chili powder", "amount": 1, "unit": ":tsp"}
+                {"item": "chili powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "vegan" "gluten-free" "healthy"}'
+            "tags": '#{"mexican" "vegan" "gluten-free" "healthy"}',
         },
-
         # Middle Eastern recipes
         {
             "name": "Chicken Shawarma",
@@ -189,9 +194,9 @@ def create_sample_recipes():
                 {"item": "paprika", "amount": 1, "unit": ":tbsp"},
                 {"item": "turmeric", "amount": 1, "unit": ":tsp"},
                 {"item": "cinnamon", "amount": 0.5, "unit": ":tsp"},
-                {"item": "olive oil", "amount": 2, "unit": ":tbsp"}
+                {"item": "olive oil", "amount": 2, "unit": ":tbsp"},
             ],
-            "tags": '#{"middle-eastern" "grilled" "spicy" "protein"}'
+            "tags": '#{"middle-eastern" "grilled" "spicy" "protein"}',
         },
         {
             "name": "Falafel Bowls",
@@ -208,11 +213,10 @@ def create_sample_recipes():
                 {"item": "coriander", "amount": 1, "unit": ":tsp"},
                 {"item": "flour", "amount": 2, "unit": ":tbsp"},
                 {"item": "tahini", "amount": 0.25, "unit": ":cup"},
-                {"item": "lemon", "amount": 0.5, "unit": ":whole"}
+                {"item": "lemon", "amount": 0.5, "unit": ":whole"},
             ],
-            "tags": '#{"middle-eastern" "vegan" "fried" "healthy"}'
+            "tags": '#{"middle-eastern" "vegan" "fried" "healthy"}',
         },
-
         # Indian recipes
         {
             "name": "Butter Chicken",
@@ -229,9 +233,9 @@ def create_sample_recipes():
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
                 {"item": "ginger", "amount": 1, "unit": ":tbsp"},
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
-                {"item": "onion", "amount": 1, "unit": ":medium"}
+                {"item": "onion", "amount": 1, "unit": ":medium"},
             ],
-            "tags": '#{"indian" "curry" "creamy" "comfort"}'
+            "tags": '#{"indian" "curry" "creamy" "comfort"}',
         },
         {
             "name": "Chana Masala",
@@ -249,11 +253,10 @@ def create_sample_recipes():
                 {"item": "coriander", "amount": 1, "unit": ":tsp"},
                 {"item": "turmeric", "amount": 0.5, "unit": ":tsp"},
                 {"item": "garam masala", "amount": 1, "unit": ":tsp"},
-                {"item": "coconut oil", "amount": 1, "unit": ":tbsp"}
+                {"item": "coconut oil", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"indian" "curry" "vegan" "protein"}'
+            "tags": '#{"indian" "curry" "vegan" "protein"}',
         },
-
         # American recipes
         {
             "name": "Grilled Cheese Sandwich",
@@ -264,9 +267,9 @@ def create_sample_recipes():
             "ingredients": [
                 {"item": "bread", "amount": 2, "unit": ":slices"},
                 {"item": "cheddar cheese", "amount": 2, "unit": ":slices"},
-                {"item": "butter", "amount": 1, "unit": ":tbsp"}
+                {"item": "butter", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"american" "quick" "comfort" "sandwich"}'
+            "tags": '#{"american" "quick" "comfort" "sandwich"}',
         },
         {
             "name": "Vegan Mac and Cheese",
@@ -281,10 +284,10 @@ def create_sample_recipes():
                 {"item": "lemon juice", "amount": 2, "unit": ":tbsp"},
                 {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
                 {"item": "turmeric", "amount": 0.5, "unit": ":tsp"},
-                {"item": "salt", "amount": 1, "unit": ":tsp"}
+                {"item": "salt", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"american" "vegan" "comfort" "pasta"}'
-        }
+            "tags": '#{"american" "vegan" "comfort" "pasta"}',
+        },
     ]
 
     return recipes
@@ -292,6 +295,7 @@ def create_sample_recipes():
 
 def convert_recipe_to_edn(recipe):
     """Convert a Python dict recipe to EDN format string."""
+
     def format_value(value):
         if isinstance(value, str):
             return f'"{value}"'
@@ -312,17 +316,19 @@ def convert_recipe_to_edn(recipe):
         if key == "name":
             edn_parts.append(f':{key} "{value}"')
         elif key == "cuisine":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "diet":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "difficulty":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "time":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "ingredients":
-            edn_parts.append(f':{key} [{", ".join(format_ingredient(ing) for ing in value)}]')
+            edn_parts.append(
+                f':{key} [{", ".join(format_ingredient(ing) for ing in value)}]'
+            )
         elif key == "tags":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
 
     return f"{{{', '.join(edn_parts)}}}"
 
@@ -354,21 +360,29 @@ def query_recipes_http(probe, description, top_k=10, guard=None, negations=None)
         print(f"Negations: {negations}")
 
     try:
-        results = http_query(probe, "edn", top_k=top_k, guard=guard, negations=negations)
+        results = http_query(
+            probe, "edn", top_k=top_k, guard=guard, negations=negations
+        )
 
         if not results:
             print("  ❌ No matching recipes found")
             return
 
-        print(f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):")
+        print(
+            f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):"
+        )
 
         for i, result in enumerate(results):
             recipe = result["data"]
             print(f"  {i+1}. [{result['score']:.3f}] {recipe.get('name', 'Unknown')}")
-            print(f"     Cuisine: {recipe.get('cuisine', 'Unknown')} | Difficulty: {recipe.get('difficulty', 'Unknown')} | Time: {recipe.get('time', 'Unknown')} min")
-            if recipe.get('diet') and recipe['diet'] != []:  # EDN sets become lists in JSON
+            print(
+                f"     Cuisine: {recipe.get('cuisine', 'Unknown')} | Difficulty: {recipe.get('difficulty', 'Unknown')} | Time: {recipe.get('time', 'Unknown')} min"
+            )
+            if (
+                recipe.get("diet") and recipe["diet"] != []
+            ):  # EDN sets become lists in JSON
                 print(f"     Diet: {recipe['diet']}")
-            if recipe.get('tags') and recipe['tags'] != []:
+            if recipe.get("tags") and recipe["tags"] != []:
                 print(f"     Tags: {recipe['tags']}")
 
     except Exception as e:
@@ -386,10 +400,12 @@ def main():
         response.raise_for_status()
         health = response.json()
         print(f"🔗 Connected to Holon service at {BASE_URL}")
-        print(f"   Status: {health['status']} | Backend: {health['backend']} | Items: {health['items_count']}")
+        print(
+            f"   Status: {health['status']} | Backend: {health['backend']} | Items: {health['items_count']}"
+        )
     except Exception as e:
         print(f"❌ Cannot connect to Holon service: {e}")
-        print("Make sure the server is running: python scripts/holon_server.py")
+        print("Make sure the server is running: python scripts/server/holon_server.py")
         return
 
     # Create and ingest sample recipes via HTTP
@@ -407,50 +423,44 @@ def main():
     # 1. Fuzzy similarity query
     query_recipes_http(
         '{:name "classic lasagna"}',
-        "1. FUZZY SIMILARITY: Recipes similar to 'classic lasagna'"
+        "1. FUZZY SIMILARITY: Recipes similar to 'classic lasagna'",
     )
 
     # 2. Similarity + negation (no shrimp)
     query_recipes_http(
         '{:name "pad thai"}',
         "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
-        negations={'ingredients': [{'item': 'shrimp'}]}
+        negations={"ingredients": [{"item": "shrimp"}]},
     )
 
     # 3. Substitution query (different proteins from mapo tofu)
     query_recipes_http(
         '{:name "mapo tofu"}',
         "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
-        negations={'ingredients': [{'item': 'tofu'}]}
+        negations={"ingredients": [{"item": "tofu"}]},
     )
 
     # 4. Tag-based query (curry dishes)
     query_recipes_http(
-        '{:tags #{"curry"}}',
-        "4. TAG SIMILARITY: Dishes with 'curry' tag"
+        '{:tags #{"curry"}}', "4. TAG SIMILARITY: Dishes with 'curry' tag"
     )
 
     # 5. Cuisine filter (Asian recipes)
-    query_recipes_http(
-        '{:cuisine :asian}',
-        "5. CUISINE FILTER: Asian recipes"
-    )
+    query_recipes_http("{:cuisine :asian}", "5. CUISINE FILTER: Asian recipes")
 
     # 6. Diet filter (vegan recipes)
-    query_recipes_http(
-        '{:diet #{"vegan"}}',
-        "6. DIET FILTER: Vegan recipes"
-    )
+    query_recipes_http('{:diet #{"vegan"}}', "6. DIET FILTER: Vegan recipes")
 
     # 7. Comfort food query
     query_recipes_http(
-        '{:tags #{"comfort"}}',
-        "7. TAG SIMILARITY: Comfort food recipes"
+        '{:tags #{"comfort"}}', "7. TAG SIMILARITY: Comfort food recipes"
     )
 
     print("\n" + "=" * 60)
     print("🎉 HTTP Recipe Memory Demo Complete!")
-    print("Holon HTTP API successfully demonstrated recipe similarity, substitution, and advanced querying")
+    print(
+        "Holon HTTP API successfully demonstrated recipe similarity, substitution, and advanced querying"
+    )
     print("=" * 60)
 
 

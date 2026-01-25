@@ -31,7 +31,7 @@ pytest tests/
 1. Always activate venv: `./scripts/run_with_venv.sh`
 2. Run tests: `./scripts/run_with_venv.sh python -m pytest tests/`
 3. Run demos: `./scripts/run_with_venv.sh python scripts/some_demo.py`
-4. Start server: `./scripts/run_with_venv.sh python scripts/holon_server.py`
+4. Start server: `./scripts/run_with_venv.sh python scripts/server/holon_server.py`
 
 ## Testing
 - Use pytest for all tests

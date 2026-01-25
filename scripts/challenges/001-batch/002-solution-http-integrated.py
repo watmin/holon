@@ -3,14 +3,16 @@
 Integrated HTTP Recipe Demo - Starts Holon service internally for testing
 """
 
-import requests
 import json
-import time
-import threading
-import subprocess
-import signal
 import os
+import signal
+import subprocess
+import threading
+import time
 from contextlib import contextmanager
+
+import requests
+
 
 @contextmanager
 def holon_service():
@@ -19,21 +21,29 @@ def holon_service():
 
     # Start the server as a subprocess
     env = os.environ.copy()
-    env['PYTHONPATH'] = '/home/watmin/work/holon'
+    env["PYTHONPATH"] = "/home/watmin/work/holon"
 
-    server_process = subprocess.Popen([
-        'python', 'scripts/holon_server.py',
-        '--host', '127.0.0.1',
-        '--port', '8001'
-    ], cwd='/home/watmin/work/holon', env=env,
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    server_process = subprocess.Popen(
+        [
+            "python",
+            "scripts/server/holon_server.py",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8001",
+        ],
+        cwd="/home/watmin/work/holon",
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     # Wait for server to start
     time.sleep(3)
 
     try:
         # Test if server is responding
-        response = requests.get('http://127.0.0.1:8001/health', timeout=5)
+        response = requests.get("http://127.0.0.1:8001/health", timeout=5)
         if response.status_code == 200:
             print("✅ Holon service started successfully")
             yield "http://127.0.0.1:8001"
@@ -54,6 +64,7 @@ def holon_service():
             server_process.wait()
         print("✅ Holon service stopped")
 
+
 def test_http_operations(base_url):
     """Test HTTP operations against the running service."""
     if not base_url:
@@ -71,10 +82,9 @@ def test_http_operations(base_url):
         # Test single insert
         print("2. Testing single insert...")
         recipe_data = '{"name": "Test Lasagna", "cuisine": "italian", "difficulty": "medium", "time": 90}'
-        response = requests.post(f"{base_url}/insert", json={
-            "data": recipe_data,
-            "data_type": "json"
-        })
+        response = requests.post(
+            f"{base_url}/insert", json={"data": recipe_data, "data_type": "json"}
+        )
         result = response.json()
         print(f"   ✅ Inserted recipe with ID: {result['id']}")
 
@@ -83,12 +93,11 @@ def test_http_operations(base_url):
         recipes = [
             '{"name": "Pad Thai", "cuisine": "asian", "difficulty": "medium", "time": 30}',
             '{"name": "Tacos", "cuisine": "mexican", "difficulty": "easy", "time": 20}',
-            '{"name": "Curry", "cuisine": "indian", "difficulty": "medium", "time": 45}'
+            '{"name": "Curry", "cuisine": "indian", "difficulty": "medium", "time": 45}',
         ]
-        response = requests.post(f"{base_url}/batch_insert", json={
-            "items": recipes,
-            "data_type": "json"
-        })
+        response = requests.post(
+            f"{base_url}/batch_insert", json={"items": recipes, "data_type": "json"}
+        )
         result = response.json()
         print(f"   ✅ Batch inserted {len(result['ids'])} recipes")
 
@@ -103,6 +112,7 @@ def test_http_operations(base_url):
     except Exception as e:
         print(f"❌ HTTP operation failed: {e}")
         return False
+
 
 def demonstrate_network_readiness():
     """Demonstrate that our solutions are network-service ready."""
@@ -130,6 +140,7 @@ def demonstrate_network_readiness():
     print("   • Connection pooling and efficiency")
     print("   • Designed for remote service interaction")
 
+
 def main():
     """Main demonstration."""
     print("🔗 Integrated HTTP Recipe Memory Demo")
@@ -144,7 +155,9 @@ def main():
 
         if success:
             print("\n🎉 SUCCESS: HTTP operations work perfectly!")
-            print("✅ Challenge solutions CAN communicate with Holon services over network")
+            print(
+                "✅ Challenge solutions CAN communicate with Holon services over network"
+            )
             demonstrate_network_readiness()
         else:
             print("\n❌ Some HTTP operations failed, but concept is proven")
@@ -153,6 +166,7 @@ def main():
     print("🏆 CONCLUSION: Our challenge solutions are network-service ready!")
     print("They assume and support remote Holon service communication.")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()

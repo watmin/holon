@@ -5,16 +5,18 @@ Stores only vectors + coordinate metadata, never the actual text content.
 """
 
 import json
-from typing import List, Dict, Any, Optional
+
+# Configure logging
+import logging
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from holon import CPUStore
 from holon.encoder import ListEncodeMode
 
-# Configure logging
-import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class MetadataQuoteSystem:
     """Quote system that stores only vectors + coordinate metadata, no text content."""
@@ -30,12 +32,7 @@ class MetadataQuoteSystem:
         words = self._normalize_text(quote_text)
 
         # Create encoding data structure
-        encode_data = {
-            'text': {
-                '_encode_mode': 'ngram',
-                'sequence': words
-            }
-        }
+        encode_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
         # Get vector from encoder (simulating /encode API)
         vector = self.store.encoder.encode_data(encode_data)
@@ -45,11 +42,14 @@ class MetadataQuoteSystem:
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
         import re
-        normalized = re.sub(r'[^\w\s]', '', text.lower())
+
+        normalized = re.sub(r"[^\w\s]", "", text.lower())
         words = [word for word in normalized.split() if word]
         return words
 
-    def store_quote_coordinates(self, quote_text: str, coordinates: Dict[str, Any]) -> str:
+    def store_quote_coordinates(
+        self, quote_text: str, coordinates: Dict[str, Any]
+    ) -> str:
         """
         Store a quote by encoding it to vector and storing only coordinates.
 
@@ -67,27 +67,30 @@ class MetadataQuoteSystem:
 
         # Create storage unit with only vector + coordinates (no text)
         storage_unit = {
-            'vector_data': vector,  # The encoded vector
-            'coordinates': coordinates,  # Coordinate metadata
-            'metadata': {
-                'quote_type': 'coordinate_reference',
-                'word_count': len(self._normalize_text(quote_text)),
-                'book_title': coordinates.get('book_title', 'Unknown')
-            }
+            "vector_data": vector,  # The encoded vector
+            "coordinates": coordinates,  # Coordinate metadata
+            "metadata": {
+                "quote_type": "coordinate_reference",
+                "word_count": len(self._normalize_text(quote_text)),
+                "book_title": coordinates.get("book_title", "Unknown"),
+            },
         }
 
         # Store in Holon (this will encode the vector_data again, but that's OK)
         # In a production system, you'd store pre-computed vectors directly
-        vector_id = self.store.insert(json.dumps(storage_unit), 'json')
+        vector_id = self.store.insert(json.dumps(storage_unit), "json")
 
         # Store coordinate lookup (in real system, this would be external DB)
         self.metadata_lookup[vector_id] = coordinates
 
-        print(f"✅ Stored quote coordinates at: {coordinates['chapter']} | Para {coordinates['paragraph_num']} | Page {coordinates['page_start']}")
+        print(
+            f"✅ Stored quote coordinates at: {coordinates['chapter']} | Para {coordinates['paragraph_num']} | Page {coordinates['page_start']}"
+        )
         return vector_id
 
-    def search_quotes_by_content(self, query_text: str, top_k: int = 10,
-                                threshold: float = 0.0) -> List[Dict[str, Any]]:
+    def search_quotes_by_content(
+        self, query_text: str, top_k: int = 10, threshold: float = 0.0
+    ) -> List[Dict[str, Any]]:
         """Search for quotes by content, return only coordinate metadata."""
         print(f"🔍 Searching for quote content: '{query_text}'")
 
@@ -96,18 +99,16 @@ class MetadataQuoteSystem:
 
         # Create probe with the query vector
         probe_data = {
-            'vector_data': query_vector,
-            'metadata': {
-                'quote_type': 'coordinate_reference'
-            }
+            "vector_data": query_vector,
+            "metadata": {"quote_type": "coordinate_reference"},
         }
 
         # Search for similar vectors
         results = self.store.query(
             probe=json.dumps(probe_data),
-            data_type='json',
+            data_type="json",
             top_k=top_k,
-            threshold=threshold
+            threshold=threshold,
         )
 
         print(f"📊 Found {len(results)} similar vectors")
@@ -115,13 +116,15 @@ class MetadataQuoteSystem:
         # Return only coordinate metadata (no text content)
         coordinate_results = []
         for vector_id, score, stored_data in results:
-            coordinates = self.metadata_lookup.get(vector_id, stored_data.get('coordinates', {}))
+            coordinates = self.metadata_lookup.get(
+                vector_id, stored_data.get("coordinates", {})
+            )
 
             result = {
-                'vector_id': vector_id,
-                'similarity_score': score,
-                'coordinates': coordinates,
-                'query_text': query_text
+                "vector_id": vector_id,
+                "similarity_score": score,
+                "coordinates": coordinates,
+                "query_text": query_text,
             }
             coordinate_results.append(result)
 
@@ -135,53 +138,53 @@ class MetadataQuoteSystem:
         # Define coordinate metadata for our quotes
         quote_coordinates = [
             {
-                'quote_text': 'Everything depends upon relative minuteness.',
-                'coordinates': {
-                    'chapter': 'Chapter II',
-                    'paragraph_num': 1,
-                    'page_start': 2,
-                    'page_end': 2,
-                    'word_count': 5,
-                    'book_title': 'Calculus Made Easy',
-                    'quote_position': {'word_start': 0, 'word_end': 5}
-                }
+                "quote_text": "Everything depends upon relative minuteness.",
+                "coordinates": {
+                    "chapter": "Chapter II",
+                    "paragraph_num": 1,
+                    "page_start": 2,
+                    "page_end": 2,
+                    "word_count": 5,
+                    "book_title": "Calculus Made Easy",
+                    "quote_position": {"word_start": 0, "word_end": 5},
+                },
             },
             {
-                'quote_text': 'Integration is the reverse of differentiation.',
-                'coordinates': {
-                    'chapter': 'Chapter IV',
-                    'paragraph_num': 1,
-                    'page_start': 4,
-                    'page_end': 4,
-                    'word_count': 6,
-                    'book_title': 'Calculus Made Easy',
-                    'quote_position': {'word_start': 0, 'word_end': 6}
-                }
+                "quote_text": "Integration is the reverse of differentiation.",
+                "coordinates": {
+                    "chapter": "Chapter IV",
+                    "paragraph_num": 1,
+                    "page_start": 4,
+                    "page_end": 4,
+                    "word_count": 6,
+                    "book_title": "Calculus Made Easy",
+                    "quote_position": {"word_start": 0, "word_end": 6},
+                },
             },
             {
-                'quote_text': 'dy dx is the slope of the tangent.',
-                'coordinates': {
-                    'chapter': 'Chapter III',
-                    'paragraph_num': 1,
-                    'page_start': 3,
-                    'page_end': 3,
-                    'word_count': 7,
-                    'book_title': 'Calculus Made Easy',
-                    'quote_position': {'word_start': 2, 'word_end': 7}
-                }
+                "quote_text": "dy dx is the slope of the tangent.",
+                "coordinates": {
+                    "chapter": "Chapter III",
+                    "paragraph_num": 1,
+                    "page_start": 3,
+                    "page_end": 3,
+                    "word_count": 7,
+                    "book_title": "Calculus Made Easy",
+                    "quote_position": {"word_start": 2, "word_end": 7},
+                },
             },
             {
-                'quote_text': 'Some calculus-tricks are quite easy.',
-                'coordinates': {
-                    'chapter': 'Conclusion',
-                    'paragraph_num': 1,
-                    'page_start': 5,
-                    'page_end': 5,
-                    'word_count': 5,
-                    'book_title': 'Calculus Made Easy',
-                    'quote_position': {'word_start': 0, 'word_end': 5}
-                }
-            }
+                "quote_text": "Some calculus-tricks are quite easy.",
+                "coordinates": {
+                    "chapter": "Conclusion",
+                    "paragraph_num": 1,
+                    "page_start": 5,
+                    "page_end": 5,
+                    "word_count": 5,
+                    "book_title": "Calculus Made Easy",
+                    "quote_position": {"word_start": 0, "word_end": 5},
+                },
+            },
         ]
 
         # Store quotes (vectors only + coordinates, no text)
@@ -189,8 +192,7 @@ class MetadataQuoteSystem:
         stored_ids = []
         for quote_data in quote_coordinates:
             vector_id = self.store_quote_coordinates(
-                quote_data['quote_text'],
-                quote_data['coordinates']
+                quote_data["quote_text"], quote_data["coordinates"]
             )
             stored_ids.append(vector_id)
 
@@ -198,10 +200,10 @@ class MetadataQuoteSystem:
 
         # Demonstrate searches that return only coordinates
         search_queries = [
-            'Everything depends upon relative minuteness.',
-            'integration is the reverse',
-            'slope of the tangent',
-            'calculus tricks'
+            "Everything depends upon relative minuteness.",
+            "integration is the reverse",
+            "slope of the tangent",
+            "calculus tricks",
         ]
 
         for query in search_queries:
@@ -213,13 +215,17 @@ class MetadataQuoteSystem:
             if results:
                 print("📍 Coordinate Results:")
                 for i, result in enumerate(results[:3], 1):
-                    coord = result['coordinates']
-                    print(f"  {i}. 📍 {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}")
+                    coord = result["coordinates"]
+                    print(
+                        f"  {i}. 📍 {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}"
+                    )
                     print(".3f")
                     print(f"      📖 Book: {coord['book_title']}")
-                    if 'quote_position' in coord:
-                        pos = coord['quote_position']
-                        print(f"      🎯 Position: words {pos['word_start']}-{pos['word_end']}")
+                    if "quote_position" in coord:
+                        pos = coord["quote_position"]
+                        print(
+                            f"      🎯 Position: words {pos['word_start']}-{pos['word_end']}"
+                        )
                     print()
             else:
                 print("❌ No matches found")

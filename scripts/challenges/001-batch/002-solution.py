@@ -8,6 +8,7 @@ and advanced querying using Holon's vector symbolic architecture.
 """
 
 import json
+
 from holon import CPUStore
 
 
@@ -31,9 +32,9 @@ def create_sample_recipes():
                 {"item": "tomato sauce", "amount": 24, "unit": ":oz"},
                 {"item": "onion", "amount": 1, "unit": ":medium"},
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
-                {"item": "italian seasoning", "amount": 1, "unit": ":tbsp"}
+                {"item": "italian seasoning", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"comfort" "family" "baking"}'
+            "tags": '#{"comfort" "family" "baking"}',
         },
         {
             "name": "Vegan Eggplant Parmesan",
@@ -48,11 +49,10 @@ def create_sample_recipes():
                 {"item": "tomato sauce", "amount": 24, "unit": ":oz"},
                 {"item": "basil", "amount": 0.25, "unit": ":cup"},
                 {"item": "olive oil", "amount": 3, "unit": ":tbsp"},
-                {"item": "garlic powder", "amount": 1, "unit": ":tsp"}
+                {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"vegan" "italian" "vegetarian"}'
+            "tags": '#{"vegan" "italian" "vegetarian"}',
         },
-
         # Asian recipes
         {
             "name": "Pad Thai",
@@ -70,9 +70,9 @@ def create_sample_recipes():
                 {"item": "fish sauce", "amount": 2, "unit": ":tbsp"},
                 {"item": "tamarind paste", "amount": 1, "unit": ":tbsp"},
                 {"item": "palm sugar", "amount": 1, "unit": ":tbsp"},
-                {"item": "chili flakes", "amount": 0.5, "unit": ":tsp"}
+                {"item": "chili flakes", "amount": 0.5, "unit": ":tsp"},
             ],
-            "tags": '#{"thai" "noodles" "quick" "spicy"}'
+            "tags": '#{"thai" "noodles" "quick" "spicy"}',
         },
         {
             "name": "Mapo Tofu",
@@ -89,11 +89,10 @@ def create_sample_recipes():
                 {"item": "ginger", "amount": 1, "unit": ":tbsp"},
                 {"item": "green onions", "amount": 3, "unit": ":stalks"},
                 {"item": "cornstarch", "amount": 1, "unit": ":tbsp"},
-                {"item": "sesame oil", "amount": 1, "unit": ":tsp"}
+                {"item": "sesame oil", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"chinese" "spicy" "quick" "comfort"}'
+            "tags": '#{"chinese" "spicy" "quick" "comfort"}',
         },
-
         # Mexican recipes
         {
             "name": "Chicken Tacos",
@@ -110,9 +109,9 @@ def create_sample_recipes():
                 {"item": "onion", "amount": 1, "unit": ":small"},
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
                 {"item": "chili powder", "amount": 1, "unit": ":tsp"},
-                {"item": "garlic powder", "amount": 1, "unit": ":tsp"}
+                {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "quick" "gluten-free" "protein"}'
+            "tags": '#{"mexican" "quick" "gluten-free" "protein"}',
         },
         {
             "name": "Vegan Burrito Bowl",
@@ -128,11 +127,10 @@ def create_sample_recipes():
                 {"item": "salsa", "amount": 0.5, "unit": ":cup"},
                 {"item": "lime", "amount": 1, "unit": ":whole"},
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
-                {"item": "chili powder", "amount": 1, "unit": ":tsp"}
+                {"item": "chili powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "vegan" "gluten-free" "healthy"}'
+            "tags": '#{"mexican" "vegan" "gluten-free" "healthy"}',
         },
-
         # Middle Eastern recipes
         {
             "name": "Chicken Shawarma",
@@ -149,9 +147,9 @@ def create_sample_recipes():
                 {"item": "paprika", "amount": 1, "unit": ":tbsp"},
                 {"item": "turmeric", "amount": 1, "unit": ":tsp"},
                 {"item": "cinnamon", "amount": 0.5, "unit": ":tsp"},
-                {"item": "olive oil", "amount": 2, "unit": ":tbsp"}
+                {"item": "olive oil", "amount": 2, "unit": ":tbsp"},
             ],
-            "tags": '#{"middle-eastern" "grilled" "spicy" "protein"}'
+            "tags": '#{"middle-eastern" "grilled" "spicy" "protein"}',
         },
         {
             "name": "Falafel Bowls",
@@ -168,11 +166,10 @@ def create_sample_recipes():
                 {"item": "coriander", "amount": 1, "unit": ":tsp"},
                 {"item": "flour", "amount": 2, "unit": ":tbsp"},
                 {"item": "tahini", "amount": 0.25, "unit": ":cup"},
-                {"item": "lemon", "amount": 0.5, "unit": ":whole"}
+                {"item": "lemon", "amount": 0.5, "unit": ":whole"},
             ],
-            "tags": '#{"middle-eastern" "vegan" "fried" "healthy"}'
+            "tags": '#{"middle-eastern" "vegan" "fried" "healthy"}',
         },
-
         # Indian recipes
         {
             "name": "Butter Chicken",
@@ -189,9 +186,9 @@ def create_sample_recipes():
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
                 {"item": "ginger", "amount": 1, "unit": ":tbsp"},
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
-                {"item": "onion", "amount": 1, "unit": ":medium"}
+                {"item": "onion", "amount": 1, "unit": ":medium"},
             ],
-            "tags": '#{"indian" "curry" "creamy" "comfort"}'
+            "tags": '#{"indian" "curry" "creamy" "comfort"}',
         },
         {
             "name": "Chana Masala",
@@ -209,11 +206,10 @@ def create_sample_recipes():
                 {"item": "coriander", "amount": 1, "unit": ":tsp"},
                 {"item": "turmeric", "amount": 0.5, "unit": ":tsp"},
                 {"item": "garam masala", "amount": 1, "unit": ":tsp"},
-                {"item": "coconut oil", "amount": 1, "unit": ":tbsp"}
+                {"item": "coconut oil", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"indian" "curry" "vegan" "protein"}'
+            "tags": '#{"indian" "curry" "vegan" "protein"}',
         },
-
         # American recipes
         {
             "name": "Grilled Cheese Sandwich",
@@ -224,9 +220,9 @@ def create_sample_recipes():
             "ingredients": [
                 {"item": "bread", "amount": 2, "unit": ":slices"},
                 {"item": "cheddar cheese", "amount": 2, "unit": ":slices"},
-                {"item": "butter", "amount": 1, "unit": ":tbsp"}
+                {"item": "butter", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"american" "quick" "comfort" "sandwich"}'
+            "tags": '#{"american" "quick" "comfort" "sandwich"}',
         },
         {
             "name": "Vegan Mac and Cheese",
@@ -241,10 +237,10 @@ def create_sample_recipes():
                 {"item": "lemon juice", "amount": 2, "unit": ":tbsp"},
                 {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
                 {"item": "turmeric", "amount": 0.5, "unit": ":tsp"},
-                {"item": "salt", "amount": 1, "unit": ":tsp"}
+                {"item": "salt", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"american" "vegan" "comfort" "pasta"}'
-        }
+            "tags": '#{"american" "vegan" "comfort" "pasta"}',
+        },
     ]
 
     return recipes
@@ -252,6 +248,7 @@ def create_sample_recipes():
 
 def convert_recipe_to_edn(recipe):
     """Convert a Python dict recipe to EDN format string."""
+
     def format_value(value):
         if isinstance(value, str):
             return f'"{value}"'
@@ -272,17 +269,19 @@ def convert_recipe_to_edn(recipe):
         if key == "name":
             edn_parts.append(f':{key} "{value}"')
         elif key == "cuisine":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "diet":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "difficulty":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "time":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
         elif key == "ingredients":
-            edn_parts.append(f':{key} [{", ".join(format_ingredient(ing) for ing in value)}]')
+            edn_parts.append(
+                f':{key} [{", ".join(format_ingredient(ing) for ing in value)}]'
+            )
         elif key == "tags":
-            edn_parts.append(f':{key} {value}')
+            edn_parts.append(f":{key} {value}")
 
     return f"{{{', '.join(edn_parts)}}}"
 
@@ -294,14 +293,16 @@ def ingest_recipes(store, recipes):
     for i, recipe in enumerate(recipes):
         # Convert to EDN format
         recipe_edn = convert_recipe_to_edn(recipe)
-        recipe_id = store.insert(recipe_edn, data_type='edn')
+        recipe_id = store.insert(recipe_edn, data_type="edn")
         if (i + 1) % 3 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(recipes)} recipes")
 
     print("✅ All recipes ingested successfully!")
 
 
-def query_recipes(store, query, description, top_k=10, guard=None, negations=None, data_type='edn'):
+def query_recipes(
+    store, query, description, top_k=10, guard=None, negations=None, data_type="edn"
+):
     """Query recipes and display results."""
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
@@ -311,30 +312,42 @@ def query_recipes(store, query, description, top_k=10, guard=None, negations=Non
         print(f"Negations: {negations}")
 
     try:
-        results = store.query(query, data_type=data_type, guard=guard, negations=negations, top_k=top_k, threshold=0.0)
+        results = store.query(
+            query,
+            data_type=data_type,
+            guard=guard,
+            negations=negations,
+            top_k=top_k,
+            threshold=0.0,
+        )
 
         if not results:
             print("  ❌ No matching recipes found")
             return
 
-        print(f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):")
+        print(
+            f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):"
+        )
 
         for i, (recipe_id, score, recipe_data) in enumerate(results):
             recipe = recipe_data  # Already parsed EDN
             # EDN keywords are parsed as Keyword objects, need to access by keyword
             from edn_format import Keyword
-            name_key = Keyword('name')
-            cuisine_key = Keyword('cuisine')
-            difficulty_key = Keyword('difficulty')
-            time_key = Keyword('time')
-            diet_key = Keyword('diet')
-            tags_key = Keyword('tags')
+
+            name_key = Keyword("name")
+            cuisine_key = Keyword("cuisine")
+            difficulty_key = Keyword("difficulty")
+            time_key = Keyword("time")
+            diet_key = Keyword("diet")
+            tags_key = Keyword("tags")
 
             print(f"  {i+1}. [{score:.3f}] {recipe[name_key]}")
-            print(f"     Cuisine: {recipe[cuisine_key]} | Difficulty: {recipe[difficulty_key]} | Time: {recipe[time_key]} min")
-            if recipe.get(diet_key) and str(recipe[diet_key]) != '#{}':
+            print(
+                f"     Cuisine: {recipe[cuisine_key]} | Difficulty: {recipe[difficulty_key]} | Time: {recipe[time_key]} min"
+            )
+            if recipe.get(diet_key) and str(recipe[diet_key]) != "#{}":
                 print(f"     Diet: {recipe[diet_key]}")
-            if recipe.get(tags_key) and str(recipe[tags_key]) != '#{}':
+            if recipe.get(tags_key) and str(recipe[tags_key]) != "#{}":
                 print(f"     Tags: {recipe[tags_key]}")
 
     except Exception as e:
@@ -361,45 +374,49 @@ def main():
     print("=" * 55)
 
     # 1. Find recipes similar to "classic lasagna"
-    query_recipes(store,
-                 '{:name "classic lasagna"}',
-                 "1. FUZZY SIMILARITY: Recipes similar to 'classic lasagna'")
+    query_recipes(
+        store,
+        '{:name "classic lasagna"}',
+        "1. FUZZY SIMILARITY: Recipes similar to 'classic lasagna'",
+    )
 
     # 2. Recipes similar to pad thai, but without shrimp
-    query_recipes(store,
-                 '{:name "pad thai"}',
-                 "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
-                 negations={'ingredients': [{'item': 'shrimp'}]})
+    query_recipes(
+        store,
+        '{:name "pad thai"}',
+        "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
+        negations={"ingredients": [{"item": "shrimp"}]},
+    )
 
     # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes with different proteins)
-    query_recipes(store,
-                 '{:name "mapo tofu"}',
-                 "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
-                 negations={'ingredients': [{'item': 'tofu'}]})
+    query_recipes(
+        store,
+        '{:name "mapo tofu"}',
+        "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
+        negations={"ingredients": [{"item": "tofu"}]},
+    )
 
     # 4. Dishes with "curry" in tags
-    query_recipes(store,
-                 '{:tags #{"curry"}}',
-                 "4. TAG SIMILARITY: Dishes with 'curry' tag")
+    query_recipes(
+        store, '{:tags #{"curry"}}', "4. TAG SIMILARITY: Dishes with 'curry' tag"
+    )
 
     # 5. Asian cuisine recipes
-    query_recipes(store,
-                 '{:cuisine :asian}',
-                 "5. CUISINE FILTER: Asian recipes")
+    query_recipes(store, "{:cuisine :asian}", "5. CUISINE FILTER: Asian recipes")
 
     # 6. Vegan recipes
-    query_recipes(store,
-                 '{:diet #{"vegan"}}',
-                 "6. DIET FILTER: Vegan recipes")
+    query_recipes(store, '{:diet #{"vegan"}}', "6. DIET FILTER: Vegan recipes")
 
     # 7. Comfort food recipes
-    query_recipes(store,
-                 '{:tags #{"comfort"}}',
-                 "7. TAG SIMILARITY: Comfort food recipes")
+    query_recipes(
+        store, '{:tags #{"comfort"}}', "7. TAG SIMILARITY: Comfort food recipes"
+    )
 
     print("\n" + "=" * 55)
     print("🎉 Recipe Memory Demo Complete!")
-    print("Holon successfully demonstrated recipe similarity, substitution, and advanced querying")
+    print(
+        "Holon successfully demonstrated recipe similarity, substitution, and advanced querying"
+    )
     print("=" * 55)
 
 

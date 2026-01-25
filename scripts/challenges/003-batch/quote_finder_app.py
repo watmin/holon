@@ -4,15 +4,17 @@ Quote Finder App - Ingest PDFs and locate quotes with coordinates.
 """
 
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional
-
-from holon import CPUStore
-from holon.encoder import ListEncodeMode
-from pdf_content_indexer import PDFContentIndexer, PDFQuoteLocator
 
 # Configure logging
 import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from pdf_content_indexer import PDFContentIndexer, PDFQuoteLocator
+
+from holon import CPUStore
+from holon.encoder import ListEncodeMode
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -45,26 +47,28 @@ class QuoteFinderApp:
 
             for chunk in chunks:
                 unit_data = indexer.create_chunk_unit(chunk)
-                chunk_id = self.store.insert(json.dumps(unit_data), 'json')
+                chunk_id = self.store.insert(json.dumps(unit_data), "json")
                 chunk_ids.append(chunk_id)
 
                 # Keep track of content for location lookup
-                chunk['stored_id'] = chunk_id
+                chunk["stored_id"] = chunk_id
                 self.indexed_content.append(chunk)
 
             # Create locator for quote finding
             self.locator = PDFQuoteLocator(self.indexed_content)
 
-            print(f"✅ Successfully ingested PDF with {len(self.indexed_content)} chunks")
+            print(
+                f"✅ Successfully ingested PDF with {len(self.indexed_content)} chunks"
+            )
             return True
 
         except Exception as e:
             print(f"❌ Failed to ingest PDF: {e}")
             return False
 
-    def find_quote_coordinates(self, quote_text: str,
-                              search_similar: bool = True,
-                              min_similarity: float = 0.7) -> Dict[str, Any]:
+    def find_quote_coordinates(
+        self, quote_text: str, search_similar: bool = True, min_similarity: float = 0.7
+    ) -> Dict[str, Any]:
         """
         Find coordinates where a quote appears in the indexed PDF.
 
@@ -78,36 +82,44 @@ class QuoteFinderApp:
         """
         if not self.locator:
             return {
-                'error': 'No PDF ingested yet. Use ingest_pdf() first.',
-                'locations': []
+                "error": "No PDF ingested yet. Use ingest_pdf() first.",
+                "locations": [],
             }
 
         print(f"🔍 Finding quote: '{quote_text[:60]}...'")
 
         # First try exact location finding
-        exact_locations = self.locator.find_quote_locations(quote_text, min_similarity=1.0)
+        exact_locations = self.locator.find_quote_locations(
+            quote_text, min_similarity=1.0
+        )
 
         if exact_locations:
             print(f"🎯 Found {len(exact_locations)} exact matches")
             return {
-                'quote': quote_text,
-                'match_type': 'exact',
-                'locations': exact_locations,
-                'recommendations': self._generate_recommendations(exact_locations, quote_text)
+                "quote": quote_text,
+                "match_type": "exact",
+                "locations": exact_locations,
+                "recommendations": self._generate_recommendations(
+                    exact_locations, quote_text
+                ),
             }
 
         # If no exact matches, try fuzzy matching
         if search_similar:
             print("🔄 No exact matches, trying fuzzy search...")
-            fuzzy_locations = self.locator.find_quote_locations(quote_text, min_similarity=min_similarity)
+            fuzzy_locations = self.locator.find_quote_locations(
+                quote_text, min_similarity=min_similarity
+            )
 
             if fuzzy_locations:
                 print(f"📊 Found {len(fuzzy_locations)} fuzzy matches")
                 return {
-                    'quote': quote_text,
-                    'match_type': 'fuzzy',
-                    'locations': fuzzy_locations,
-                    'recommendations': self._generate_recommendations(fuzzy_locations, quote_text)
+                    "quote": quote_text,
+                    "match_type": "fuzzy",
+                    "locations": fuzzy_locations,
+                    "recommendations": self._generate_recommendations(
+                        fuzzy_locations, quote_text
+                    ),
                 }
 
         # If still no matches, try vector similarity search
@@ -115,29 +127,25 @@ class QuoteFinderApp:
         vector_locations = self._vector_similarity_search(quote_text)
 
         return {
-            'quote': quote_text,
-            'match_type': 'vector_similarity',
-            'locations': vector_locations,
-            'recommendations': self._generate_recommendations(vector_locations, quote_text)
+            "quote": quote_text,
+            "match_type": "vector_similarity",
+            "locations": vector_locations,
+            "recommendations": self._generate_recommendations(
+                vector_locations, quote_text
+            ),
         }
 
-    def _vector_similarity_search(self, query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
+    def _vector_similarity_search(
+        self, query_text: str, top_k: int = 10
+    ) -> List[Dict[str, Any]]:
         """Use vector similarity to find related content chunks."""
         # Encode query
         words = self._normalize_text(query_text)
-        probe_data = {
-            'text': {
-                '_encode_mode': 'ngram',
-                'sequence': words
-            }
-        }
+        probe_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
         # Search for similar chunks
         results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type='json',
-            top_k=top_k,
-            threshold=0.0
+            probe=json.dumps(probe_data), data_type="json", top_k=top_k, threshold=0.0
         )
 
         # Convert to location format
@@ -146,17 +154,17 @@ class QuoteFinderApp:
             # Find the corresponding chunk
             chunk = None
             for c in self.indexed_content:
-                if c.get('stored_id') == vector_id:
+                if c.get("stored_id") == vector_id:
                     chunk = c
                     break
 
             if chunk:
                 location = {
-                    'coordinates': chunk['coordinates'],
-                    'similarity': score,
-                    'match_type': 'vector_similarity',
-                    'chunk_content': chunk['content'],
-                    'chunk_id': chunk['id']
+                    "coordinates": chunk["coordinates"],
+                    "similarity": score,
+                    "match_type": "vector_similarity",
+                    "chunk_content": chunk["content"],
+                    "chunk_id": chunk["id"],
                 }
                 locations.append(location)
 
@@ -165,11 +173,14 @@ class QuoteFinderApp:
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
         import re
-        normalized = re.sub(r'[^\w\s]', '', text.lower())
+
+        normalized = re.sub(r"[^\w\s]", "", text.lower())
         words = [word for word in normalized.split() if word]
         return words
 
-    def _generate_recommendations(self, locations: List[Dict[str, Any]], quote: str) -> List[str]:
+    def _generate_recommendations(
+        self, locations: List[Dict[str, Any]], quote: str
+    ) -> List[str]:
         """Generate recommendations for manual verification."""
         if not locations:
             return ["No locations found to check"]
@@ -179,15 +190,15 @@ class QuoteFinderApp:
         # Group by page
         page_groups = {}
         for loc in locations:
-            page = loc['coordinates']['page']
+            page = loc["coordinates"]["page"]
             if page not in page_groups:
                 page_groups[page] = []
             page_groups[page].append(loc)
 
         # Generate recommendations
         for page, page_locs in sorted(page_groups.items()):
-            best_match = max(page_locs, key=lambda x: x.get('similarity', 0))
-            sim = best_match.get('similarity', 0)
+            best_match = max(page_locs, key=lambda x: x.get("similarity", 0))
+            sim = best_match.get("similarity", 0)
 
             if sim >= 0.9:
                 confidence = "High confidence"
@@ -206,17 +217,19 @@ class QuoteFinderApp:
     def get_pdf_summary(self) -> Dict[str, Any]:
         """Get summary of indexed PDF content."""
         if not self.indexed_content:
-            return {'error': 'No PDF indexed yet'}
+            return {"error": "No PDF indexed yet"}
 
-        pages = set(c['coordinates']['page'] for c in self.indexed_content)
-        total_words = sum(c['coordinates']['word_count'] for c in self.indexed_content)
+        pages = set(c["coordinates"]["page"] for c in self.indexed_content)
+        total_words = sum(c["coordinates"]["word_count"] for c in self.indexed_content)
 
         return {
-            'total_chunks': len(self.indexed_content),
-            'pages_indexed': len(pages),
-            'page_range': f"{min(pages)} - {max(pages)}",
-            'total_words': total_words,
-            'avg_chunk_size': total_words // len(self.indexed_content) if self.indexed_content else 0
+            "total_chunks": len(self.indexed_content),
+            "pages_indexed": len(pages),
+            "page_range": f"{min(pages)} - {max(pages)}",
+            "total_words": total_words,
+            "avg_chunk_size": total_words // len(self.indexed_content)
+            if self.indexed_content
+            else 0,
         }
 
 
@@ -229,7 +242,9 @@ def demo_quote_finder():
 
     # Find the PDF
     project_root = Path(__file__).parent.parent.parent.parent
-    pdf_path = project_root / "docs" / "challenges" / "003-batch" / "calculus-made-easy.pdf"
+    pdf_path = (
+        project_root / "docs" / "challenges" / "003-batch" / "calculus-made-easy.pdf"
+    )
 
     if not pdf_path.exists():
         print(f"❌ PDF not found at: {pdf_path}")
@@ -258,7 +273,7 @@ def demo_quote_finder():
         "differential calculus",
         "function",
         "mathematical methods",
-        "rate of change"
+        "rate of change",
     ]
 
     print("\n🎯 Quote Location Testing:")
@@ -266,9 +281,11 @@ def demo_quote_finder():
         print(f"\n🔍 Searching for: '{quote}'")
         print("-" * 40)
 
-        result = app.find_quote_coordinates(quote, search_similar=True, min_similarity=0.6)
+        result = app.find_quote_coordinates(
+            quote, search_similar=True, min_similarity=0.6
+        )
 
-        if 'error' in result:
+        if "error" in result:
             print(f"   ❌ {result['error']}")
             continue
 
@@ -276,16 +293,20 @@ def demo_quote_finder():
         print(f"   📍 Found {len(result['locations'])} locations")
 
         # Show top recommendation
-        if result['recommendations']:
+        if result["recommendations"]:
             print(f"   💡 Top recommendation: {result['recommendations'][0]}")
 
         # Show top location details
-        if result['locations']:
-            top_loc = result['locations'][0]
-            coord = top_loc['coordinates']
-            print(f"   📄 Best match at: Page {coord['page']}, Chunk {coord['chunk_num']}")
+        if result["locations"]:
+            top_loc = result["locations"][0]
+            coord = top_loc["coordinates"]
+            print(
+                f"   📄 Best match at: Page {coord['page']}, Chunk {coord['chunk_num']}"
+            )
             print(".3f")
-            print(f"   📖 Content preview: {top_loc.get('chunk_content', 'N/A')[:100]}...")
+            print(
+                f"   📖 Content preview: {top_loc.get('chunk_content', 'N/A')[:100]}..."
+            )
 
         print()
 

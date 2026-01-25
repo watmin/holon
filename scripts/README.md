@@ -2,17 +2,21 @@
 
 ## Directory Structure
 
-Scripts are organized to match the challenge structure in `docs/challenges/`:
-
 ```
 scripts/
-├── run_with_venv.sh          # Helper script to run commands with venv
-├── 001-batch/                # Solutions for first batch of challenges
-│   ├── 001-solution.py       # Personal Task Memory system
-│   └── ...
-├── 002-batch/                # Solutions for second batch
-│   └── ...
-└── [other utility scripts]    # General testing/performance scripts
+├── run_with_venv.sh          # Virtual environment helper
+├── server/                   # HTTP API server
+│   └── holon_server.py
+├── challenges/               # Challenge solutions (organized by batch)
+│   ├── 001-batch/           # Personal task memory
+│   ├── 002-batch/           # RPM geometric solver
+│   └── 003-batch/           # PDF quote finder
+├── tests/                   # Testing scripts
+│   ├── performance/         # Stress and performance tests
+│   ├── integration/         # End-to-end pipeline tests
+│   └── api/                 # API feature tests
+├── demos/                   # Demonstration scripts
+└── utils/                   # Utility and validation scripts
 ```
 
 ## Usage
@@ -20,29 +24,52 @@ scripts/
 Always use the virtual environment to avoid polluting your system Python:
 
 ```bash
-# Run a solution script
-./scripts/run_with_venv.sh python scripts/001-batch/001-solution.py
+# Start the server
+./scripts/run_with_venv.sh python scripts/server/holon_server.py
 
-# Run tests
+# Run performance tests
+./scripts/run_with_venv.sh python scripts/tests/performance/extreme_query_challenge.py
+
+# Run integration tests
+./scripts/run_with_venv.sh python scripts/tests/integration/test_comprehensive.py
+
+# Run challenge solutions
+./scripts/run_with_venv.sh python scripts/challenges/001-batch/001-solution.py
+
+# Run unit tests
 ./scripts/run_with_venv.sh pytest tests/
-
-# Run any Python command
-./scripts/run_with_venv.sh python -m mymodule
 ```
 
-## Solutions by Batch
+## Challenge Solutions
 
-### 001-batch: Neural Memory Foundations
-- **001-solution.py**: Personal Task Memory - Fuzzy task retrieval with guards, negations, and wildcards
+### ✅ 001-batch: Personal Task Memory
+- **001-solution.py**: Fuzzy task retrieval with guards, negations, and wildcards
+- **002-solution.py**: HTTP-integrated task management
+- **003-solution.py**: Advanced querying with hierarchical tasks
+- **004-solution.py**: Complete task management system
 
-### Future Batches
-- **002-batch**: Graph algorithms using VSA/HDC
-- **003-batch**: Book quote indexing and search
-- **004-batch**: Sudoku solver with geometric constraints
+### ✅ 002-batch: Raven's Progressive Matrices
+- **001-solution.py**: Basic RPM geometric encoding
+- **002-solution.py**: Statistical validation of geometric learning
+
+### ✅ 003-batch: PDF Quote Finder
+- **quote_finder_app.py**: Full PDF indexing and search system
+- **pdf_content_indexer.py**: Document structure extraction
+- **vector bootstrapping**: API for custom search term encoding
+
+### 🚧 004-batch: Geometric Sudoku Solver (In Progress)
+
+## Testing Strategy
+
+- **Unit Tests**: `tests/` directory (core functionality)
+- **Integration Tests**: `tests/integration/` (full pipelines)
+- **Performance Tests**: `tests/performance/` (stress testing)
+- **API Tests**: `tests/api/` (HTTP endpoints and features)
 
 ## Development Workflow
 
-1. **Use venv**: Always run Python commands through `./scripts/run_with_venv.sh`
-2. **Organize by batch**: Place solutions in matching batch directories
-3. **Test thoroughly**: Run full test suite before committing
-4. **Document**: Update this README when adding new batches/solutions
+1. **Use venv**: Always run through `./scripts/run_with_venv.sh`
+2. **Organize by purpose**: Place scripts in appropriate subdirectories
+3. **Test thoroughly**: Run relevant tests before committing
+4. **Document**: Update this README when adding new functionality
+5. **Challenge solutions**: Keep in `challenges/` with batch organization

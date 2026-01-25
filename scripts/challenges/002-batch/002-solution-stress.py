@@ -13,13 +13,15 @@ Tests demonstrate:
 - Performance remains practical even with large datasets
 """
 
-import uuid
+import json
 import random
 import time
-import json
-from holon import CPUStore
+import uuid
+from typing import Any, Dict, List, Tuple
+
 from edn_format import Keyword
-from typing import List, Dict, Any, Tuple
+
+from holon import CPUStore
 
 
 def generate_large_graph_dataset(num_graphs: int = 500) -> List[Dict]:
@@ -61,8 +63,12 @@ def generate_large_graph_dataset(num_graphs: int = 500) -> List[Dict]:
 
     # Random graphs (25% of dataset)
     random_generators = [
-        lambda name: generate_random_graph(name, random.randint(5, 15), random.randint(4, 20)),
-        lambda name: generate_random_graph(name, random.randint(5, 15), random.randint(4, 20)),
+        lambda name: generate_random_graph(
+            name, random.randint(5, 15), random.randint(4, 20)
+        ),
+        lambda name: generate_random_graph(
+            name, random.randint(5, 15), random.randint(4, 20)
+        ),
     ]
     add_graph_batch("random", random_generators, int(num_graphs * 0.25))
 
@@ -99,7 +105,7 @@ def generate_tree_graph(name: str, tree_type: str, size: int) -> Dict:
         description = "binary tree"
     elif tree_type == "chain":
         for i in range(len(nodes) - 1):
-            edges.append({"from": nodes[i], "to": nodes[i+1], "label": "next"})
+            edges.append({"from": nodes[i], "to": nodes[i + 1], "label": "next"})
         description = "linear chain"
     else:  # random_tree
         # Create a random tree by connecting nodes
@@ -121,7 +127,7 @@ def generate_tree_graph(name: str, tree_type: str, size: int) -> Dict:
         "edges": edges,
         "type": "undirected",
         "attributes": {},
-        "family": "tree"
+        "family": "tree",
     }
 
 
@@ -130,11 +136,9 @@ def generate_cycle_graph(name: str, size: int) -> Dict:
     nodes = [f"N{i}" for i in range(size)]
     edges = []
     for i in range(size):
-        edges.append({
-            "from": nodes[i],
-            "to": nodes[(i + 1) % size],
-            "label": "connects"
-        })
+        edges.append(
+            {"from": nodes[i], "to": nodes[(i + 1) % size], "label": "connects"}
+        )
 
     return {
         "graph-id": f"{name}_{uuid.uuid4().hex[:8]}",
@@ -144,7 +148,7 @@ def generate_cycle_graph(name: str, size: int) -> Dict:
         "edges": edges,
         "type": "undirected",
         "attributes": {},
-        "family": "cycle"
+        "family": "cycle",
     }
 
 
@@ -164,11 +168,7 @@ def generate_random_graph(name: str, num_nodes: int, num_edges: int) -> Dict:
     selected_edges = random.sample(possible_edges, num_edges)
 
     for from_node, to_node in selected_edges:
-        edges.append({
-            "from": from_node,
-            "to": to_node,
-            "label": "connects"
-        })
+        edges.append({"from": from_node, "to": to_node, "label": "connects"})
 
     density = num_edges / len(possible_edges) if possible_edges else 0
     density_desc = "dense" if density > 0.6 else "sparse" if density < 0.3 else "medium"
@@ -181,7 +181,7 @@ def generate_random_graph(name: str, num_nodes: int, num_edges: int) -> Dict:
         "edges": edges,
         "type": "undirected",
         "attributes": {},
-        "family": "random"
+        "family": "random",
     }
 
 
@@ -192,20 +192,12 @@ def generate_workflow_graph(name: str, size: int) -> Dict:
 
     # Create a somewhat linear workflow with some branches
     for i in range(size - 1):
-        edges.append({
-            "from": nodes[i],
-            "to": nodes[i + 1],
-            "label": "flows_to"
-        })
+        edges.append({"from": nodes[i], "to": nodes[i + 1], "label": "flows_to"})
 
     # Add some parallel branches
     for i in range(2, size - 2, 3):
         if i + 2 < size:
-            edges.append({
-                "from": nodes[i],
-                "to": nodes[i + 2],
-                "label": "parallel"
-            })
+            edges.append({"from": nodes[i], "to": nodes[i + 2], "label": "parallel"})
 
     return {
         "graph-id": f"{name}_{uuid.uuid4().hex[:8]}",
@@ -215,7 +207,7 @@ def generate_workflow_graph(name: str, size: int) -> Dict:
         "edges": edges,
         "type": "directed",
         "attributes": {},
-        "family": "workflow"
+        "family": "workflow",
     }
 
 
@@ -236,11 +228,7 @@ def generate_hierarchy_graph(name: str, size: int) -> Dict:
                     break
                 employee = f"Emp{len(nodes)}"
                 nodes.append(employee)
-                edges.append({
-                    "from": manager,
-                    "to": employee,
-                    "label": "manages"
-                })
+                edges.append({"from": manager, "to": employee, "label": "manages"})
                 next_level.append(employee)
 
         current_level = next_level
@@ -254,7 +242,7 @@ def generate_hierarchy_graph(name: str, size: int) -> Dict:
         "edges": edges,
         "type": "directed",
         "attributes": {},
-        "family": "hierarchy"
+        "family": "hierarchy",
     }
 
 
@@ -272,11 +260,9 @@ def generate_social_graph(name: str, size: int) -> Dict:
 
         for friend_idx in friends:
             if friend_idx > i:  # Avoid duplicates
-                edges.append({
-                    "from": nodes[i],
-                    "to": nodes[friend_idx],
-                    "label": "friends"
-                })
+                edges.append(
+                    {"from": nodes[i], "to": nodes[friend_idx], "label": "friends"}
+                )
 
     return {
         "graph-id": f"{name}_{uuid.uuid4().hex[:8]}",
@@ -286,18 +272,19 @@ def generate_social_graph(name: str, size: int) -> Dict:
         "edges": edges,
         "type": "undirected",
         "attributes": {},
-        "family": "social"
+        "family": "social",
     }
 
 
 def convert_graph_to_edn(graph):
     """Convert Python graph dict to EDN format string."""
+
     def format_set(s):
         if not s:
             return "#{}"
         items = []
         for item in s:
-            items.append(f"\"{item}\"")
+            items.append(f'"{item}"')
         return "#{" + ", ".join(items) + "}"
 
     def format_list(l):
@@ -309,12 +296,12 @@ def convert_graph_to_edn(graph):
                 pairs = []
                 for k, v in item.items():
                     if isinstance(v, str):
-                        pairs.append(f":{k} \"{v}\"")
+                        pairs.append(f':{k} "{v}"')
                     else:
                         pairs.append(f":{k} {v}")
                 items.append("{" + ", ".join(pairs) + "}")
             else:
-                items.append(f"\"{item}\"")
+                items.append(f'"{item}"')
         return "[" + ", ".join(items) + "]"
 
     edn_parts = [
@@ -324,7 +311,7 @@ def convert_graph_to_edn(graph):
         f':nodes {format_set(graph["nodes"])}',
         f':edges {format_list(graph["edges"])}',
         f':type :{graph["type"]}',
-        f':attributes {format_map(graph["attributes"])}'
+        f':attributes {format_map(graph["attributes"])}',
     ]
 
     return "{" + ", ".join(edn_parts) + "}"
@@ -337,11 +324,11 @@ def format_map(m):
     pairs = []
     for k, v in m.items():
         if isinstance(v, dict):
-            pairs.append(f"\"{k}\" {format_map(v)}")
+            pairs.append(f'"{k}" {format_map(v)}')
         elif isinstance(v, str):
-            pairs.append(f"\"{k}\" \"{v}\"")
+            pairs.append(f'"{k}" "{v}"')
         else:
-            pairs.append(f"\"{k}\" {v}")
+            pairs.append(f'"{k}" {v}')
     return "{" + ", ".join(pairs) + "}"
 
 
@@ -351,21 +338,27 @@ def ingest_graphs_efficiently(store, graphs, batch_size=50):
 
     total_start = time.time()
     for i in range(0, len(graphs), batch_size):
-        batch = graphs[i:i + batch_size]
+        batch = graphs[i : i + batch_size]
         batch_start = time.time()
 
         for graph in batch:
             graph_edn = convert_graph_to_edn(graph)
-            store.insert(graph_edn, data_type='edn')
+            store.insert(graph_edn, data_type="edn")
 
         batch_time = time.time() - batch_start
         progress = min(i + batch_size, len(graphs))
-        print(f"  Batch {i//batch_size + 1}: {progress}/{len(graphs)} graphs "
-              f"({batch_time:.1f}s, {len(batch)/batch_time:.1f} graphs/sec)")
+        print(
+            f"  Batch {i//batch_size + 1}: {progress}/{len(graphs)} graphs "
+            f"({batch_time:.1f}s, {len(batch)/batch_time:.1f} graphs/sec)"
+        )
 
     total_time = time.time() - total_start
-    print(f"✅ All {len(graphs)} graphs ingested in {total_time:.1f}s "
-          f"({len(graphs)/total_time:.1f} graphs/sec)")
+    print(
+        f"✅ All {len(graphs)} graphs ingested in {total_time:.1f}s "
+        f"({len(graphs)/total_time:.1f} graphs/sec)"
+    )
+
+
 def run_stress_tests(store, graphs):
     """Run comprehensive stress tests on the graph matching system."""
 
@@ -415,8 +408,9 @@ def test_similarity_queries(store, graphs):
         start_time = time.time()
 
         # Find graphs similar to this type
-        query_results = store.query(f'{{:name "{query_name}"}}',
-                                  data_type='edn', top_k=20, threshold=0.0)
+        query_results = store.query(
+            f'{{:name "{query_name}"}}', data_type="edn", top_k=20, threshold=0.0
+        )
 
         query_time = time.time() - start_time
         results["queries"] += 1
@@ -424,9 +418,13 @@ def test_similarity_queries(store, graphs):
         results["matches_found"] += len(query_results)
 
         print(f"  {description}: {len(query_results)} matches in {query_time:.3f}s")
-    results["avg_query_time"] = results["total_time"] / results["queries"] if results["queries"] > 0 else 0
-    print(f"  AVERAGE: {results['avg_query_time']:.3f}s per query, "
-          f"{results['matches_found']/results['queries']:.1f} matches/query")
+    results["avg_query_time"] = (
+        results["total_time"] / results["queries"] if results["queries"] > 0 else 0
+    )
+    print(
+        f"  AVERAGE: {results['avg_query_time']:.3f}s per query, "
+        f"{results['matches_found']/results['queries']:.1f} matches/query"
+    )
     return results
 
 
@@ -437,14 +435,20 @@ def test_subgraph_matching(store, graphs):
     # Common subgraph patterns to search for
     patterns = [
         ('{:edges [{:from "N0", :to "N1", :label "connects"}]}', "Simple edge N0→N1"),
-        ('{:edges [{:from "Step0", :to "Step1", :label "flows_to"}]}', "Workflow step flow"),
-        ('{:edges [{:from "CEO", :to "Emp0", :label "manages"}]}', "Management relationship"),
+        (
+            '{:edges [{:from "Step0", :to "Step1", :label "flows_to"}]}',
+            "Workflow step flow",
+        ),
+        (
+            '{:edges [{:from "CEO", :to "Emp0", :label "manages"}]}',
+            "Management relationship",
+        ),
     ]
 
     for pattern, description in patterns:
         start_time = time.time()
 
-        query_results = store.query(pattern, data_type='edn', top_k=50, threshold=0.0)
+        query_results = store.query(pattern, data_type="edn", top_k=50, threshold=0.0)
 
         query_time = time.time() - start_time
         results["queries"] += 1
@@ -452,9 +456,13 @@ def test_subgraph_matching(store, graphs):
         results["matches_found"] += len(query_results)
 
         print(f"  {description}: {len(query_results)} matches in {query_time:.3f}s")
-    results["avg_query_time"] = results["total_time"] / results["queries"] if results["queries"] > 0 else 0
-    print(f"  AVERAGE: {results['avg_query_time']:.3f}s per query, "
-          f"{results['matches_found']/results['queries']:.1f} matches/query")
+    results["avg_query_time"] = (
+        results["total_time"] / results["queries"] if results["queries"] > 0 else 0
+    )
+    print(
+        f"  AVERAGE: {results['avg_query_time']:.3f}s per query, "
+        f"{results['matches_found']/results['queries']:.1f} matches/query"
+    )
     return results
 
 
@@ -474,13 +482,17 @@ def test_family_clustering(store, graphs):
         representative = family_graphs[0]
 
         # Query for similar graphs
-        query_results = store.query(f'{{:name "{representative["name"]}"}}',
-                                  data_type='edn', top_k=30, threshold=0.1)
+        query_results = store.query(
+            f'{{:name "{representative["name"]}"}}',
+            data_type="edn",
+            top_k=30,
+            threshold=0.1,
+        )
 
         # Check how many results are from the same family
         same_family_count = 0
         for _, _, result_graph in query_results:
-            result_family = result_graph.get(Keyword('description'), '')
+            result_family = result_graph.get(Keyword("description"), "")
             if family.lower() in str(result_family).lower():
                 same_family_count += 1
 
@@ -490,9 +502,15 @@ def test_family_clustering(store, graphs):
         results["clusters_found"] += 1 if purity > 0.6 else 0
         results["purity_score"] += purity
 
-        print(f"  {family.upper()}: {len(query_results)} matches, {purity:.1%} same-family")
+        print(
+            f"  {family.upper()}: {len(query_results)} matches, {purity:.1%} same-family"
+        )
 
-    results["avg_purity"] = results["purity_score"] / results["families_tested"] if results["families_tested"] > 0 else 0
+    results["avg_purity"] = (
+        results["purity_score"] / results["families_tested"]
+        if results["families_tested"] > 0
+        else 0
+    )
     print(f"  OVERALL CLUSTERING: {results['avg_purity']:.1%} average family purity")
     return results
 
@@ -512,8 +530,12 @@ def test_query_performance(store, graphs):
         test_graph = graphs[size // 2]  # Middle of current dataset
 
         start_time = time.time()
-        query_results = store.query(f'{{:name "{test_graph["name"]}"}}',
-                                  data_type='edn', top_k=10, threshold=0.0)
+        query_results = store.query(
+            f'{{:name "{test_graph["name"]}"}}',
+            data_type="edn",
+            top_k=10,
+            threshold=0.0,
+        )
         query_time = time.time() - start_time
 
         results["dataset_sizes"].append(size)
@@ -531,8 +553,8 @@ def test_approximate_accuracy(store, graphs):
     # Test with known similar/dissimilar pairs
     test_cases = [
         ("star_tree", "binary_tree", True),  # Both trees - should be similar
-        ("cycle", "star_tree", False),       # Different families - should be dissimilar
-        ("workflow", "hierarchy", True),    # Both directed complex - should be similar
+        ("cycle", "star_tree", False),  # Different families - should be dissimilar
+        ("workflow", "hierarchy", True),  # Both directed complex - should be similar
     ]
 
     for graph1_type, graph2_type, should_be_similar in test_cases:
@@ -547,13 +569,14 @@ def test_approximate_accuracy(store, graphs):
         graph2 = graph2_candidates[0]
 
         # Query graph2's similarity to graph1
-        query_results = store.query(f'{{:name "{graph1["name"]}"}}',
-                                  data_type='edn', top_k=20, threshold=0.0)
+        query_results = store.query(
+            f'{{:name "{graph1["name"]}"}}', data_type="edn", top_k=20, threshold=0.0
+        )
 
         # Check if graph2 appears in results with high similarity
         graph2_found = False
         for _, score, result in query_results:
-            if result.get(Keyword('name')) == graph2["name"] and score > 0.1:
+            if result.get(Keyword("name")) == graph2["name"] and score > 0.1:
                 graph2_found = True
                 break
 
@@ -564,14 +587,27 @@ def test_approximate_accuracy(store, graphs):
         elif not should_be_similar and graph2_found:
             results["false_positives"] += 1
 
-        status = "✓" if (should_be_similar and graph2_found) or (not should_be_similar and not graph2_found) else "✗"
-        print(f"  {graph1_type} vs {graph2_type}: {status} (expected {'similar' if should_be_similar else 'different'})")
+        status = (
+            "✓"
+            if (should_be_similar and graph2_found)
+            or (not should_be_similar and not graph2_found)
+            else "✗"
+        )
+        print(
+            f"  {graph1_type} vs {graph2_type}: {status} (expected {'similar' if should_be_similar else 'different'})"
+        )
 
     total_tests = sum(results.values())
-    accuracy = (results["exact_matches"] + results["approximate_matches"]) / total_tests if total_tests > 0 else 0
+    accuracy = (
+        (results["exact_matches"] + results["approximate_matches"]) / total_tests
+        if total_tests > 0
+        else 0
+    )
     results["accuracy"] = accuracy
 
-    print(f"  Approximate matching provides {accuracy:.1%} meaningful similarity detection")
+    print(
+        f"  Approximate matching provides {accuracy:.1%} meaningful similarity detection"
+    )
     return results
 
 
@@ -585,15 +621,23 @@ def print_stress_test_summary(results):
     print("\n⚡ PERFORMANCE METRICS:")
     if "similarity" in results:
         sim = results["similarity"]
-        print(f"  Similarity queries: {sim['avg_query_time']:.1f}s avg, "
-              f"{sim['matches_found']/sim['queries']:.1f} matches/query")
+        print(
+            f"  Similarity queries: {sim['avg_query_time']:.1f}s avg, "
+            f"{sim['matches_found']/sim['queries']:.1f} matches/query"
+        )
     if "subgraph" in results:
         sub = results["subgraph"]
-        print(f"  Subgraph queries: {sub['avg_query_time']:.1f}s avg, "
-              f"{sub['matches_found']/sub['queries']:.1f} matches/query")
+        print(
+            f"  Subgraph queries: {sub['avg_query_time']:.1f}s avg, "
+            f"{sub['matches_found']/sub['queries']:.1f} matches/query"
+        )
     if "performance" in results and results["performance"]["query_times"]:
         perf = results["performance"]
-        scaling_factor = perf["query_times"][-1] / perf["query_times"][0] if len(perf["query_times"]) > 1 else 1
+        scaling_factor = (
+            perf["query_times"][-1] / perf["query_times"][0]
+            if len(perf["query_times"]) > 1
+            else 1
+        )
         print(f"  Performance scales {scaling_factor:.2f}x from 50 to 500 graphs")
     # Accuracy metrics
     print("\n🎯 ACCURACY METRICS:")
@@ -613,7 +657,12 @@ def print_stress_test_summary(results):
     print("  ✅ Structural similarity emerges naturally")
     print("  ✅ Subgraph matching scales effectively")
     print("  ✅ Approximate solutions beat exact NP-hard approaches")
-    print("\n" + "🎉 PROVEN: VSA/HDC makes meaningful dent in graph matching domain!" + "\n" + "=" * 80)
+    print(
+        "\n"
+        + "🎉 PROVEN: VSA/HDC makes meaningful dent in graph matching domain!"
+        + "\n"
+        + "=" * 80
+    )
 
 
 def main():
@@ -636,12 +685,16 @@ def main():
     start_time = time.time()
     graphs = generate_large_graph_dataset(NUM_GRAPHS)
     gen_time = time.time() - start_time
-    print(f"✅ Generated {len(graphs)} graphs in {gen_time:.1f}s "
-          f"({len(graphs)/gen_time:.1f} graphs/sec)")
-    print(f"  Dataset composition: {len([g for g in graphs if g.get('family') == 'tree'])} trees, "
-          f"{len([g for g in graphs if g.get('family') == 'cycle'])} cycles, "
-          f"{len([g for g in graphs if g.get('family') == 'random'])} random, "
-          f"{len([g for g in graphs if g.get('family') == 'workflow'])} workflows")
+    print(
+        f"✅ Generated {len(graphs)} graphs in {gen_time:.1f}s "
+        f"({len(graphs)/gen_time:.1f} graphs/sec)"
+    )
+    print(
+        f"  Dataset composition: {len([g for g in graphs if g.get('family') == 'tree'])} trees, "
+        f"{len([g for g in graphs if g.get('family') == 'cycle'])} cycles, "
+        f"{len([g for g in graphs if g.get('family') == 'random'])} random, "
+        f"{len([g for g in graphs if g.get('family') == 'workflow'])} workflows"
+    )
 
     # Ingest graphs efficiently
     ingest_graphs_efficiently(store, graphs, batch_size=100)
@@ -653,7 +706,9 @@ def main():
     print_stress_test_summary(test_results)
 
     print("\n🎯 MISSION ACCOMPLISHED: Practical graph matching proven at scale!")
-    print(f"   {NUM_GRAPHS} graphs processed, meaningful similarity detection achieved!")
+    print(
+        f"   {NUM_GRAPHS} graphs processed, meaningful similarity detection achieved!"
+    )
     print(f"   VSA/HDC approach successfully dents the NP-hard graph matching domain!")
 
 

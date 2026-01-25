@@ -130,7 +130,7 @@ htmlcov/
 # Distribution
 build/
 dist/
-*.egg-info/-e 
+*.egg-info/-e
 # Logs
 extreme_log.txt
 

@@ -4,7 +4,9 @@ Advanced Queries Example: Guards, Negations, Wildcards, Disjunctions
 """
 
 import json
+
 from holon import CPUStore
+
 
 def main():
     store = CPUStore()
@@ -14,7 +16,7 @@ def main():
         {"name": "Alice", "role": "developer", "status": "active"},
         {"name": "Bob", "role": "designer", "status": "inactive"},
         {"name": "Charlie", "role": "developer", "status": "active"},
-        {"name": "Diana", "role": "manager", "status": "active"}
+        {"name": "Diana", "role": "manager", "status": "active"},
     ]
 
     for item in data:
@@ -38,7 +40,9 @@ def main():
 
     # Negations
     print("\n3. Negations (exclude):")
-    results = store.query('{"role": "developer"}', negations={"name": {"$not": "Alice"}})
+    results = store.query(
+        '{"role": "developer"}', negations={"name": {"$not": "Alice"}}
+    )
     print(f"   Query: Developers except Alice → {len(results)} results")
     for r in results:
         print(f"   - {r[2]['name']}")
@@ -51,6 +55,7 @@ def main():
         print(f"   - {r[2]['name']}: {r[2]['role']}")
 
     print("\n=== Demo Complete ===")
+
 
 if __name__ == "__main__":
     main()
