@@ -9,11 +9,11 @@
 [![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](docs/)
 [![Research](https://img.shields.io/badge/research-VSA%2FHDC-red.svg)](docs/rpm_geometric_solution_findings.md)
 
-<center>
+<div align="center">
 <img src="assets/superposition-incantation.gif" alt="Superposition Incantation Demo">
 
 <em>Reality doesn't fold itself. We make it fold.</em>
-</center>
+</div>
 
 ## Inspiration
 
@@ -30,11 +30,11 @@ This talk by Carin Meier was the spark that got this project started:
 Holon encodes structured JSON/EDN into high-dimensional bipolar vectors using recursive binding (keys × values) and bundling (sum + threshold).
 Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and $or logic.
 
-<center>
+<div align="center">
 <img src="assets/time-bending-lattices.gif" alt="Time-Bending Lattices Demo">
 
 <em>We don't just store data. We weave it into something that remembers itself.</em>
-</center>
+</div>
 
 ## Overview
 
@@ -528,11 +528,11 @@ We've successfully implemented and validated several complex applications using 
 
 MIT licensed. FastAPI server included. Ready for your agents.
 
-<center>
+<div align="center">
 <img src="assets/forbidden-binding-spell.gif" alt="Forbidden Binding Spell Demo">
 
 <em>From mystical runes to mathematical vectors. The power endures.</em>
-</center>
+</div>
 
 ## Performance & Limits
 
