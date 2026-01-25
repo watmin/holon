@@ -6,6 +6,7 @@ Provides REST API for VSA/HDC neural memory operations.
 """
 
 import logging
+import os
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -72,7 +73,7 @@ class QueryRequest(BaseModel):
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
     top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of top results to return")
     threshold: float = Field(0.0, description="Similarity threshold (0-1)")
-    guard: Optional[str] = Field(None, description="Guard condition as JSON string (pattern match)")
+    guard: Optional[Dict[str, Any]] = Field(None, description="Guard condition as dict (pattern match)")
     negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters as dict {key: value_to_exclude}")
     any_marker: str = Field("$any", description="Marker for wildcards in probe/guard")
 
@@ -139,12 +140,7 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
             raise HTTPException(status_code=400, detail="threshold must be between 0.0 and 1.0")
 
         # Process guard if provided
-        guard_data = None
-        if request.guard:
-            try:
-                guard_data = parse_data(request.guard, request.data_type)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid guard: {str(e)}")
+        guard_data = request.guard
 
         # Execute query
         results = store.query(
@@ -199,4 +195,5 @@ async def shutdown_event():
     logger.info("Holon Neural Memory API shutting down")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

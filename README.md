@@ -252,6 +252,7 @@ Holon's VSA/HDC architecture enables powerful applications in data understanding
 
 ### 🔬 **Research & Development**
 - **Cognitive Architectures:** Build systems that learn like humans
+- **Geometric Reasoning:** VSA/HDC geometric rule learning for abstract reasoning (see [RPM findings](docs/rpm_geometric_solution_findings.md))
 - **Neural-Symbolic Integration:** Combine symbolic reasoning with neural processing
 - **Explainable AI:** Provide interpretable similarity reasoning
 
