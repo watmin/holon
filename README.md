@@ -9,14 +9,9 @@
 [![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](docs/)
 [![Research](https://img.shields.io/badge/research-VSA%2FHDC-red.svg)](docs/rpm_geometric_solution_findings.md)
 
-<center>
-<video src="https://github.com/watmin/holon/raw/main/assets/superposition-incantation.mp4"
-       controls autoplay loop muted
-       alt="Doctor Strange weaving cascading crimson runes into a pulsating orb of bound symbols — Holon turning structured data into high-dimensional superposition">
-</video>
-</center>
+![Superposition Incantation Demo](https://github.com/watmin/holon/raw/main/assets/superposition-incantation.mp4)
 
-<center>*Reality doesn't fold itself. We make it fold.*</center>
+<em>Reality doesn't fold itself. We make it fold.</em>
 
 ## Inspiration
 
@@ -33,14 +28,9 @@ This talk by Carin Meier was the spark that got this project started:
 Holon encodes structured JSON/EDN into high-dimensional bipolar vectors using recursive binding (keys × values) and bundling (sum + threshold).  
 Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and $or logic.
 
-<center>
-<video src="https://github.com/watmin/holon/raw/main/assets/time-bending-lattices.mp4"
-       controls loop muted
-       alt="Doctor Strange channeling rotating orange spell circles and materializing high-dimensional lattices — visualizing Holon's recursive binding and bundling of structured data">
-</video>
-</center>
+![Time-Bending Lattices Demo](https://github.com/watmin/holon/raw/main/assets/time-bending-lattices.mp4)
 
-<center>*We don't just store data. We weave it into something that remembers itself.*</center>
+<em>We don't just store data. We weave it into something that remembers itself.</em>
 
 ## Overview
 
@@ -534,14 +524,9 @@ We've successfully implemented and validated several complex applications using 
 
 MIT licensed. FastAPI server included. Ready for your agents.
 
-<center>
-<video src="https://github.com/watmin/holon/raw/main/assets/forbidden-binding-spell.mp4"
-       controls loop muted
-       alt="Doctor Strange illuminated by swirling orange and gold runes, reality fracturing into layered geometric planes — the raw power of Holon's structured, fuzzy, hallucination-resistant memory">
-</video>
-</center>
+![Forbidden Binding Spell Demo](https://github.com/watmin/holon/raw/main/assets/forbidden-binding-spell.mp4)
 
-<center>*From mystical runes to mathematical vectors. The power endures.*</center>
+<em>From mystical runes to mathematical vectors. The power endures.</em>
 
 ## Performance & Limits
 
