@@ -176,19 +176,38 @@ class CPUStore(Store):
 
         # Helper for guard matching
         def is_subset(guard, data):
+            # Handle top-level $or in guards for powerful OR logic
+            if "$or" in guard and isinstance(guard["$or"], list):
+                # Any of the OR conditions must match
+                return any(is_subset(or_condition, data) for or_condition in guard["$or"])
+
             for key, value in guard.items():
                 if key not in data:
                     return False
                 if isinstance(value, dict):
-                    if not isinstance(data[key], dict) or not is_subset(value, data[key]):
+                    # Handle nested $or
+                    if "$or" in value and isinstance(value["$or"], list):
+                        # For nested $or, any of the conditions for this key must match
+                        if not any(is_subset({key: or_val}, data) for or_val in value["$or"]):
+                            return False
+                    elif not isinstance(data[key], dict) or not is_subset(value, data[key]):
                         return False
                 elif isinstance(value, list):
-                    if not isinstance(data[key], list) or len(value) != len(data[key]):
-                        return False
-                    for g_item, d_item in zip(value, data[key]):
-                        if isinstance(g_item, dict) and any_marker in g_item:
-                            continue
-                        elif g_item != d_item:
+                    # Support OR logic: if guard has a list and data has a scalar that's IN the list,
+                    # treat it as "match any of these values" (backward compatibility)
+                    data_value = data[key]
+                    if isinstance(data_value, list):
+                        # Exact array matching for array-to-array comparison (backward compatibility)
+                        if len(value) != len(data_value):
+                            return False
+                        for g_item, d_item in zip(value, data_value):
+                            if isinstance(g_item, dict) and any_marker in g_item:
+                                continue
+                            elif g_item != d_item:
+                                return False
+                    else:
+                        # OR logic: scalar data value must be IN the guard list
+                        if data_value not in value:
                             return False
                 elif value is not None and data[key] != value:
                     return False
