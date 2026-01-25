@@ -101,11 +101,8 @@ def run_comprehensive_test():
                 return False
         return True
 
-    def guard_func(data):
-        guard_pattern = {"tags": ["tag_0", {"$any": True}, "cat_0"]}
-        return is_subset(guard_pattern, data)
-
-    results_guard = store.query(probe_guard, top_k=5, guard=guard_func)
+    guard_pattern = {"tags": ["tag_0", {"$any": True}, "cat_0"]}
+    results_guard = store.query(probe_guard, top_k=5, guard=guard_pattern)
     print(f"  Query: alice with guard on tags → {len(results_guard)} results")
 
     # Test 4: Negations

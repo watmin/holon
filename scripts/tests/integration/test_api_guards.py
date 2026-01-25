@@ -41,9 +41,11 @@ if __name__ == "__main__":
         results = response.json()["results"]
         print(f"\nQuery without guard: {len(results)} results")
         for res in results:
-            print(
-                f"  {res['data']['user']} - {res['data']['action']} - {res['data']['status']}"
-            )
+            data = res['data']
+            user = data.get('user', 'N/A')
+            action = data.get('action', 'N/A')
+            status = data.get('status', 'N/A')
+            print(f"  {user} - {action} - {status}")
 
         # Query with guard: status == success (presence of "status" key, but since we check
         # presence, and value is dict)
@@ -54,7 +56,7 @@ if __name__ == "__main__":
         guard = {"status": None}  # But None is null in JSON
         response = requests.post(
             f"{BASE_URL}/query",
-            json={"probe": json.dumps(probe), "top_k": 10, "guard": json.dumps(guard)},
+            json={"probe": json.dumps(probe), "top_k": 10, "guard": guard},
         )
         results = response.json()["results"]
         print(f"\nQuery with guard (status present): {len(results)} results")
@@ -72,7 +74,7 @@ if __name__ == "__main__":
             json={
                 "probe": json.dumps(probe),
                 "top_k": 10,
-                "guard": json.dumps(guard_nested),
+                "guard": guard_nested,
             },
         )
         results = response.json()["results"]

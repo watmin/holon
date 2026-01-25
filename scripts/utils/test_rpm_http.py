@@ -390,8 +390,7 @@ def test_rpm_http_solution():
                         found_correct = True
 
                     print(
-                        ".3f"
-                        f"        Found: {list(actual_shapes)} (count: {len(actual_shapes)}, color: {actual_missing.get('color', 'unknown')})"
+                        f"        {score:.3f}: Found: {list(actual_shapes)} (count: {len(actual_shapes)}, color: {actual_missing.get('color', 'unknown')})"
                     )
 
                 if found_correct:

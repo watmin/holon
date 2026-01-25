@@ -242,7 +242,7 @@ def log_system_stats():
     """Log current system statistics."""
     mem = psutil.virtual_memory()
     cpu = psutil.cpu_percent(interval=0.1)
-    logger.info(".1f" ".1f" ".1f")
+    logger.info(f"System stats - Memory: {mem.percent:.1f}%, CPU: {cpu:.1f}%")
 
 
 def generate_extreme_rpm_data(num_matrices=10000):
@@ -287,7 +287,7 @@ def generate_extreme_rpm_data(num_matrices=10000):
             logger.info(f"  Generated {i+1}/{num_matrices} matrices ({rate:.1f}/sec)")
 
     generation_time = time.time() - start_time
-    logger.info(".1f")
+    logger.info(f"✅ Generated {num_matrices} matrices in {generation_time:.1f}s")
     return matrices
 
 
@@ -308,7 +308,7 @@ def ingest_extreme_data(store, matrices):
 
     total_time = time.time() - start_time
     final_rate = len(matrices) / total_time
-    logger.info(".1f")
+    logger.info(f"✅ Ingested {len(matrices)} matrices in {total_time:.1f}s ({final_rate:.1f}/sec)")
     return total_time, final_rate
 
 
@@ -399,7 +399,7 @@ def run_concurrent_stress_test(store, matrices, num_workers=8, queries_per_worke
                 worker_id, correct, total, avg_time, _ = result
                 accuracy = correct / total if total > 0 else 0
 
-                logger.info("3d" ".1f" ".1f")
+                logger.info(f"Worker {worker_id:3d}: {correct}/{total} correct ({accuracy:.1f}%) in {avg_time:.1f}s")
 
                 if completed_workers % 2 == 0:
                     log_system_stats()
@@ -423,16 +423,16 @@ def run_concurrent_stress_test(store, matrices, num_workers=8, queries_per_worke
 
     logger.info("\n🎯 CONCURRENT STRESS TEST RESULTS:")
     logger.info(f"   Total queries: {total_queries}")
-    logger.info(".1f")
-    logger.info(".1f")
-    logger.info(".3f")
-    logger.info(".1f")
+    logger.info(f"   Overall accuracy: {overall_accuracy:.1f}")
+    logger.info(f"   Average query time: {avg_query_time:.1f}s")
+    logger.info(f"   Queries per second: {qps:.3f}")
+    logger.info(f"   Total stress time: {total_time:.1f}s")
     # Query time statistics
     if all_query_times:
         logger.info("   Query time stats:")
-        logger.info(".3f")
-        logger.info(".3f")
-        logger.info(".3f")
+        logger.info(f"      Mean: {mean(all_query_times):.3f}s")
+        logger.info(f"      StdDev: {stdev(all_query_times):.3f}s")
+        logger.info(f"      Max: {max(all_query_times):.3f}s")
     return overall_accuracy, qps, total_time
 
 
@@ -503,8 +503,8 @@ def run_memory_pressure_test(store, matrices):
     avg_query_time = mean(query_times)
 
     logger.info("   Memory pressure test results:")
-    logger.info(".1f")
-    logger.info(".3f")
+    logger.info(f"      Accuracy: {accuracy:.1f}")
+    logger.info(f"      Avg query time: {avg_query_time:.3f}s")
     return accuracy, avg_query_time
 
 
