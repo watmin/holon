@@ -293,7 +293,7 @@ def ingest_recipes(store, recipes):
     for i, recipe in enumerate(recipes):
         # Convert to EDN format
         recipe_edn = convert_recipe_to_edn(recipe)
-        recipe_id = store.insert(recipe_edn, data_type="edn")
+        store.insert(recipe_edn, data_type="edn")
         if (i + 1) % 3 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(recipes)} recipes")
 
@@ -343,7 +343,8 @@ def query_recipes(
 
             print(f"  {i+1}. [{score:.3f}] {recipe[name_key]}")
             print(
-                f"     Cuisine: {recipe[cuisine_key]} | Difficulty: {recipe[difficulty_key]} | Time: {recipe[time_key]} min"
+                f"     Cuisine: {recipe[cuisine_key]} | Difficulty: {recipe[difficulty_key]} | "
+                f"Time: {recipe[time_key]} min"
             )
             if recipe.get(diet_key) and str(recipe[diet_key]) != "#{}":
                 print(f"     Diet: {recipe[diet_key]}")
@@ -388,7 +389,8 @@ def main():
         negations={"ingredients": [{"item": "shrimp"}]},
     )
 
-    # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes with different proteins)
+    # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes
+    # with different proteins)
     query_recipes(
         store,
         '{:name "mapo tofu"}',

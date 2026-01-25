@@ -109,7 +109,7 @@ class ComprehensiveQuoteFinder:
         print(f"🔍 Searching for: '{query_text}'")
 
         # Bootstrap search vector
-        search_vector_list = self.bootstrap_search_vector(query_text)
+        # search_vector_list = self.bootstrap_search_vector(query_text)  # Not used
 
         # Create probe using n-gram encoding
         words = self._normalize_text(query_text)
@@ -191,7 +191,7 @@ class ComprehensiveQuoteFinder:
         print()
 
         # Ingest into Holon
-        ids = self.ingest_quotes(quotes)
+        # ids = self.ingest_quotes(quotes)  # Return value not used
 
         # Demonstration scenarios
         scenarios = [

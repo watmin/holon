@@ -288,8 +288,6 @@ class IntelligentQuoteFinder:
 
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
-        import re
-
         normalized = re.sub(r"[^\w\s]", "", text.lower())
         words = [word for word in normalized.split() if word]
         return words
@@ -386,8 +384,8 @@ def demonstrate_intelligent_quote_finding():
             coord = top_loc["coordinates"]
             print("\n   🏆 Top Result:")
             print(f"      Page: {coord['page']}, Chunk: {coord['chunk_num']}")
-            print(".3f")
-            print(".3f")
+            print(f"      Similarity: {top_loc['similarity']:.3f}")
+            print(f"      Confidence: {top_loc['confidence']:.3f}")
             print(f"      Match type: {top_loc.get('match_type', 'unknown')}")
 
             if "quote_found" in top_loc:

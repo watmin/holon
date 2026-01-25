@@ -176,7 +176,7 @@ def demo_http_bug_reports():
     results = bug_store.find_similar_bugs(probe, top_k=3)
     print(f"📥 Found {len(results)} similar bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
-        print(".3f")
+        print(f"  {i}. Score: {score:.3f}")
 
     print()
     print("✨ HTTP integration working! Our solutions can be adapted to use:")

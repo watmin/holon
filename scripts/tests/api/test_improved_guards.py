@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 
 import json
+import os
+import sys
 
 from holon import CPUStore
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "server"))
+from holon_server import is_subset
 
 # Test improved guards with patterns and positional constraints
 store = CPUStore()
@@ -21,14 +26,8 @@ print("Inserted 3 items")
 probe = json.dumps({"user": "alice"})
 
 # Guard: exact match on meta.status
-from holon.cpu_store import CPUStore
 
 store_instance = CPUStore()  # Dummy for import
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "server"))
-from holon_server import is_subset
 
 # Test is_subset directly
 print("\nTesting is_subset:")

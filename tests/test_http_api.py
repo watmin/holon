@@ -2,9 +2,8 @@ import json
 import os
 import sys
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts", "server"))
+import pytest
 from fastapi.testclient import TestClient
 from holon_server import app, store  # Import the FastAPI app and store
 

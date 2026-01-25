@@ -152,11 +152,11 @@ class FullPipelineTest:
                 abs(ann_score - brute_score) < 0.001
             ), f"ANN/Brute mismatch: {ann_score} vs {brute_score}"
 
-        speedup = brute_time / ann_time if ann_time > 0 else float("inf")
+        # speedup = brute_time / ann_time if ann_time > 0 else float("inf")  # Not used
 
-        print(f"✅ ANN vs Brute force consistency verified")
-        print(".4f")
-        print(".1f")
+        print("✅ ANN vs Brute force consistency verified")
+        print(f"ANN query time: {ann_time:.4f}s")
+        print(f"Brute force query time: {brute_time:.1f}s")
 
         return True
 
@@ -250,9 +250,9 @@ class FullPipelineTest:
 
         # Test deletion
         result = integrity_store.delete(data_id)
-        assert result == True
+        assert result is True
         try:
-            deleted_data = integrity_store.get(data_id)
+            integrity_store.get(data_id)
             assert False, "Should have raised KeyError for deleted data"
         except KeyError:
             print("✅ Data deletion integrity verified")

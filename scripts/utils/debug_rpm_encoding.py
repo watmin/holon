@@ -128,11 +128,11 @@ def debug_matrix_encoding():
     results = store.query('{"rule": "progression"}', top_k=5)
     if results:
         for i, (id, score, data) in enumerate(results):
-            print(".3f")
+            print(f"  {i+1}. Matrix {data['matrix-id']}: {score:.3f}")
     results = store.query('{"rule": "xor"}', top_k=5)
     if results:
         for i, (id, score, data) in enumerate(results):
-            print(".3f")
+            print(f"  {i+1}. Matrix {data['matrix-id']}: {score:.3f}")
     # Test cross-rule similarity (should be low)
     print("\n🔄 Testing cross-rule similarity (should be low):")
     results = store.query('{"matrix-id": "simple-progression"}', top_k=5)
@@ -140,9 +140,9 @@ def debug_matrix_encoding():
     xor_results = [r for r in results if r[2].get("rule") == "xor"]
 
     if progression_results:
-        print(".3f")
+        print(f"  Progression matrix: {progression_results[0][1]:.3f}")
     if xor_results:
-        print(".3f")
+        print(f"  XOR matrix: {xor_results[0][1]:.3f}")
     # Now test missing panel completion
     print("\n🧩 Testing missing panel completion:")  # Create matrix with missing panel
     incomplete_matrix = {
@@ -213,7 +213,7 @@ def debug_matrix_encoding():
         if is_correct:
             found_correct = True
 
-        print(".3f")
+        print(f"    Similarity: {score:.3f} - {status}")
     if found_correct:
         print("  🎯 SUCCESS: Found geometrically correct completion!")
     else:

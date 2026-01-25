@@ -18,7 +18,7 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
 
     shapes = ["circle", "square", "triangle", "diamond", "star"]
     colors = ["black", "white", "red", "blue", "green"]
-    counts = [1, 2, 3, 4, 5]
+    # counts = [1, 2, 3, 4, 5]  # Not used in this function
 
     panels = {}
 
@@ -44,7 +44,7 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
                 panels[position] = panel
 
     elif rule_type == "xor":
-        base_shapes = {"circle", "square", "triangle"}
+        # base_shapes = {"circle", "square", "triangle"}  # Not used in this rule type
 
         for row in range(1, 4):
             for col in range(1, 4):
@@ -81,7 +81,6 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
 
 def edn_to_json(edn_data):
     """Convert EDN-like Python dict to JSON-compatible format."""
-    import json
 
     def convert_sets(obj):
         if isinstance(obj, set):
@@ -98,7 +97,7 @@ def edn_to_json(edn_data):
 
 def compute_expected_missing_panel(matrix_data, missing_position):
     """Compute what the missing panel should be based on the matrix rule."""
-    panels = matrix_data.get("panels", {})
+    # panels = matrix_data.get("panels", {})  # Not used in this function
     rule = matrix_data.get("rule", "")
 
     parts = missing_position.split("-")

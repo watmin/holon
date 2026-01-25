@@ -35,7 +35,7 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
     # Define possible values for each attribute
     shapes = ["circle", "square", "triangle", "diamond", "star"]
     colors = ["black", "white", "red", "blue", "green"]
-    counts = [1, 2, 3, 4, 5]
+    # _counts = [1, 2, 3, 4, 5]  # Not used in this rule type
 
     # Generate base panels for the matrix
     panels = {}
@@ -64,7 +64,7 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
 
     elif rule_type == "xor":
         # XOR operation on shape presence across rows/columns
-        base_shapes = {"circle", "square", "triangle"}
+        # _base_shapes = {"circle", "square", "triangle"}  # Not used in this rule type
 
         for row in range(1, 4):
             for col in range(1, 4):
@@ -213,7 +213,7 @@ def ingest_matrices(store, matrices):
     for i, matrix in enumerate(matrices):
         # Convert to JSON for Holon ingestion (sets become lists)
         matrix_json = edn_to_json(matrix)
-        matrix_id = store.insert(matrix_json, data_type="json")
+        store.insert(matrix_json, data_type="json")
         if (i + 1) % 5 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(matrices)} matrices")
 
@@ -262,7 +262,8 @@ def query_matrices(store, query, description, top_k=5, guard=None, negations=Non
                 panel = panels[pos]
                 shapes = panel.get("shapes", [])
                 print(
-                    f"     {pos}: shapes={shapes}, count={panel.get('count', 0)}, color={panel.get('color', 'unknown')}"
+                    f"     {pos}: shapes={shapes}, count={panel.get('count', 0)}, "
+                    f"color={panel.get('color', 'unknown')}"
                 )
 
     except Exception as e:
@@ -477,7 +478,7 @@ def demonstrate_missing_panel_completion(store):
             data_type="json",
         )
 
-        print(f"\n🔮 Geometric similarity search results:")
+        print("\n🔮 Geometric similarity search results:")
         found_correct = False
 
         for j, (comp_id, comp_score, comp_data) in enumerate(complete_results):
@@ -500,7 +501,8 @@ def demonstrate_missing_panel_completion(store):
 
             print(f"   {j+1}. [{comp_score:.3f}] {comp_matrix['matrix-id']}: {status}")
             print(
-                f"        Found: {list(actual_shapes)} (count: {len(actual_shapes)}, color: {actual_missing.get('color', 'unknown')})"
+                f"        Found: {list(actual_shapes)} (count: {len(actual_shapes)}, "
+                f"color: {actual_missing.get('color', 'unknown')})"
             )
 
         if found_correct:
@@ -512,7 +514,7 @@ def demonstrate_missing_panel_completion(store):
 
     # Summary
     print(
-        f"\n🏆 RESULT: Geometric computation successfully identified rule-based patterns!"
+        "\n🏆 RESULT: Geometric computation successfully identified rule-based patterns!"
     )
     print("   This proves Holon can learn and apply geometric transformation rules.")
 

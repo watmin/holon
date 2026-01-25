@@ -25,8 +25,8 @@ class TestCPUStore:
         store = CPUStore(dimensions=1000)
         data1 = '{"name": "Alice", "age": 30}'
         data2 = '{"name": "Bob", "age": 25}'
-        id1 = store.insert(data1, "json")
-        id2 = store.insert(data2, "json")
+        store.insert(data1, "json")
+        store.insert(data2, "json")
 
         probe = '{"name": "Alice"}'
         results = store.query(probe, "json", top_k=5, threshold=0.0)
@@ -37,8 +37,8 @@ class TestCPUStore:
         store = CPUStore(dimensions=1000)
         data1 = '{:name "Alice", :skills #{"clojure"}}'
         data2 = '{:name "Bob", :skills #{"python"}}'
-        id1 = store.insert(data1, "edn")
-        id2 = store.insert(data2, "edn")
+        store.insert(data1, "edn")
+        store.insert(data2, "edn")
 
         probe = '{:skills #{"clojure"}}'
         results = store.query(probe, "edn", top_k=5, threshold=0.0)
@@ -91,11 +91,13 @@ class TestCPUStore:
                     ):
                         return False
                 elif isinstance(value, list):
-                    # Support OR logic: if guard has a list and data has a scalar that's IN the list,
+                    # Support OR logic: if guard has a list and data has a scalar that's IN
+                    # the list,
                     # treat it as "match any of these values" (backward compatibility)
                     data_value = data[key]
                     if isinstance(data_value, list):
-                        # Exact array matching for array-to-array comparison (backward compatibility)
+                        # Exact array matching for array-to-array comparison
+                        # (backward compatibility)
                         if len(value) != len(data_value):
                             return False
                         for g_item, d_item in zip(value, data_value):
@@ -202,9 +204,12 @@ class TestCPUStore:
 
         # Test data with different encoding modes
         test_data = [
-            '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown", "fox"]}, "type": "ngram_test"}',
-            '{"words": {"_encode_mode": "chained", "sequence": ["hello", "world"]}, "type": "chained_test"}',
-            '{"words": {"_encode_mode": "positional", "sequence": ["foo", "bar"]}, "type": "positional_test"}',
+            '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown", "fox"]}, '
+            '"type": "ngram_test"}',
+            '{"words": {"_encode_mode": "chained", "sequence": ["hello", "world"]}, '
+            '"type": "chained_test"}',
+            '{"words": {"_encode_mode": "positional", "sequence": ["foo", "bar"]}, '
+            '"type": "positional_test"}',
             '{"words": {"_encode_mode": "bundle", "sequence": ["simple", "list"]}, "type": "bundle_test"}',
         ]
 

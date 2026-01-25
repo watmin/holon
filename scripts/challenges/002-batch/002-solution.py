@@ -258,11 +258,11 @@ def convert_graph_to_edn(graph):
             items.append(f'"{item}"')
         return "#{" + ", ".join(items) + "}"
 
-    def format_list(l):
-        if not l:
+    def format_list(items_list):
+        if not items_list:
             return "[]"
         items = []
-        for item in l:
+        for item in items_list:
             if isinstance(item, dict):
                 # Edge dict
                 pairs = []
@@ -309,7 +309,7 @@ def ingest_graphs(store, graphs):
     for i, graph in enumerate(graphs):
         # Convert to EDN format
         graph_edn = convert_graph_to_edn(graph)
-        graph_id = store.insert(graph_edn, data_type="edn")
+        store.insert(graph_edn, data_type="edn")
         if (i + 1) % 4 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(graphs)} graphs")
 

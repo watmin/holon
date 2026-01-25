@@ -195,7 +195,7 @@ class ParagraphQuoteFinder:
             print()
 
         # Ingest paragraphs
-        ids = self.ingest_paragraphs(paragraphs)
+        # ids = self.ingest_paragraphs(paragraphs)  # Return value not used
 
         # Test coordinate-based quote finding
         test_quotes = [
@@ -219,7 +219,7 @@ class ParagraphQuoteFinder:
                     print(
                         f"      📍 Coordinate: {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}"
                     )
-                    print(".3f")
+                    print(f"      🎯 Similarity: {match['similarity']:.3f}")
                     print(f"      📄 Paragraph: {match['paragraph_text'][:100]}...")
 
                     if match.get("quote_matches"):

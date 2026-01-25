@@ -205,7 +205,7 @@ class TestCPUStoreBulkOperations:
         # Force ANN build
         if hasattr(store, "_build_ann_index"):
             store._build_ann_index()
-            initial_ann_state = store.ann_index is not None
+            # initial_ann_state = store.ann_index is not None  # Not used
 
             # Insert one more item (should invalidate ANN when not in bulk mode)
             store.insert(json.dumps({"id": 9999}), "json")
@@ -270,7 +270,7 @@ class TestCPUStoreBulkOperations:
         bulk_ids = store.batch_insert(bulk_data, "json")
 
         # Individual insert
-        single_id = store.insert(json.dumps({"type": "single", "id": 999}), "json")
+        store.insert(json.dumps({"type": "single", "id": 999}), "json")
 
         # Delete some bulk items
         for i in range(10):

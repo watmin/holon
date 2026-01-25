@@ -351,7 +351,7 @@ def ingest_tasks(store, tasks):
     for i, task in enumerate(tasks):
         # Convert to JSON string for Holon ingestion
         task_json = json.dumps(task)
-        task_id = store.insert(task_json)
+        store.insert(task_json)
         if (i + 1) % 10 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(tasks)} tasks")
 
@@ -384,7 +384,8 @@ def query_tasks(store, query, description, top_k=10, guard=None, negations=None)
             task = task_data  # Already parsed JSON
             print(f"\n  {i+1}. [{score:.3f}] {task['title']}")
             print(
-                f"     Project: {task['project']} | Priority: {task['priority']} | Status: {task['status']}"
+                f"     Project: {task['project']} | Priority: {task['priority']} | "
+                f"Status: {task['status']}"
             )
             if task.get("due"):
                 print(f"     Due: {task['due']}")

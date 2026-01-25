@@ -287,11 +287,11 @@ def convert_graph_to_edn(graph):
             items.append(f'"{item}"')
         return "#{" + ", ".join(items) + "}"
 
-    def format_list(l):
-        if not l:
+    def format_list(items_list):
+        if not items_list:
             return "[]"
         items = []
-        for item in l:
+        for item in items_list:
             if isinstance(item, dict):
                 pairs = []
                 for k, v in item.items():
@@ -530,7 +530,7 @@ def test_query_performance(store, graphs):
         test_graph = graphs[size // 2]  # Middle of current dataset
 
         start_time = time.time()
-        query_results = store.query(
+        store.query(
             f'{{:name "{test_graph["name"]}"}}',
             data_type="edn",
             top_k=10,
@@ -644,7 +644,7 @@ def print_stress_test_summary(results):
     if "clustering" in results:
         clust = results["clustering"]
         print(f"  Family clustering: {clust['avg_purity']:.1%} average purity")
-        print(f"  Structural families naturally cluster in vector space")
+        print("  Structural families naturally cluster in vector space")
     if "accuracy" in results:
         acc = results["accuracy"]
         print(f"  Approximate matching accuracy: {acc['accuracy']:.1%}")
@@ -709,7 +709,7 @@ def main():
     print(
         f"   {NUM_GRAPHS} graphs processed, meaningful similarity detection achieved!"
     )
-    print(f"   VSA/HDC approach successfully dents the NP-hard graph matching domain!")
+    print("   VSA/HDC approach successfully dents the NP-hard graph matching domain!")
 
 
 if __name__ == "__main__":

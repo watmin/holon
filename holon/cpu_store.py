@@ -226,11 +226,13 @@ class CPUStore(Store):
                     ):
                         return False
                 elif isinstance(value, list):
-                    # Support OR logic: if guard has a list and data has a scalar that's IN the list,
+                    # Support OR logic: if guard has a list and data has a scalar that's IN
+                    # the list,
                     # treat it as "match any of these values" (backward compatibility)
                     data_value = data[key]
                     if isinstance(data_value, list):
-                        # Exact array matching for array-to-array comparison (backward compatibility)
+                        # Exact array matching for array-to-array comparison
+                        # (backward compatibility)
                         if len(value) != len(data_value):
                             return False
                         for g_item, d_item in zip(value, data_value):

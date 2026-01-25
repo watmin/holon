@@ -211,7 +211,7 @@ def main():
     for matrix in matrices:
         store.insert(edn_to_json(matrix))
     ingest_time = time.time() - start_time
-    print(".1f")
+    print(f"✅ Ingested {len(matrices)} matrices in {ingest_time:.1f}s")
     # Run concurrent stress test
     print("🔥 Running concurrent geometric completion stress test...")
     print("   8 workers × 50 queries each = 400 concurrent geometric completions")
@@ -249,14 +249,14 @@ def main():
 
     print("📊 PERFORMANCE METRICS:")
     print(f"   Total queries processed: {total_queries}")
-    print(".1f")
-    print(".3f")
-    print(".1f")
+    print(f"   Total stress time: {stress_time:.1f}s")
+    print(f"   Average query time: {avg_query_time:.3f}s")
+    print(f"   Queries per second: {qps:.1f}")
     print("\n⚡ CONCURRENT PROCESSING:")
-    print(".1f")
-    print(".1f")
+    print(f"   Workers used: {len(results)}")
+    print(f"   Queries per worker: {total_queries // len(results)}")
     print("\n🧠 GEOMETRIC INTELLIGENCE VALIDATION:")
-    print(".1f")
+    print(f"   Overall accuracy: {overall_accuracy:.1%}")
     print("   vs. Random baseline: ~5%")
     print(f"   Performance boost: {(overall_accuracy/0.05):.0f}× better than random")
     if overall_accuracy >= 0.8:

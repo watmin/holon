@@ -179,9 +179,7 @@ def encode_item_batch(batch_data):
 
     for item in items:
         try:
-            parsed = (
-                json_fast.loads(item) if "json_fast" in globals() else json.loads(item)
-            )
+            parsed = json.loads(item)
             from holon.encoder import Encoder
 
             encoder = Encoder(local_vm)

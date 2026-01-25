@@ -182,7 +182,7 @@ class PDFQuoteLocator:
 
     def __init__(self, indexed_chunks: List[Dict[str, Any]]):
         self.chunks = indexed_chunks
-        self.chunk_lookup = {chunk["id"]: chunk for chunk in chunks}
+        self.chunk_lookup = {chunk["id"]: chunk for chunk in indexed_chunks}
 
     def find_quote_locations(
         self, quote_text: str, min_similarity: float = 0.8
@@ -332,8 +332,10 @@ def main():
             if locations:
                 print("   📍 Found locations:")
                 for i, loc in enumerate(locations[:3], 1):  # Top 3
-                    coord = loc["coordinates"]
-                    print(".3f")
+                    print(
+                        f"      📍 Location {i}: Page {loc['coordinates']['page']}, "
+                        f"Chunk {loc['coordinates']['chunk_num']}"
+                    )
                     print(f"      📄 Chunk preview: {loc['chunk_content'][:80]}...")
                     if loc.get("quote_found"):
                         print(f"      🎯 Exact match: '{loc['quote_found']}'")

@@ -15,7 +15,7 @@ from holon import CPUStore
 def test_empty_data():
     store = CPUStore()
     # Empty dict
-    id_ = store.insert("{}")
+    store.insert("{}")
     result = store.query("{}")
     assert len(result) == 1
 

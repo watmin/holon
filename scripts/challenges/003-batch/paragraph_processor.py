@@ -38,8 +38,8 @@ class ParagraphProcessor:
         paragraphs = []
 
         # Read the quotes file and also create paragraphs from it
-        with open(self.file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        # with open(self.file_path, "r", encoding="utf-8") as f:
+        #     content = f.read()  # Not used in current implementation
 
         # For this demo, let's create synthetic paragraphs that contain the quotes
         # In a real system, you'd extract actual paragraphs from the document

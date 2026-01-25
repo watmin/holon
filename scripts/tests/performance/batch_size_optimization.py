@@ -121,7 +121,8 @@ def main():
     print("-----------|---------|------------|-----------|-----------")
     for r in results:
         print(
-            f"{r['batch_size']:>10,} | {r['num_batches']:>7} | {r['total_time']:>10.3f} | {r['avg_batch_time']:>9.3f} | {r['throughput']:>9.1f}"
+            f"{r['batch_size']:>10,} | {r['num_batches']:>7} | {r['total_time']:>10.3f} | "
+            f"{r['avg_batch_time']:>9.3f} | {r['throughput']:>9.1f}"
         )
 
     # Find best

@@ -69,5 +69,6 @@ for res in results_or:
     print(f"  {res[2]['user']} - {res[2]['action']} - {status}")
 
 print(
-    "\nVector tricks: $any for wildcards, $or for disjunctions, subtraction for negation patterns at any depth"
+    "\nVector tricks: $any for wildcards, $or for disjunctions, "
+    "subtraction for negation patterns at any depth"
 )

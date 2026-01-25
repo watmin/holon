@@ -3,13 +3,13 @@
 import json
 import time
 
+import holon.cpu_store
 from holon import CPUStore
 
 # Test accuracy: compare brute-force vs ANN results
 store = CPUStore()
 
 # Temporarily set threshold low to force ANN
-import holon.cpu_store
 
 holon.cpu_store.ANN_THRESHOLD = 5  # Force ANN after 5 items
 

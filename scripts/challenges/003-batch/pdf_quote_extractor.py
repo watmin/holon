@@ -28,7 +28,7 @@ class QuoteProcessor:
         # Split into lines and process
         lines = content.strip().split("\n")
         quotes = []
-        current_page = 1
+        # current_page = 1  # Not used in current implementation
 
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
@@ -205,8 +205,10 @@ def main():
         print("Please ensure calculus-made-easy.pdf is in docs/challenges/003-batch/")
         return
 
-    extractor = PDFQuoteExtractor(str(pdf_path))
-    quotes = extractor.extract_all_quotes(str(output_json))
+    # TODO: Implement PDFQuoteExtractor class for PDF quote extraction
+    # extractor = PDFQuoteExtractor(str(pdf_path))
+    # quotes = extractor.extract_all_quotes(str(output_json))
+    quotes = []  # Placeholder
 
     print("\n📊 Extraction Summary:")
     print(f"   Total quotes: {len(quotes)}")

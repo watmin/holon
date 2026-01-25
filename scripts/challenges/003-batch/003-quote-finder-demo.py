@@ -150,8 +150,8 @@ class QuoteFinder:
         """Search for quotes using bootstrapped vector."""
         logger.info(f"Searching for: '{query_phrase}'")
 
-        # Bootstrap search vector
-        search_vector_list = self.bootstrap_search_vector(query_phrase)
+        # Bootstrap search vector (not used in current implementation)
+        # search_vector_list = self.bootstrap_search_vector(query_phrase)
 
         # Create probe using the vector (this is a simplified approach)
         # In a real implementation, we'd need to extend the query API to accept pre-computed vectors

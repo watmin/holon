@@ -118,7 +118,8 @@ def generate_dnd_spells() -> List[Dict[str, Any]]:
             "range": "150 feet",
             "components": {":v", ":s", ":m"},
             "duration": "Instantaneous",
-            "description": "A bright streak flashes from your pointing finger to a point you choose within range and then blossoms with a low roar into an explosion of flame.",
+            "description": "A bright streak flashes from your pointing finger to a point you "
+            "choose within range and then blossoms with a low roar into an explosion of flame.",
             "tags": {"damage", "fire", "area", "explosion"},
         },
         {
@@ -167,7 +168,8 @@ def generate_dnd_spells() -> List[Dict[str, Any]]:
             "range": "30 feet",
             "components": {":s", ":m"},
             "duration": "1 minute",
-            "description": "You create a sound or an image of an object within range that lasts for the duration.",
+            "description": "You create a sound or an image of an object within range "
+            "that lasts for the duration.",
             "tags": {"illusion", "utility", "sound", "cantrip"},
         },
         {
@@ -222,7 +224,8 @@ def generate_dnd_spells() -> List[Dict[str, Any]]:
             "range": "60 feet",
             "components": {":v", ":s", ":m"},
             "duration": "Concentration, up to 1 minute",
-            "description": "Choose a humanoid that you can see within range. The target must succeed on a Wisdom saving throw or be paralyzed.",
+            "description": "Choose a humanoid that you can see within range. The target must "
+            "succeed on a Wisdom saving throw or be paralyzed.",
             "tags": {"control", "paralysis", "concentration", "combat"},
         },
         # Healing spells
@@ -410,7 +413,7 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
     print(f"Found {len(results)} similar non-concentration fire spells:")
     for i, (magic_id, score, magic) in enumerate(results[:3], 1):
         if magic.get("type") == "spell":
-            print(".3f")
+            print(f"  Level {magic.get('level', '?')}: {score:.3f}")
     print()
 
     # Query 2: Cantrips useful for stealth/illusion
@@ -461,7 +464,8 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
     print(f"Found {len(results)} charm-related magic (non-humanoid affecting):")
     for i, (magic_id, score, magic) in enumerate(results, 1):
         print(
-            f"  {i}. {magic['name']} ({magic.get('type', 'unknown')}) - {', '.join(magic.get('tags', []))}"
+            f"  {i}. {magic['name']} ({magic.get('type', 'unknown')}) - "
+            f"{', '.join(magic.get('tags', []))}"
         )
     print()
 

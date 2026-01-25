@@ -219,7 +219,7 @@ class MetadataQuoteSystem:
                     print(
                         f"  {i}. 📍 {coord['chapter']} | Para {coord['paragraph_num']} | Page {coord['page_start']}"
                     )
-                    print(".3f")
+                    print(f"      🎯 Similarity: {result.get('similarity', 0):.3f}")
                     print(f"      📖 Book: {coord['book_title']}")
                     if "quote_position" in coord:
                         pos = coord["quote_position"]

@@ -50,7 +50,8 @@ results_no_guard = store.query(probe, top_k=10)
 print(f"\nQuery without guard: {len(results_no_guard)} results")
 for res in results_no_guard:
     print(
-        f"  User: {res[2]['user']}, Action: {res[2]['action']}, Status: {res[2]['status']}, IP: {res[2]['ip']}"
+        f"  User: {res[2]['user']}, Action: {res[2]['action']}, "
+        f"Status: {res[2]['status']}, IP: {res[2]['ip']}"
     )
 
 # Query with guard: only success status
@@ -59,14 +60,16 @@ results_guarded = store.query(probe, top_k=10, guard=guard_success)
 print(f"\nQuery with guard (status=='success'): {len(results_guarded)} results")
 for res in results_guarded:
     print(
-        f"  User: {res[2]['user']}, Action: {res[2]['action']}, Status: {res[2]['status']}, IP: {res[2]['ip']}"
+        f"  User: {res[2]['user']}, Action: {res[2]['action']}, "
+        f"Status: {res[2]['status']}, IP: {res[2]['ip']}"
     )
 
 # Verify filtering: should exclude the failed login
 failed_logins = [r for r in results_no_guard if r[2]["status"] == "failed"]
 print(f"\nFailed logins in unguarded results: {len(failed_logins)}")
 print(
-    f"Failed logins in guarded results: {len([r for r in results_guarded if r[2]['status'] == 'failed'])}"
+    f"Failed logins in guarded results: "
+    f"{len([r for r in results_guarded if r[2]['status'] == 'failed'])}"
 )
 
 if len([r for r in results_guarded if r[2]["status"] == "failed"]) == 0:

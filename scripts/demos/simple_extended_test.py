@@ -88,7 +88,7 @@ def edn_to_json(edn_data):
 
 
 def compute_expected_missing_panel(matrix_data, missing_position):
-    panels = matrix_data.get("panels", {})
+    # panels = matrix_data.get("panels", {})  # Not used in this function
     rule = matrix_data.get("rule", "")
 
     parts = missing_position.split("-")
@@ -166,7 +166,7 @@ def test_novel_problems():
 
     accuracy = correct / 20
     print(f"   Novel problem accuracy: {correct}/20 = {accuracy:.1%}")
-    print(f"   Random baseline would be ~5% (1/20 possibilities)")
+    print("   Random baseline would be ~5% (1/20 possibilities)")
     print(f"   Our system is {accuracy/0.05:.0f}x better than random!")
 
     return accuracy >= 0.7

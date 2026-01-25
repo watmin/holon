@@ -14,6 +14,8 @@ import time
 import requests
 from fastapi.testclient import TestClient
 
+BASE_URL = "http://localhost:8000"
+
 
 # Copy functions from our RPM solution (to avoid import issues)
 def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=None):
@@ -107,7 +109,6 @@ def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=
 
 def edn_to_json(edn_data):
     """Convert EDN-like Python dict to JSON-compatible format."""
-    import json
 
     def convert_sets(obj):
         if isinstance(obj, set):

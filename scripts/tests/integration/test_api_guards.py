@@ -45,9 +45,11 @@ if __name__ == "__main__":
                 f"  {res['data']['user']} - {res['data']['action']} - {res['data']['status']}"
             )
 
-        # Query with guard: status == success (presence of "status" key, but since we check presence, and value is dict)
+        # Query with guard: status == success (presence of "status" key, but since we check
+        # presence, and value is dict)
         # Guard: {"status": null} or just {"status": {}}
-        # But user said "null" is better, but for subset, since we ignore value, {"status": null} would work.
+        # But user said "null" is better, but for subset, since we ignore value, {"status": null}
+        # would work.
 
         guard = {"status": None}  # But None is null in JSON
         response = requests.post(

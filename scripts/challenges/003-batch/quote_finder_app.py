@@ -303,7 +303,7 @@ def demo_quote_finder():
             print(
                 f"   📄 Best match at: Page {coord['page']}, Chunk {coord['chunk_num']}"
             )
-            print(".3f")
+            print(f"   🎯 Similarity: {top_loc.get('similarity', 0):.3f}")
             print(
                 f"   📖 Content preview: {top_loc.get('chunk_content', 'N/A')[:100]}..."
             )

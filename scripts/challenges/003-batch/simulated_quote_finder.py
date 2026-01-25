@@ -427,7 +427,7 @@ def demo_pdf_quote_finder():
             print(
                 f"   📄 Best location: Page {coord['page']}, Chunk {coord['chunk_num']}"
             )
-            print(".3f")
+            print(f"   🎯 Similarity: {top_loc.get('similarity', 0):.3f}")
             print(f"   📖 Content: {top_loc.get('chunk_content', 'N/A')[:100]}...")
 
             if top_loc.get("quote_found"):

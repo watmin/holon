@@ -73,7 +73,7 @@ def demonstrate_concrete_response_structure():
                 print(f"           'page_end': {coord['page_end']},")
                 print(f"           'word_count': {coord['word_count']}")
                 print("         },")
-                print(".3f")
+                print(f"         'similarity': {result['similarity']:.3f}")
                 print(
                     f"         'paragraph_text': '{result['paragraph_text'][:60]}...',"
                 )
@@ -112,7 +112,7 @@ def demonstrate_concrete_response_structure():
             print(
                 f"   • Top result coordinate: {results[0]['coordinates']['chapter']} | Para {results[0]['coordinates']['paragraph_num']} | Page {results[0]['coordinates']['page_start']}"
             )
-            print(".3f")
+            print(f"   • Top similarity: {results[0]['similarity']:.3f}")
         else:
             print("   ❌ No results found")
 
@@ -140,7 +140,7 @@ def demonstrate_http_api_structure():
     try:
         response = requests.get("http://localhost:8000/health", timeout=1)
         server_running = response.status_code == 200
-    except:
+    except Exception:
         server_running = False
 
     if server_running:

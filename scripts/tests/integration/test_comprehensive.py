@@ -136,13 +136,15 @@ def run_comprehensive_test():
         probe_combined, top_k=5, guard=guard_combined, negations=negations_combined
     )
     print(
-        f"  Query: any action + nested flag + medium priority - banned → {len(results_combined)} results"
+        f"  Query: any action + nested flag + medium priority - banned → "
+        f"{len(results_combined)} results"
     )
 
     # Performance summary
     print("\n⏱️ Performance Summary")
     print(
-        f"  Inserted: {len(data)} blobs in {insert_time:.2f}s ({len(data)/insert_time:.1f} blobs/sec)"
+        f"  Inserted: {len(data)} blobs in {insert_time:.2f}s "
+        f"({len(data)/insert_time:.1f} blobs/sec)"
     )
     print("  Queries: Fast retrieval with complex filters")
     print(

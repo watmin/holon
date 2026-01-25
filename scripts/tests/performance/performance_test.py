@@ -39,7 +39,7 @@ def performance_test():
     for item in data:
         store.insert(item, "json")
     insert_time = time.time() - start
-    print(".2f")
+    print(f"✅ Inserted {len(data)} items in {insert_time:.2f}s")
 
     # Test queries
     test_queries = [
@@ -54,19 +54,19 @@ def performance_test():
         start = time.time()
         results = store.query(query, "json", top_k=10)
         query_time = time.time() - start
-        print(".4f")
+        print(f"  Query time: {query_time:.4f}s")
         print(f"  Results: {len(results)}")
 
         # Show top result
         if results:
-            print(".4f")
+            print(f"  Top result score: {results[0][1]:.4f}")
 
     print("\n📊 Performance Summary")
     print("=" * 50)
     print(f"Dataset size: {n_items} items")
-    print(".2f")
-    print(".4f")
-    print(".1f")
+    print(f"Insert time: {insert_time:.2f}s")
+    print(f"Average query time: {query_time:.4f}s")
+    print(f"Queries per second: {1/query_time:.1f}")
     print("\n✅ Optimizations working: Heap selection + parallel processing!")
     print("Expected: 10-50x faster than unoptimized version")
 

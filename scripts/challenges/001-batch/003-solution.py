@@ -181,10 +181,17 @@ def generate_synthetic_bug_reports(count: int = 45) -> List[Dict[str, Any]]:
 
     # Stack trace templates
     stack_templates = [
-        "TypeError: Cannot read property 'map' of undefined\n    at Component.render (/app/src/components/List.js:45:12)\n    at ReactCompositeComponent._renderValidatedComponent (/app/node_modules/react/lib/ReactCompositeComponent.js:789:34)",
-        "NullPointerException: Attempt to invoke virtual method 'java.lang.String.length()' on a null object reference\n    at com.example.App.onCreate(App.java:123)\n    at android.app.Activity.performCreate(Activity.java:5990)",
-        "AuthenticationError: JWT token expired\n    at AuthMiddleware.validateToken (/app/middleware/auth.js:67:9)\n    at Router.handle (/app/node_modules/express/lib/router/index.js:174:19)",
-        'DatabaseError: connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused\n    at Client._connect (/app/node_modules/pg/lib/client.js:89:11)',
+        "TypeError: Cannot read property 'map' of undefined\n    at Component.render "
+        "(/app/src/components/List.js:45:12)\n    at ReactCompositeComponent."
+        "_renderValidatedComponent (/app/node_modules/react/lib/ReactCompositeComponent.js:789:34)",
+        "NullPointerException: Attempt to invoke virtual method 'java.lang.String.length()' "
+        "on a null object reference\n    at com.example.App.onCreate(App.java:123)\n    "
+        "at android.app.Activity.performCreate(Activity.java:5990)",
+        "AuthenticationError: JWT token expired\n    at AuthMiddleware.validateToken "
+        "(/app/middleware/auth.js:67:9)\n    at Router.handle "
+        "(/app/node_modules/express/lib/router/index.js:174:19)",
+        'DatabaseError: connection to server at "localhost" (127.0.0.1), port 5432 failed: '
+        'Connection refused\n    at Client._connect (/app/node_modules/pg/lib/client.js:89:11)',
     ]
 
     # Environment combinations
@@ -280,7 +287,8 @@ def demonstrate_vsa_encoding():
         "title": "Login crash on mobile Safari",
         "component": ":auth",
         "severity": ":critical",
-        "stacktrace": "TypeError: Cannot read property 'auth' of null\n    at LoginComponent.authenticate()",
+        "stacktrace": "TypeError: Cannot read property 'auth' of null\n    "
+        "at LoginComponent.authenticate()",
         "environment": {"os": ":ios", "browser": ":safari", "version": "14.0.1"},
         "labels": {"blocking", "mobile", "regression"},
         "reported_at": "2024-01-15T10:30:00Z",
@@ -326,7 +334,7 @@ def demonstrate_queries(bug_store: BugReportStore):
     results = bug_store.find_similar_bugs(probe_bug, top_k=5)
     print(f"Found {len(results)} similar bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
-        print(".3f")
+        print(f"  {i}. Score: {score:.3f}")
     print()
 
     # Query 2: High severity bugs in auth component
@@ -347,10 +355,10 @@ def demonstrate_queries(bug_store: BugReportStore):
     )
     probe_bug = {"title": "iOS crash", "environment": {"os": ":ios"}}
 
-    negations = {
-        "labels": {"$not_contains": "mobile"},
-        "component": {"$not": ":mobile"},
-    }
+    # negations = {
+    #     "labels": {"$not_contains": "mobile"},
+    #     "component": {"$not": ":mobile"},
+    # }
 
     results = bug_store.find_similar_bugs(probe_bug, top_k=5)
     # Filter out mobile-related results manually for demo
@@ -363,7 +371,7 @@ def demonstrate_queries(bug_store: BugReportStore):
 
     print(f"Found {len(non_mobile_results)} non-mobile bugs similar to iOS crashes:")
     for i, (bug_id, score, bug) in enumerate(non_mobile_results[:3], 1):
-        print(".3f")
+        print(f"  {i}. Score: {score:.3f}")
     print()
 
 

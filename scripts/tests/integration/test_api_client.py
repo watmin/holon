@@ -65,7 +65,7 @@ def test_query():
     result = response.json()
     print(f"Found {len(result['results'])} results:")
     for r in result["results"][:3]:  # Show first 3
-        print(".3f")
+        print(f"  Score: {r['score']:.3f}")
     print()
 
 
@@ -77,7 +77,7 @@ def main():
     test_health()
 
     # Test insert
-    inserted_id = test_insert()
+    test_insert()
 
     # Test batch insert
     test_batch_insert()
