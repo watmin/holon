@@ -19,7 +19,13 @@ We've solved multiple complex challenges demonstrating Holon's VSA/HDC capabilit
 - [Contributing](contributing.md) - Development setup and extending Holon
 
 ## Examples
-- [Runnable Code Samples](../examples/) - Basic usage, advanced queries, Rete demo
+- [Basic Usage](../examples/basic_usage.py) - Getting started with JSON/EDN
+- [Advanced Queries](../examples/advanced_queries.py) - Complex guards, negations, $or logic
+- [Vector Bootstrapping](../examples/vector_bootstrapping.py) - Custom similarity operations
+- [Bulk Operations](../examples/bulk_operations.py) - Efficient large-scale data handling
+- [Geometric Reasoning](../examples/geometric_reasoning.py) - RPM-style pattern completion
+- [HTTP API Example](../examples/http_api_example.py) - REST API usage
+- [EDN Usage](../examples/edn_usage.py) - Rich data types and keywords
 
 ## Archive
 - [Legacy Docs](archive/) - Older documentation files

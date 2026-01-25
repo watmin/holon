@@ -1,5 +1,7 @@
 # Contributing to Holon
 
+See the main [README](../README.md) for overview and project details.
+
 ## Development Setup
 1. Clone: `git clone https://github.com/watmin/holon.git`
 2. Create venv: `python -m venv holon_env`
