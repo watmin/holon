@@ -141,3 +141,6 @@ holon_env/
 extreme_*_results/
 *_results/
 test_results/
+
+# Result JSON files
+*_results*.json
