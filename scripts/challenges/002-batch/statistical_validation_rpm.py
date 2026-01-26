@@ -218,10 +218,10 @@ class RPMStatisticalValidator:
 
         if accuracy > random_baseline:
             significance = (accuracy - random_baseline) / random_baseline * 100
-            print(".1f")
+            print(f"   Improvement over random: +{significance:.1f}%")
         else:
             significance = (random_baseline - accuracy) / random_baseline * 100
-            print(".1f")
+            print(f"   Below random baseline: -{significance:.1f}%")
         print(f"   Random baseline: {random_baseline:.1%}")
         print(f"   {significance}")
 
@@ -478,8 +478,8 @@ def main():
     print("\n🎉 RPM Statistical Validation Complete!")
     print(f"   Training matrices: {setup_info['training_count']}")
     print(f"   Test matrices: {setup_info['test_count']}")
-    print(".1%")
-    print(".4f")
+    print(f"   Overall accuracy: {results['accuracy']:.1%}")
+    print(f"   Average response time: {results['avg_response_time']:.4f}s")
     return results
 
 

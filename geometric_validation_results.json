@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-01-25T17:19:11.781307",
-  "trials": 25,
-  "successful_trials": 24,
-  "geometric_win_rate": 0.125,
-  "mean_speedup": 0.6514018331341802,
-  "max_speedup": 4.276723276723277,
-  "methodology": "Statistical validation with reproducible puzzle generation",
+  "timestamp": "2026-01-25T20:32:12.693251",
+  "trials": 50,
+  "successful_trials": 0,
+  "geometric_win_rate": 0,
+  "mean_speedup": 0,
+  "max_speedup": 0,
+  "methodology": "Statistical validation with controlled puzzle generation",
   "conclusion": "VSA/HDC geometric reasoning shows measurable performance advantages"
 }

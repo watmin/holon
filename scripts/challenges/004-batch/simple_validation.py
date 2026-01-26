@@ -216,10 +216,10 @@ def run_validation():
     if results:
         speedups = [r['speedup'] for r in results]
         print("\nPerformance statistics:")
-        print(".3f")
-        print(".3f")
-        print(".3f")
-        print(".3f")
+        print(f"  Mean speedup: {statistics.mean(speedups):.3f}x")
+        print(f"  Median speedup: {statistics.median(speedups):.3f}x")
+        print(f"  Best speedup: {max(speedups):.3f}x")
+        print(f"  Worst speedup: {min(speedups):.3f}x")
         win_rate = geometric_wins / successful_trials
         print(f"\\nGeometric win rate: {win_rate*100:.1f}%")
 

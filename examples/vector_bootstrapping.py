@@ -45,7 +45,7 @@ def main():
     vector2 = store.encoder.encode_data({"type": "authorization", "security": "high"})
 
     similarity = normalized_dot_similarity(vector1, vector2)
-    print(".4f")
+    print(f"   Similarity: {similarity:.4f}")
 
     # Example 3: Bootstrapping for custom search terms
     print("\n3. Bootstrapping Custom Search Terms")
@@ -75,7 +75,7 @@ def main():
 
         for i, (data_id, score) in enumerate(similar_results):
             data = store.stored_data[data_id]
-            print(".4f")
+            print(f"   {i+1}. {data}: {score:.4f}")
 
     # Example 5: Bulk encoding for efficiency
     print("\n5. Bulk Vector Operations")
@@ -96,7 +96,7 @@ def main():
     # Compare bulk encoded vectors
     if len(encoded_vectors) >= 2:
         sim = normalized_dot_similarity(encoded_vectors[0], encoded_vectors[1])
-        print(".4f")
+        print(f"   Bulk vector similarity: {sim:.4f}")
 
     print("\n✅ Vector bootstrapping examples completed!")
 

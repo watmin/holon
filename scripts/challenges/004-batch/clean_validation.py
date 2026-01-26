@@ -217,6 +217,7 @@ def run_validation():
     print(f"Successful trials: {successful_trials}/100")
     print(f"Geometric wins (>5% speedup): {geometric_wins}/{successful_trials}")
 
+    speedups = []
     if results:
         speedups = [r['speedup'] for r in results]
         print("\nStatistics:")

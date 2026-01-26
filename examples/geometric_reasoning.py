@@ -107,7 +107,7 @@ def main():
         matrix = data["matrix"]
         if "row3-col3" in matrix:
             completed_panel = matrix["row3-col3"]
-            print(".4f")
+            print(f"      Similarity: {score:.4f}")
             print(f"      Predicted: {completed_panel['count']} shapes")
             break
 
@@ -140,7 +140,7 @@ def main():
         matrix = data["matrix"]
         if "row2-col2" in matrix:
             completed_panel = matrix["row2-col2"]
-            print(".4f")
+            print(f"      Similarity: {score:.4f}")
             print(
                 f"      Predicted: {completed_panel['shapes']} (XOR value: {completed_panel['xor_value']})"
             )
@@ -196,7 +196,7 @@ def main():
 
     for i, (id_, score, data) in enumerate(results):
         rule_type = data.get("rule", "unknown")
-        print(".4f")
+        print(f"   {i+1}. {rule_type} pattern: {score:.4f}")
 
     print("\n✅ Geometric reasoning examples completed!")
     print("\n📊 Key Insights:")

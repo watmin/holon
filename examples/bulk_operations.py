@@ -50,7 +50,7 @@ def main():
         id_ = store.insert(item)
         individual_ids.append(id_)
     individual_time = time.time() - start_time
-    print(".3f")
+    print(f"   Individual inserts: {individual_time:.3f}s")
 
     # Clear and test bulk inserts
     store.clear()
@@ -59,10 +59,10 @@ def main():
     start_time = time.time()
     bulk_ids = store.batch_insert(test_data)
     bulk_time = time.time() - start_time
-    print(".3f")
+    print(f"   Bulk inserts: {bulk_time:.3f}s")
 
     speedup = individual_time / bulk_time
-    print(".1f")
+    print(f"   Speedup: {speedup:.1f}x")
 
     # Example 2: Bulk Query Operations
     print("\n2. Bulk Query Performance")
@@ -81,7 +81,7 @@ def main():
         start_time = time.time()
         results = store.query(f'{{"activity": "{activity}"}}', top_k=10)
         query_time = time.time() - start_time
-        print(".4f")
+        print(f"   {activity}: {query_time:.4f}s")
 
     # Example 3: Complex Bulk Queries with Guards
     print("\n3. Complex Queries on Bulk Data")

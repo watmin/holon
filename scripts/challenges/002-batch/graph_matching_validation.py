@@ -159,7 +159,7 @@ def run_graph_validation():
 
         print("Top similar graphs:")
         for i, (name, score) in enumerate(list(similarities.items())[:5]):
-            print(".4f")
+            print(f"  {i+1}. {name}: {score:.4f}")
 
         # Evaluate results
         # Check if expected similar graphs have higher similarity than expected dissimilar
