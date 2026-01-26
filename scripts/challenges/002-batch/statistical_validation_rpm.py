@@ -208,7 +208,8 @@ class RPMStatisticalValidator:
         for rule, stats in results["rule_performance"].items():
             accuracy = stats["correct"] / stats["total"]
             print(f"   {rule}: {accuracy:.1%} ({stats['correct']}/{stats['total']})")
-        print("\n🔍 Statistical Significance:")        total_tests = results["total_tests"]
+        print("\n🔍 Statistical Significance:")
+        total_tests = results["total_tests"]
         correct = results["correct_predictions"]
         accuracy = results["accuracy"]
 
@@ -216,8 +217,11 @@ class RPMStatisticalValidator:
         random_baseline = 0.05
 
         if accuracy > random_baseline:
-            significance = ".1f"        else:
-            significance = ".1f"
+            significance = (accuracy - random_baseline) / random_baseline * 100
+            print(".1f")
+        else:
+            significance = (random_baseline - accuracy) / random_baseline * 100
+            print(".1f")
         print(f"   Random baseline: {random_baseline:.1%}")
         print(f"   {significance}")
 
@@ -234,7 +238,8 @@ class RPMStatisticalValidator:
         print(f"\n🏆 Overall Assessment: {assessment}")
         print(f"   F1 Score: {results['accuracy']:.3f}")
         # Show challenge 4 comparison
-        print("\n📊 Challenge 4 Comparison:")        print("   ✅ Statistical validation methodology")
+        print("\n📊 Challenge 4 Comparison:")
+        print("   ✅ Statistical validation methodology")
         print("   ✅ Precision/recall/F1 metrics")
         print("   ✅ Rule-specific performance analysis")
         print("   ✅ Significance testing vs random baseline")
@@ -473,7 +478,8 @@ def main():
     print("\n🎉 RPM Statistical Validation Complete!")
     print(f"   Training matrices: {setup_info['training_count']}")
     print(f"   Test matrices: {setup_info['test_count']}")
-    print(".1%"    print(".4f"
+    print(".1%")
+    print(".4f")
     return results
 
 

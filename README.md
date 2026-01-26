@@ -258,9 +258,9 @@ pip install -e .
 ./scripts/run_with_venv.sh python scripts/challenges/001-batch/001-solution.py
 
 # Other scripts
-./scripts/run_with_venv.sh python scripts/test_accuracy.py
-./scripts/run_with_venv.sh python scripts/run_all_tests.py
-./scripts/run_with_venv.sh python scripts/extreme_query_challenge.py
+./scripts/run_with_venv.sh python scripts/demos/test_accuracy.py
+./scripts/run_with_venv.sh python scripts/tests/integration/run_all_tests.py
+./scripts/run_with_venv.sh python scripts/tests/performance/extreme_query_challenge.py
 ```
 
 ### Code Quality (Pre-commit Hooks)

@@ -219,8 +219,8 @@ def run_validation():
 
     if results:
         speedups = [r['speedup'] for r in results]
-        print("
-Statistics:"        print(f"  Mean speedup: {statistics.mean(speedups):.3f}x")
+        print("\nStatistics:")
+        print(f"  Mean speedup: {statistics.mean(speedups):.3f}x")
         print(f"  Median speedup: {statistics.median(speedups):.3f}x")
         print(f"  Best speedup: {max(speedups):.3f}x")
         print(f"  Worst speedup: {min(speedups):.3f}x")

@@ -215,8 +215,11 @@ def run_validation():
 
     if results:
         speedups = [r['speedup'] for r in results]
-        print("
-Performance statistics:"        print(".3f"        print(".3f"        print(".3f"        print(".3f"
+        print("\nPerformance statistics:")
+        print(".3f")
+        print(".3f")
+        print(".3f")
+        print(".3f")
         win_rate = geometric_wins / successful_trials
         print(f"\\nGeometric win rate: {win_rate*100:.1f}%")
 
@@ -242,8 +245,8 @@ Performance statistics:"        print(".3f"        print(".3f"        print(".3f
     with open('geometric_validation_results.json', 'w') as f:
         json.dump(validation_results, f, indent=2, default=str)
 
-    print("
-Results saved to geometric_validation_results.json"    print("Ready for commit and peer review!")
+    print("\nResults saved to geometric_validation_results.json")
+    print("Ready for commit and peer review!")
 
 
 if __name__ == "__main__":

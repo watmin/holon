@@ -442,8 +442,8 @@ def analyze_hybrid_benchmark_results(results, num_trials):
 
     # Efficiency analysis
     if results['traditional']['operations'] and results['geometric']['operations']:
-        print("
-⚡ EFFICIENCY ANALYSIS:"        trad_ops_avg = sum(results['traditional']['operations']) / len(results['traditional']['operations'])
+        print("\n⚡ EFFICIENCY ANALYSIS:")
+        trad_ops_avg = sum(results['traditional']['operations']) / len(results['traditional']['operations'])
         geom_ops_avg = sum(results['geometric']['operations']) / len(results['geometric']['operations'])
 
         print(f"  Traditional operations: {trad_ops_avg:.0f} avg")
@@ -454,8 +454,8 @@ def analyze_hybrid_benchmark_results(results, num_trials):
             print(f"  Similarity calculations: {sim_avg:.0f} avg")
 
     # Key insights
-    print("
-🎯 KEY INSIGHTS:"    if hybrid_success_rate >= max(trad_success_rate, geom_success_rate):
+    print("\n🎯 KEY INSIGHTS:")
+    if hybrid_success_rate >= max(trad_success_rate, geom_success_rate):
         print("  ✅ Hybrid approach achieves highest success rate!")
     else:
         print("  ⚠️  Hybrid approach does not improve success rates")
@@ -470,15 +470,15 @@ def analyze_hybrid_benchmark_results(results, num_trials):
     elif method_counts.get('hybrid_traditional', 0) > method_counts.get('geometric', 0):
         print("  🔄 Hybrid frequently falls back to traditional methods")
 
-    print("
-🏁 CONCLUSION:"    print("  Large-scale testing provides definitive performance characteristics!")
+    print("\n🏁 CONCLUSION:")
+    print("  Large-scale testing provides definitive performance characteristics!")
 
 
 if __name__ == "__main__":
     # Run the large-scale benchmark
     results = run_large_scale_hybrid_benchmark(num_trials=100, time_limit_per_puzzle=30)
 
-    print("
-💾 RESULTS SUMMARY:"    print(f"Traditional successes: {results['traditional']['successes']}/100")
+    print("\n💾 RESULTS SUMMARY:")
+    print(f"Traditional successes: {results['traditional']['successes']}/100")
     print(f"Geometric successes: {results['geometric']['successes']}/100")
     print(f"Hybrid successes: {results['hybrid']['successes']}/100")

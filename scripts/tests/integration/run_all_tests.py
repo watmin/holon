@@ -65,10 +65,10 @@ def main():
     print("=" * 50)
 
     tests = [
-        ("scripts/test_accuracy.py", "ANN Accuracy Test"),
-        ("scripts/test_guards_filtering.py", "Guards Filtering Test"),
-        ("scripts/test_negation.py", "Negation Test"),
-        ("scripts/test_vector_tricks.py", "Vector Tricks Test"),
+        ("scripts/demos/test_accuracy.py", "ANN Accuracy Test"),
+        ("scripts/tests/api/test_guards_filtering.py", "Guards Filtering Test"),
+        ("scripts/tests/api/test_negation.py", "Negation Test"),
+        ("scripts/tests/api/test_vector_tricks.py", "Vector Tricks Test"),
     ]
 
     all_passed = True
