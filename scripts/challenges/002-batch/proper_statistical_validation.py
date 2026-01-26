@@ -187,23 +187,49 @@ def compute_expected_missing_panel(matrix_data, missing_position):
         }
 
     elif rule == "union":
+        # Union rule: each position contains union of its row's defining shapes + column's defining shapes
         parts = missing_position.split("-")
         row = int(parts[0][3:])
         col = int(parts[1][3:])
 
-        row_shapes = set()
-        col_shapes = set()
+        # Collect all panels by row and column to analyze patterns
+        row_panels = {}
+        col_panels = {}
 
         for pos, panel in panels.items():
             parts = pos.split("-")
             p_row = int(parts[0][3:])
             p_col = int(parts[1][3:])
-            if p_row == row:
-                row_shapes.update(panel.get("shapes", []))
-            if p_col == col:
-                col_shapes.update(panel.get("shapes", []))
 
-        shapes = row_shapes | col_shapes
+            if p_row not in row_panels:
+                row_panels[p_row] = []
+            if p_col not in col_panels:
+                col_panels[p_col] = []
+
+            row_panels[p_row].append(panel.get("shapes", set()))
+            col_panels[p_col].append(panel.get("shapes", set()))
+
+        # For the target row, find shapes that appear in all its panels (indicating row-specific shapes)
+        target_row_panels = row_panels.get(row, [])
+        if target_row_panels:
+            # Start with intersection of all panels in the target row
+            row_defining = set(target_row_panels[0])
+            for panel_shapes in target_row_panels[1:]:
+                row_defining &= set(panel_shapes)
+        else:
+            row_defining = set()
+
+        # For the target column, find shapes that appear in all its panels
+        target_col_panels = col_panels.get(col, [])
+        if target_col_panels:
+            col_defining = set(target_col_panels[0])
+            for panel_shapes in target_col_panels[1:]:
+                col_defining &= set(panel_shapes)
+        else:
+            col_defining = set()
+
+        # The expected panel should be the union of the row-defining and column-defining shapes
+        shapes = row_defining | col_defining
         colors = ["black", "white", "red", "blue", "green"]
         color = colors[(row + col - 2) % len(colors)]
 

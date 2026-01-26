@@ -208,7 +208,7 @@ To establish definitive performance characteristics, we implemented and tested *
 **Critical Breakthrough Discovery**: Geometric advantages depend heavily on puzzle generation conditions.
 
 #### Puzzle Generation Sensitivity
-Our research revealed that **puzzle generation methodology dramatically affects geometric performance**:
+Our research revealed that puzzle generation methodology affects geometric performance:
 
 | Generation Method | Difficulty | Geometric Win Rate | Key Finding |
 |------------------|------------|-------------------|-------------|
@@ -223,7 +223,7 @@ Our research revealed that **puzzle generation methodology dramatically affects 
 **Average Performance (seconds per puzzle):**
 - Traditional Backtracking: **baseline** (100.0% success)
 - Simple Geometric: **0.712x** relative performance (competitive in wins)
-- Optimized Geometric: **varies by puzzle** (dramatic wins vs losses)
+- Optimized Geometric: varies by puzzle
 
 **Performance Distribution Analysis:**
 - **Geometric Winners**: Up to 4.27x faster than traditional (12.5% of cases)
@@ -380,7 +380,7 @@ This research demonstrates VSA/HDC methods can complement traditional algorithmi
 
 ### Large-Scale Testing Overview
 
-Following the hybrid solver breakthrough, we conducted comprehensive large-scale testing to establish statistical significance and performance characteristics at scale.
+Following the hybrid solver implementation, we conducted comprehensive large-scale testing to establish statistical significance and performance characteristics at scale.
 
 **Test Parameters:**
 - **Total puzzles tested**: 90 puzzles across 4 difficulty levels

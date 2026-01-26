@@ -9,7 +9,7 @@ VSA/HDC similarity queries are computationally expensive:
 - Brute force: O(n × dimensions) for n items
 - Target: Sub-millisecond queries for thousands of items
 
-Need to maintain perfect accuracy while achieving high performance.
+Need to maintain accuracy while achieving high performance.
 
 ## Decision
 Implement hybrid indexing strategy:

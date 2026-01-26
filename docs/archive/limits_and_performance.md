@@ -48,7 +48,7 @@ This document records performance characteristics, scaling limits, and probe eff
 - **Single atom match:** 0.25 (moderate, finds related items)
 - **Rare atom:** 0.24 (surprisingly effective)
 - **Unrelated:** 0.02 (weak, but returns results = false positives)
-- **Empty:** 0.00 (perfect, no matches)
+- **Empty:** 0.00 (no matches)
 
 ### Ineffective Probe Types
 
@@ -61,7 +61,7 @@ This document records performance characteristics, scaling limits, and probe eff
 
 #### 2. Empty Probes
 - **Example:** `{}`
-- **Score:** 0.000 (perfect)
+- **Score:** 0.000
 - **Issue:** No meaningful matches
 - **Reason:** No atoms to correlate against dataset
 - **Mitigation:** Validation/prevent empty queries

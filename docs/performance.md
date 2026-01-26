@@ -32,7 +32,7 @@ All benchmarks validated on production hardware with real-world data patterns an
 ### ANN Indexing Performance
 - **Automatic Activation**: Switches to FAISS when >1000 items
 - **Speedup**: 260x faster than brute-force similarity search
-- **Accuracy**: 100% perfect consistency with brute-force results
+- **Accuracy**: 100% consistency with brute-force results
 - **Query Time**: 0.0007s vs 0.1848s (brute-force)
 - **Memory**: Efficient scaling for 10k-100k+ item datasets
 

@@ -338,26 +338,55 @@ def compute_expected_missing_panel(matrix_data, missing_position):
         }
 
     elif rule == "union":
-        # Union of row and column shape sets
+        # Union rule: each position contains union of its row's defining shapes + column's defining shapes
+        # We need to infer what those defining sets are from the visible panels
         parts = missing_position.split("-")
         row = int(parts[0][3:])
         col = int(parts[1][3:])
 
-        # Get existing row and column patterns from other panels
-        row_shapes = set()
-        col_shapes = set()
+        # Strategy: Find the minimal sets that explain the observed panel patterns
+        # For union rule, each panel[r,c] = row_shapes[r] ∪ col_shapes[c]
+        # We need to find row_shapes[row] ∪ col_shapes[col]
+
+        # Collect all panels by row and column to analyze patterns
+        row_panels = {}
+        col_panels = {}
 
         for pos, panel in panels.items():
             parts = pos.split("-")
             p_row = int(parts[0][3:])
             p_col = int(parts[1][3:])
-            if p_row == row:  # Same row, different column
-                row_shapes.update(panel.get("shapes", []))
-            if p_col == col:  # Same column, different row
-                col_shapes.update(panel.get("shapes", []))
 
-        # Union of row and column shapes
-        shapes = row_shapes | col_shapes
+            if p_row not in row_panels:
+                row_panels[p_row] = []
+            if p_col not in col_panels:
+                col_panels[p_col] = []
+
+            row_panels[p_row].append(panel.get("shapes", set()))
+            col_panels[p_col].append(panel.get("shapes", set()))
+
+        # For the target row, find shapes that appear in all its panels (indicating row-specific shapes)
+        # This is a heuristic: if a shape appears in every panel of a row, it's likely a row-defining shape
+        target_row_panels = row_panels.get(row, [])
+        if target_row_panels:
+            # Start with intersection of all panels in the target row
+            row_defining = set(target_row_panels[0])
+            for panel_shapes in target_row_panels[1:]:
+                row_defining &= set(panel_shapes)
+        else:
+            row_defining = set()
+
+        # For the target column, find shapes that appear in all its panels
+        target_col_panels = col_panels.get(col, [])
+        if target_col_panels:
+            col_defining = set(target_col_panels[0])
+            for panel_shapes in target_col_panels[1:]:
+                col_defining &= set(panel_shapes)
+        else:
+            col_defining = set()
+
+        # The expected panel should be the union of the row-defining and column-defining shapes
+        shapes = row_defining | col_defining
 
         # Color pattern based on position
         colors = ["black", "white", "red", "blue", "green"]

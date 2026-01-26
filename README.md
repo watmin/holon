@@ -28,7 +28,7 @@ This talk by Carin Meier was the spark that got this project started:
 ## How Holon Works
 
 Holon encodes structured JSON/EDN into high-dimensional bipolar vectors using recursive binding (keys × values) and bundling (sum + threshold).
-Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and $or logic.
+Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and or logic.
 
 <div align="center">
 <img src="assets/time-bending-lattices.gif" alt="Time-Bending Lattices Demo">
@@ -49,29 +49,28 @@ For example, `{"user": "alice", "action": "login"}` and `{:user "alice" :actions
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
 
-## 🧠 **Research Applications**
+## Research Validation
 
-Holon demonstrates **statistically significant performance** on Raven's Progressive Matrices - a standard test of abstract reasoning:
+Raven's Progressive Matrices validation results available in [RPM Findings](docs/rpm_geometric_solution_findings.md).
 
-- **72% Accuracy** vs. **5% random chance** = **14× better than random**
-- **Rule Type Discrimination**: Correct differentiation between progression, XOR, and union operations
-- **Pattern Completion**: Similarity-based geometric analog discovery
-- **Research Validation**: VSA/HDC system showing meaningful abstract reasoning performance
+## Use Cases
 
-See [RPM Findings](docs/rpm_geometric_solution_findings.md) for detailed validation results.
+VSA/HDC systems like Holon enable:
+- **Semantic search** through vector similarity rather than keyword matching
+- **Geometric reasoning** for pattern completion and rule learning
+- **Hybrid AI systems** combining symbolic and neural approaches
+- **Memory augmentation** for LLM-based agents
 
-See [docs/](docs/) for additional documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
+## Implementation Status
 
-## Why Holon is Cool
+Challenge solutions demonstrating capabilities:
+- Task memory system (fuzzy retrieval with complex filtering)
+- RPM solver (geometric rule learning, 100% accuracy on implemented rules)
+- Quote finder (hybrid VSA + traditional text search)
+- Sudoku solver (hybrid constraint satisfaction)
 
-- **Neural-Inspired**: Uses brain-like vector operations for memory that "entangles" data—partial cues retrieve wholes.
-- **Blazing Fast**: ANN scaling makes 5000+ items query in milliseconds (453+ inserts/sec, 19.5+ queries/sec).
-- **Flexible Queries**: Fuzzy search + guards/negations/wildcards/$or for precise, composable retrieval.
-- **AI-Ready**: Perfect for LLM memory—deterministic, no hallucinations.
-- **Unique Algebra**: Vector subtraction for exclusions—pure HDC magic.
-- **Scale Tested**: 100,000+ blobs, 2000+ concurrent queries with 100% accuracy.
-- **Research Validated**: Statistically significant performance on Raven's Progressive Matrices abstract reasoning and hybrid constraint solving.
-- **Challenge Solutions**: 4/4 major VSA/HDC challenges completed and improved (task memory, RPM solver, quote finder, Sudoku research). Recent improvements achieved 100% RPM accuracy and 75% F1 quote finder performance (see [Challenge Improvements Summary](docs/challenge_improvements_summary.md)).
+See [docs/](docs/) for detailed documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
+
 
 ## Quick Start
 
@@ -229,42 +228,9 @@ results = store.query('{}', guard={
 print(f"High priority todo OR urgent side projects: {len(results)}")
 ```
 
-## 📋 **Real-World Application: Personal Task Memory**
-
-Holon powers a sophisticated **fuzzy task management system** that demonstrates advanced neural memory capabilities. Experience intelligent task retrieval with complex filtering, hierarchical queries, and context-aware search.
-
-### Run the Task Memory Demo
+### Task Memory Demo
 ```bash
-# Experience fuzzy task retrieval with 31 realistic tasks
 ./scripts/run_with_venv.sh python scripts/challenges/001-batch/001-solution.py
-```
-
-### Demo Features
-- **Fuzzy Similarity Search**: Find tasks by partial descriptions ("prepare presentation")
-- **Hierarchical Filtering**: Project-based organization with guards and negations
-- **Complex Queries**: Combine multiple conditions with $or logic
-- **Context Awareness**: Location and tool-based task filtering
-- **Status Management**: Todo, waiting, and completed task states
-- **Priority & Deadline Handling**: Time-sensitive task discovery
-
-### Sample Query Examples
-```python
-# Fuzzy search for presentation-related tasks
-results = store.query('{"title": "prepare presentation"}')
-
-# High-priority tasks across all projects
-results = store.query('{"priority": "high"}')
-
-# Tasks NOT in work project (negations)
-results = store.query('{"project": "work"}', negations={"project": {"$not": "work"}})
-
-# Computer-based tasks (context filtering)
-results = store.query('{"context": ["computer"]}')
-
-# Complex compound conditions: side projects that are medium/high priority but not waiting
-results = store.query('{"project": "side"}', guard={
-    "$or": [{"priority": "medium"}, {"priority": "high"}]
-}, negations={"status": {"$not": "waiting"}})
 ```
 
 ## Command Reference
@@ -330,28 +296,6 @@ Experience Holon's performance on your machine:
 ./scripts/run_with_venv.sh python scripts/tests/performance/extreme_http_test.py
 ```
 
-## ⚡ **Battle-Tested Performance**
-
-**Hardware Context**: Intel Ultra 7 (22 cores), 54GB RAM, Ubuntu 22.04
-
-### Core Performance Metrics
-- **Inserts**: 453+ items/second (5000 items in 11.03s)
-- **Queries**: 19.5+ complex queries/second (2000 queries in 102.49s)
-- **Query Latency**: 0.051s average response time
-- **Memory Usage**: ~70KB per item
-- **Concurrent Queries**: Multi-core parallel execution
-
-### Accuracy & Reliability
-- **ANN Consistency**: 100% perfect match between ANN and brute-force results
-- **ANN Speedup**: 260x faster than brute-force similarity search
-- **Deterministic Results**: Identical outputs across multiple runs
-- **Scale Tested**: 100,000+ items under memory pressure with concurrent queries
-
-### Extreme Stress Validation
-- **Memory Pressure**: Maintains performance with 80%+ system RAM utilization
-- **Concurrent Load**: Handles 2000+ simultaneous queries without degradation
-- **Large Scale**: Successfully processes datasets with 100K+ ultra-complex items
-- **Fault Tolerance**: 100% accuracy maintained under extreme load conditions
 
 ### Extending Holon
 - **Add Encoders**: Subclass `Encoder` in `holon/encoder.py` for new data types.
@@ -378,42 +322,17 @@ See [docs/](docs/) for API docs and examples.
 
 From the user's perspective, Holon provides an abstract "store" interface for inserting and querying data, abstracting away the underlying backend implementation.
 
-## 🧪 **Production-Ready Quality Assurance**
-
-Holon maintains enterprise-grade quality standards with comprehensive testing and automated code quality:
-
-### Test Coverage
-- **138 Test Cases** passing across unit, integration, and performance suites
-- **136/138 Pass Rate** with 2 GPU-related tests appropriately skipped
-- **Corner Case Testing**: Deep validation of edge cases and error conditions
-- **Performance Regression Tests**: Automated benchmarks prevent performance degradation
-
-### Code Quality Standards
-- **Pre-commit Hooks**: Automated linting, formatting, and quality checks
-- **Type Hints**: Full type annotation coverage for better IDE support
-- **PEP 8 Compliance**: Consistent Python code style
-- **Docstrings**: Comprehensive documentation for all public APIs
-
-### Development Workflow
+### Development
 ```bash
 # Install development dependencies
 ./scripts/run_with_venv.sh pip install -r requirements-dev.txt
 
-# Install pre-commit hooks for automatic quality checks
+# Install pre-commit hooks
 ./scripts/run_with_venv.sh pre-commit install
 
-# Run full test suite
+# Run tests
 ./scripts/run_with_venv.sh python -m pytest tests/
-
-# Run quality checks on all files
-./scripts/run_with_venv.sh pre-commit run --all-files
 ```
-
-### Architecture Validation
-- **Research-Backed Design**: All major decisions documented with performance data
-- **Scalability Testing**: Validated from 100 to 100,000+ items
-- **Concurrent Safety**: Multi-core query handling with proper synchronization
-- **Memory Efficiency**: ~70KB per item with intelligent bulk operations
 
 ## Getting Started
 
@@ -463,73 +382,21 @@ See [architecture.md](architecture.md) for detailed data flow and design.
 
 See [api_design.md](api_design.md) for the abstract store interface specification.
 
-## Applications & Use Cases
+## Research
 
-Holon's VSA/HDC architecture enables powerful applications in data understanding, search, and AI systems:
+Validation results available in docs:
+- [RPM Geometric Solution](docs/rpm_geometric_solution_findings.md)
+- [Sudoku Research](docs/sudoku_geometric_solution_findings.md)
 
-### 🔍 **Semantic Search & Retrieval**
-- **Document Similarity:** Find related documents by structural/content similarity
-- **Code Search:** Locate functions/classes by behavioral patterns
-- **Knowledge Discovery:** Uncover hidden relationships in data
+## Challenge Implementations
 
-### 🧠 **AI Memory Systems**
-- **Long-term Memory:** Persistent storage of learned patterns
-- **Contextual Recall:** Retrieve information based on partial cues
-- **Memory Augmentation:** Enhance LLMs with structured memory
+Challenge solutions available in scripts/challenges/:
+- Batch 1: Task memory system
+- Batch 2: RPM solver
+- Batch 3: Quote finder
+- Batch 4: Sudoku research
 
-### 📊 **Data Integration & Analysis**
-- **Schema Matching:** Automatically align different data structures
-- **Anomaly Detection:** Identify structural outliers in datasets
-- **Data Fusion:** Merge information from heterogeneous sources
-
-### 🎯 **Recommendation & Personalization**
-- **Content Recommendation:** Suggest items based on structural similarity
-- **User Profiling:** Understand preferences through data patterns
-- **Dynamic Adaptation:** Learn and adapt to user behavior patterns
-
-### 🔬 **Research & Development**
-- **Cognitive Architectures:** Build systems that learn like humans
-- **Geometric Reasoning:** Statistically significant performance on Raven's Progressive Matrices abstract reasoning ([RPM findings](docs/rpm_geometric_solution_findings.md)) and hybrid constraint solving ([Sudoku research](docs/sudoku_geometric_solution_findings.md))
-- **Neural-Symbolic Integration:** Combine symbolic reasoning with neural processing
-- **Explainable AI:** Provide interpretable similarity reasoning
-- **Pattern Recognition:** Vector-based approaches for similarity search and pattern completion
-
-## 🏆 Challenge Solutions
-
-We've successfully implemented and validated several complex applications using Holon's VSA/HDC architecture:
-
-### ✅ **Batch 1: Personal Task Memory System**
-- **Fuzzy Task Retrieval**: Intelligent task management with partial/fuzzy queries
-- **Advanced Filtering**: Guards, negations, wildcards for precise task discovery
-- **Hierarchical Queries**: Project-based task organization and retrieval
-- **Real-world Demo**: 50+ realistic tasks with complex query patterns
-
-### ✅ **Batch 2: Raven's Progressive Matrices (RPM) Solver**
-- **Perfect Geometric Intelligence**: 100% accuracy across all rule types (progression, XOR, union, intersection)
-- **Statistical Excellence**: 20x better than random chance with perfect rule discrimination
-- **High Performance**: ~5ms response time for complex geometric reasoning
-- **Pattern Completion**: Similarity-based geometric analog discovery
-- **Research Breakthrough**: Achieves perfect abstract reasoning (see [RPM findings](docs/rpm_geometric_solution_findings.md))
-
-### ✅ **Batch 3: PDF Quote Finder with Vector Bootstrapping** (Improved)
-- **Hybrid Intelligence**: Combines VSA/HDC geometric search with traditional fuzzy matching
-- **Statistical Validation**: 75% F1 score with comprehensive precision/recall metrics
-- **Vector Bootstrapping API**: User-driven encoding validated through HTTP API testing
-- **Fixed Similarity Issues**: Resolved fundamental encoding problems (metadata dilution, low similarity scores)
-- **Challenge 4 Lessons Applied**: Hybrid approaches, statistical rigor, API validation (see [Quote Finder Improvements](docs/quote_finder_improvements.md))
-
-### ✅ **Batch 4: Sudoku Solver Research** (Completed)
-- **Hybrid Constraint Solving**: Combines VSA/HDC geometric reasoning with traditional backtracking
-- **Technical Improvements**: Fixed major weaknesses in pure geometric approaches (row-only similarity, position independence, local-global gaps)
-- **Large-Scale Validation**: 105-puzzle statistical validation with 82.2% success rate
-- **Research Insights**: Demonstrates hybrid symbolic/vector approaches for constraint satisfaction
-- **Detailed Findings**: See [Sudoku Solver Research](docs/sudoku_geometric_solution_findings.md)
-
-## Research Platform
-
-Holon began as a ~15-hour exploration and has evolved into a comprehensive research platform for VSA/HDC concepts. Recent improvements applying Challenge 4 lessons (hybrid intelligence, statistical validation) have achieved breakthrough results: **100% accuracy on RPM geometric reasoning** and **75% F1 score on quote finding** with comprehensive validation across multiple problem domains.
-
-MIT licensed. FastAPI server included. Research use cases.
+MIT licensed. FastAPI server included.
 
 <div align="center">
 <img src="assets/forbidden-binding-spell.gif" alt="Vector Operations Demo">
