@@ -49,14 +49,14 @@ For example, `{"user": "alice", "action": "login"}` and `{:user "alice" :actions
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
 
-## 🧠 **Proven Geometric Intelligence**
+## 🧠 **Research Applications**
 
-Holon demonstrates **true geometric rule learning** with statistically significant performance on Raven's Progressive Matrices (RPM) - the gold standard for abstract reasoning:
+Holon demonstrates **statistically significant performance** on Raven's Progressive Matrices - a standard test of abstract reasoning:
 
 - **72% Accuracy** vs. **5% random chance** = **14× better than random**
-- **Perfect Rule Discrimination**: 100% correct differentiation between rule types
-- **Geometric Pattern Completion**: Learns progression, XOR, and union operations
-- **Research Breakthrough**: First VSA/HDC system to achieve statistically significant geometric reasoning
+- **Rule Type Discrimination**: Correct differentiation between progression, XOR, and union operations
+- **Pattern Completion**: Similarity-based geometric analog discovery
+- **Research Validation**: VSA/HDC system showing meaningful abstract reasoning performance
 
 See [RPM Findings](docs/rpm_geometric_solution_findings.md) for detailed validation results.
 
@@ -70,8 +70,8 @@ See [docs/](docs/) for additional documentation, API reference, and [architectur
 - **AI-Ready**: Perfect for LLM memory—deterministic, no hallucinations.
 - **Unique Algebra**: Vector subtraction for exclusions—pure HDC magic.
 - **Scale Tested**: 100,000+ blobs, 2000+ concurrent queries with 100% accuracy.
-- **Research Proven**: ✅ Statistically significant geometric reasoning on Raven's Progressive Matrices.
-- **Challenge Champion**: 3/4 major VSA/HDC challenges solved (task memory, RPM solver, quote finder).
+- **Research Validated**: Statistically significant performance on Raven's Progressive Matrices abstract reasoning and hybrid constraint solving.
+- **Challenge Solutions**: 4/4 major VSA/HDC challenges completed (task memory, RPM solver, quote finder, Sudoku research).
 
 ## Quick Start
 
@@ -489,10 +489,10 @@ Holon's VSA/HDC architecture enables powerful applications in data understanding
 
 ### 🔬 **Research & Development**
 - **Cognitive Architectures:** Build systems that learn like humans
-- **Geometric Reasoning:** ✅ **Proven VSA/HDC geometric rule learning** for abstract reasoning - statistically significant performance on Raven's Progressive Matrices ([RPM findings](docs/rpm_geometric_solution_findings.md))
+- **Geometric Reasoning:** Statistically significant performance on Raven's Progressive Matrices abstract reasoning ([RPM findings](docs/rpm_geometric_solution_findings.md)) and hybrid constraint solving ([Sudoku research](docs/sudoku_geometric_solution_findings.md))
 - **Neural-Symbolic Integration:** Combine symbolic reasoning with neural processing
 - **Explainable AI:** Provide interpretable similarity reasoning
-- **Geometric Intelligence:** Pure vector-based solutions for constraint satisfaction (Sudoku) and pattern completion
+- **Pattern Recognition:** Vector-based approaches for similarity search and pattern completion
 
 ## 🏆 Challenge Solutions
 
@@ -518,18 +518,21 @@ We've successfully implemented and validated several complex applications using 
 - **Metadata-Only Storage**: Efficient indexing without full text storage
 - **Advanced PDF Processing**: Chapter, paragraph, page-level metadata extraction
 
-### 🚧 **Batch 4: Geometric Sudoku Solver** (In Progress)
-- **Constraint Satisfaction**: Pure VSA/HDC approach to classic Sudoku
-- **Geometric Alignment**: Similarity-based solution discovery
-- **Iterative Refinement**: Constraint-guided candidate selection
-- **Hyperdimensional Logic**: Vector-based constraint encoding
+### ✅ **Batch 4: Sudoku Solver Research** (Completed)
+- **Hybrid Constraint Solving**: Combines VSA/HDC geometric reasoning with traditional backtracking
+- **Technical Improvements**: Fixed major weaknesses in pure geometric approaches (row-only similarity, position independence, local-global gaps)
+- **Large-Scale Validation**: 105-puzzle statistical validation with 82.2% success rate
+- **Research Insights**: Demonstrates hybrid symbolic/vector approaches for constraint satisfaction
+- **Detailed Findings**: See [Sudoku Solver Research](docs/sudoku_geometric_solution_findings.md)
 
-## Built in ~15 hours. Still scaling.
+## Research Platform
 
-MIT licensed. FastAPI server included. Ready for your agents.
+Holon began as a ~15-hour exploration and has evolved into a comprehensive research platform for VSA/HDC concepts, with extensive validation across multiple problem domains.
+
+MIT licensed. FastAPI server included. Research use cases.
 
 <div align="center">
-<img src="assets/forbidden-binding-spell.gif" alt="Forbidden Binding Spell Demo">
+<img src="assets/forbidden-binding-spell.gif" alt="Vector Operations Demo">
 
 <em>From mystical runes to mathematical vectors. The power endures.</em>
 </div>

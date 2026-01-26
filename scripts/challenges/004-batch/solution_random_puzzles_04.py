@@ -418,10 +418,11 @@ class RandomPuzzleGeometricSudokuSolver:
         Conservative hybrid: Use geometry for guidance in traditional backtracking,
         not for initial placements that might create unsolvable conflicts.
         """
-        print("🎯 Starting conservative geometric + backtracking hybrid...")
+        # Suppress verbose output during large-scale testing
+        # print("🎯 Starting conservative geometric + backtracking hybrid...")
 
         # Skip geometric pre-placement - go straight to guided backtracking
-        print("🔄 Using geometric scoring to guide traditional backtracking...")
+        # print("🔄 Using geometric scoring to guide traditional backtracking...")
 
         grid = [row[:] for row in initial_grid]
 
@@ -450,7 +451,8 @@ class RandomPuzzleGeometricSudokuSolver:
                         for score, digit in scored_options:
                             grid[row][col] = digit
                             confidence = "high" if score > 0.4 else "medium" if score > 0 else "low"
-                            print(f"      Trying {digit} (geometric {confidence}) at ({row},{col})")
+                            # Suppress verbose output during large-scale testing
+                            # print(f"      Trying {digit} (geometric {confidence}) at ({row},{col})")
                             if guided_backtracking_solve(grid):
                                 return True
                             grid[row][col] = None  # Backtrack
@@ -463,7 +465,8 @@ class RandomPuzzleGeometricSudokuSolver:
         success = guided_backtracking_solve(grid)
 
         if success:
-            print("✅ Guided backtracking succeeded!")
+            # Suppress verbose output during large-scale testing
+            # print("✅ Guided backtracking succeeded!")
             history.append({
                 'method': 'conservative_hybrid',
                 'geometric_guidance': True,
@@ -471,7 +474,9 @@ class RandomPuzzleGeometricSudokuSolver:
                 'total_filled': sum(1 for row in grid for cell in row if cell is not None)
             })
         else:
-            print("❌ Guided backtracking failed")
+            # Suppress verbose output during large-scale testing
+            # print("❌ Guided backtracking failed")
+            pass
 
         return grid, history
 
