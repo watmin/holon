@@ -43,7 +43,7 @@ def improved_graph_validation():
 
         print(f"\n🎯 {family_type}: {query_name} should recognize {expected_family}")
 
-        similar_graphs = matcher.find_similar_graphs(query_graph, top_k=5)
+        similar_graphs = matcher.find_similar_graphs(query_graph, top_k=5, use_topological_similarity=True)
 
         if similar_graphs:
             # Skip self-match and check next results

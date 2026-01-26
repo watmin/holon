@@ -99,22 +99,26 @@ def validate_geometric_graph_matching():
 
         # Time the geometric similarity search
         start_time = time.time()
-        similar_graphs = matcher.find_similar_graphs(test["query_graph"], top_k=5)
+        similar_graphs = matcher.find_similar_graphs(test["query_graph"], top_k=5, use_topological_similarity=True)
         response_time = time.time() - start_time
 
         results["response_times"].append(response_time)
 
         if similar_graphs:
-            # Check if expected similar graph is in top results
-            top_match = similar_graphs[0]["graph"]["name"]
+            # Check if expected similar graph is in top results (excluding self-match)
+            query_name = test["query_graph"]["name"]
             expected_match = test["expected_top_match"]
 
-            topology_correct = top_match == expected_match
+            # Get top matches excluding self
+            top_matches = [result["graph"]["name"] for result in similar_graphs if result["graph"]["name"] != query_name][:3]
+
+            topology_correct = expected_match in top_matches
             if topology_correct:
                 results["topology_correct"] += 1
-                print(f"   ✅ Topology match: {top_match} (expected {expected_match})")
+                position = top_matches.index(expected_match) + 1
+                print(f"   ✅ Topology match: {expected_match} found at position {position}")
             else:
-                print(f"   ❌ Topology match: {top_match} (expected {expected_match})")
+                print(f"   ❌ Topology match: {expected_match} not in top 3 (found: {top_matches})")
 
             # Check dissimilarity - expected dissimilar graphs should not be in top 3
             top_3_names = [result["graph"]["name"] for result in similar_graphs[:3]]

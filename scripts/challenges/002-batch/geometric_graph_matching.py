@@ -64,46 +64,78 @@ class GeometricGraphEncoder:
         if not edges:
             return self.encode_node_set(nodes)
 
-        # Phase 1: Basic edge encoding (foundation)
+        # Phase 1: Topological edge encoding (node-identity independent)
         edge_vectors = []
+        node_degrees = self.compute_node_degrees(edges, nodes)
+
         for edge in edges:
             from_node = edge.get("from", "")
             to_node = edge.get("to", "")
             label = edge.get("label", "connects")
 
-            from_vec = self.get_node_vector(from_node)
-            to_vec = self.get_node_vector(to_node)
-            label_vec = self.get_label_vector(label)
+            # Encode edge topology using degree roles instead of specific node identities
+            from_degree = node_degrees.get(from_node, 0)
+            to_degree = node_degrees.get(to_node, 0)
 
-            # Enhanced edge encoding: consider directionality
-            if graph_type == "directed":
-                # Directed: from → to has different encoding than to → from
-                edge_binding = self.store.encoder.bind(from_vec, to_vec)
-                edge_binding = self.store.encoder.bind(edge_binding, label_vec)
-                # Add direction indicator
-                dir_vec = self.get_label_vector("directed")
-                edge_binding = self.store.encoder.bind(edge_binding, dir_vec)
+            # Normalize degrees relative to graph size for scale invariance
+            max_degree = max(node_degrees.values()) if node_degrees else 0
+            if max_degree > 0:
+                from_degree_norm = from_degree / max_degree
+                to_degree_norm = to_degree / max_degree
             else:
-                # Undirected: symmetric encoding
-                edge_binding = self.store.encoder.bind(from_vec, to_vec)
-                edge_binding = self.store.encoder.bind(edge_binding, label_vec)
+                from_degree_norm = to_degree_norm = 0
 
-            edge_vectors.append(edge_binding)
+            # Categorize degree roles (topology-based)
+            def get_degree_role(norm_degree):
+                if norm_degree >= 0.9: return "hub"
+                elif norm_degree >= 0.5: return "high"
+                elif norm_degree >= 0.2: return "medium"
+                else: return "leaf"
 
-        # Phase 2: Node degree and connectivity encoding
+            from_role = get_degree_role(from_degree_norm)
+            to_role = get_degree_role(to_degree_norm)
+
+            # Create topological edge signature
+            if graph_type == "directed":
+                edge_signature = f"{from_role}_to_{to_role}_directed_{label}"
+            else:
+                # For undirected, sort roles to ensure consistency
+                role_pair = sorted([from_role, to_role])
+                edge_signature = f"{role_pair[0]}_connects_{role_pair[1]}_{label}"
+
+            edge_vec = self.get_label_vector(edge_signature)
+            edge_vectors.append(edge_vec)
+
+        # Phase 2: Degree distribution encoding (topological pattern)
         degree_vectors = []
-        node_degrees = self.compute_node_degrees(edges, nodes)
 
-        for node in nodes:
-            degree = node_degrees.get(node, 0)
-            node_vec = self.get_node_vector(node)
+        # Compute degree distribution pattern
+        degree_values = list(node_degrees.values())
+        if degree_values:
+            max_degree = max(degree_values)
+            # Count nodes by degree role (topology-based histogram)
+            role_counts = {"hub": 0, "high": 0, "medium": 0, "leaf": 0}
 
-            # Encode degree information
-            degree_label = f"degree_{degree}"
-            degree_vec = self.get_label_vector(degree_label)
-            node_degree_vec = self.store.encoder.bind(node_vec, degree_vec)
+            for degree in degree_values:
+                if max_degree > 0:
+                    norm_degree = degree / max_degree
+                else:
+                    norm_degree = 0
 
-            degree_vectors.append(node_degree_vec)
+                if norm_degree >= 0.9:
+                    role_counts["hub"] += 1
+                elif norm_degree >= 0.5:
+                    role_counts["high"] += 1
+                elif norm_degree >= 0.2:
+                    role_counts["medium"] += 1
+                else:
+                    role_counts["leaf"] += 1
+
+            # Encode the degree distribution pattern
+            for role, count in role_counts.items():
+                count_ratio = count / len(degree_values) if degree_values else 0
+                dist_vec = self.get_label_vector(f"dist_{role}_{count_ratio:.2f}")
+                degree_vectors.append(dist_vec)
 
         # Phase 3: Structural motif encoding (basic patterns)
         motif_vectors = []
@@ -112,20 +144,47 @@ class GeometricGraphEncoder:
             triangle_vec = self.get_label_vector("has_triangles")
             motif_vectors.append(triangle_vec)
 
-        # Phase 4: Holistic graph encoding
+        # Phase 4: Holistic graph encoding with scale-invariant features
         all_components = edge_vectors + degree_vectors + motif_vectors
 
         if all_components:
             # Use Holon's bundle for superposition
             graph_vector = self.store.encoder.bundle(all_components)
 
-            # Add graph-level metadata
+            # Add scale-invariant topological metadata (normalized features)
+            degree_values = list(node_degrees.values())
+            max_degree = max(degree_values) if degree_values else 0
+            avg_degree = sum(degree_values) / len(degree_values) if degree_values else 0
+
+            # Normalized topological features (scale-invariant)
             meta_data = {
-                "num_nodes": len(nodes),
-                "num_edges": len(edges),
-                "avg_degree": sum(node_degrees.values()) / len(nodes) if nodes else 0,
-                "graph_type": graph_type
+                "density": len(edges) / (len(nodes) * (len(nodes) - 1) / 2) if len(nodes) > 1 else 0,  # Normalized density
+                "avg_degree_ratio": avg_degree / len(nodes) if len(nodes) > 0 else 0,  # Degree relative to size
+                "max_degree_ratio": max_degree / len(nodes) if len(nodes) > 0 else 0,  # Max degree relative to size
+                "degree_variance": sum((d - avg_degree) ** 2 for d in degree_values) / len(degree_values) if degree_values else 0,
+                "graph_type": graph_type,
+                # Topological classification features
+                "has_hub": 1 if max_degree >= len(nodes) - 1 else 0,  # Hub detection (star topology)
+                "is_regular": 1 if len(set(degree_values)) == 1 else 0,  # Regular graph
+                "is_tree": 1 if len(edges) == len(nodes) - 1 else 0,  # Tree detection
+                "is_cyclic": 1 if len(edges) >= len(nodes) else 0,  # Has cycles
             }
+
+            # Add explicit topology type classification
+            if max_degree >= len(nodes) - 1 and len([d for d in degree_values if d == 1]) == len(nodes) - 1:
+                topology_type = "star"  # One hub, rest are leaves
+            elif len(edges) == len(nodes) and all(d == 2 for d in degree_values):
+                topology_type = "cycle"  # All nodes degree 2
+            elif len(edges) == len(nodes) - 1 and max_degree == len(nodes) - 1:
+                topology_type = "star"  # Tree with hub structure
+            elif len(edges) == len(nodes) - 1 and max_degree <= 3:
+                topology_type = "tree"  # General tree structure
+            elif len(edges) > len(nodes) and max_degree == len(nodes) - 1:
+                topology_type = "complete"  # Fully connected
+            else:
+                topology_type = "complex"  # Other structures
+
+            meta_data["topology_type"] = topology_type
             meta_vector = self.store.encoder.encode_data(meta_data)
             graph_vector = self.store.encoder.bind(graph_vector, meta_vector)
 
@@ -232,12 +291,12 @@ class GeometricGraphMatcher:
         # Store the graph structure (geometric vectors computed on demand)
         self.store.insert(json.dumps(graph_data), data_type="json")
 
-    def find_similar_graphs(self, query_graph: Dict[str, Any], top_k: int = 5) -> List[Dict[str, Any]]:
+    def find_similar_graphs(self, query_graph: Dict[str, Any], top_k: int = 5, use_topological_similarity: bool = False) -> List[Dict[str, Any]]:
         """Find geometrically similar graphs using advanced VSA/HDC similarity"""
         # Encode query graph geometrically
         query_vector = self.encoder.encode_graph_geometrically(query_graph)
 
-        # Get all stored graphs from the store and compute geometric similarity
+        # Get all stored graphs from the store and compute similarity
         similarities = []
 
         # Query all stored items (this is a simplified approach for the demo)
@@ -253,11 +312,14 @@ class GeometricGraphMatcher:
             graph_id = stored_data["graph_id"]
             stored_graph = stored_data["graph_structure"]
 
-            # Encode stored graph geometrically
-            stored_vector = self.encoder.encode_graph_geometrically(stored_graph)
-
-            # Compute geometric similarity
-            similarity = self.encoder.geometric_similarity(query_vector, stored_vector)
+            if use_topological_similarity:
+                # Use topological feature similarity instead of full vector similarity
+                similarity = self.compute_topological_similarity(query_graph, stored_graph)
+            else:
+                # Encode stored graph geometrically
+                stored_vector = self.encoder.encode_graph_geometrically(stored_graph)
+                # Compute geometric similarity
+                similarity = self.encoder.geometric_similarity(query_vector, stored_vector)
 
             similarities.append({
                 "graph_id": graph_id,
@@ -284,6 +346,138 @@ class GeometricGraphMatcher:
             })
 
         return similar_graphs
+
+    def compute_topological_similarity(self, graph1: Dict[str, Any], graph2: Dict[str, Any]) -> float:
+        """Compute topological similarity based on scale-invariant features"""
+        # Extract topological features for both graphs
+        features1 = self.extract_topological_features(graph1)
+        features2 = self.extract_topological_features(graph2)
+
+        # Compute similarity based on feature matching
+        similarity = 0.0
+        total_weight = 0.0
+
+        # Topology type match (highest weight)
+        if features1.get("topology_type") == features2.get("topology_type"):
+            similarity += 1.0
+        total_weight += 1.0
+
+        # Graph type match
+        if features1.get("graph_type") == features2.get("graph_type"):
+            similarity += 0.8
+        total_weight += 0.8
+
+        # Density similarity (normalized difference)
+        density1 = features1.get("density", 0)
+        density2 = features2.get("density", 0)
+        density_sim = 1.0 - min(abs(density1 - density2), 1.0)
+        similarity += 0.6 * density_sim
+        total_weight += 0.6
+
+        # Hub presence match
+        if features1.get("has_hub") == features2.get("has_hub"):
+            similarity += 0.5
+        total_weight += 0.5
+
+        # Tree/cyclic properties
+        if features1.get("is_tree") == features2.get("is_tree"):
+            similarity += 0.4
+        total_weight += 0.4
+
+        if features1.get("is_cyclic") == features2.get("is_cyclic"):
+            similarity += 0.4
+        total_weight += 0.4
+
+        # Regular graph property
+        if features1.get("is_regular") == features2.get("is_regular"):
+            similarity += 0.3
+        total_weight += 0.3
+
+        # Degree distribution similarity (compare role distributions)
+        role_sim = self.compare_degree_distributions(
+            features1.get("degree_roles", {}),
+            features2.get("degree_roles", {})
+        )
+        similarity += 0.5 * role_sim
+        total_weight += 0.5
+
+        return similarity / total_weight if total_weight > 0 else 0.0
+
+    def extract_topological_features(self, graph: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract topological features from a graph"""
+        edges = graph.get("edges", [])
+        nodes = graph.get("nodes", [])
+        graph_type = graph.get("type", "undirected")
+
+        node_degrees = self.encoder.compute_node_degrees(edges, nodes)
+        degree_values = list(node_degrees.values())
+
+        features = {}
+
+        # Basic properties
+        features["graph_type"] = graph_type
+        features["num_nodes"] = len(nodes)
+        features["num_edges"] = len(edges)
+
+        # Derived properties
+        max_degree = max(degree_values) if degree_values else 0
+        avg_degree = sum(degree_values) / len(degree_values) if degree_values else 0
+
+        features["density"] = len(edges) / (len(nodes) * (len(nodes) - 1) / 2) if len(nodes) > 1 else 0
+        features["has_hub"] = 1 if max_degree >= len(nodes) - 1 else 0
+        features["is_regular"] = 1 if len(set(degree_values)) == 1 else 0
+        features["is_tree"] = 1 if len(edges) == len(nodes) - 1 else 0
+        features["is_cyclic"] = 1 if len(edges) >= len(nodes) else 0
+
+        # Topology classification
+        if max_degree >= len(nodes) - 1 and len([d for d in degree_values if d == 1]) == len(nodes) - 1:
+            topology_type = "star"
+        elif len(edges) == len(nodes) and all(d == 2 for d in degree_values):
+            topology_type = "cycle"
+        elif len(edges) == len(nodes) - 1 and max_degree == len(nodes) - 1:
+            topology_type = "star"
+        elif len(edges) == len(nodes) - 1 and max_degree <= 3:
+            topology_type = "tree"
+        elif len(edges) > len(nodes) and max_degree == len(nodes) - 1:
+            topology_type = "complete"
+        else:
+            topology_type = "complex"
+
+        features["topology_type"] = topology_type
+
+        # Degree role distribution
+        role_counts = {"hub": 0, "high": 0, "medium": 0, "leaf": 0}
+        for degree in degree_values:
+            if max_degree > 0:
+                norm_degree = degree / max_degree
+            else:
+                norm_degree = 0
+
+            if norm_degree >= 0.9:
+                role_counts["hub"] += 1
+            elif norm_degree >= 0.5:
+                role_counts["high"] += 1
+            elif norm_degree >= 0.2:
+                role_counts["medium"] += 1
+            else:
+                role_counts["leaf"] += 1
+
+        features["degree_roles"] = role_counts
+
+        return features
+
+    def compare_degree_distributions(self, roles1: Dict[str, int], roles2: Dict[str, int]) -> float:
+        """Compare degree role distributions between two graphs"""
+        total1 = sum(roles1.values()) or 1
+        total2 = sum(roles2.values()) or 1
+
+        similarity = 0.0
+        for role in ["hub", "high", "medium", "leaf"]:
+            ratio1 = roles1.get(role, 0) / total1
+            ratio2 = roles2.get(role, 0) / total2
+            similarity += 1.0 - min(abs(ratio1 - ratio2), 1.0)
+
+        return similarity / 4.0  # Average over 4 role types
 
     def find_subgraph_matches(self, subgraph_edges: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
         """Find graphs containing specific subgraph patterns"""
