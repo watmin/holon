@@ -7,7 +7,7 @@ Provides REST API for VSA/HDC neural memory operations.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from holon import CPUStore
 from holon.atomizer import parse_data
+from holon.encoder import MathematicalPrimitive
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -115,15 +116,28 @@ class EncodeRequest(BaseModel):
     data_type: str = Field("json", description="Data format: 'json' or 'edn'")
 
 
+class MathematicalEncodeRequest(BaseModel):
+    primitive: str = Field(..., description="Mathematical primitive to encode")
+    value: Union[int, float] = Field(..., description="Value for mathematical primitive")
+
+
+class MathematicalComposeRequest(BaseModel):
+    operation: str = Field(..., description="Mathematical operation: 'bind' or 'bundle'")
+    vectors: List[List[float]] = Field(..., description="Vectors for composition operations")
+
+
 class EncodeResponse(BaseModel):
     vector: List[float] = Field(..., description="Encoded vector as list of floats")
+    encoding_type: str = Field(..., description="Type of encoding performed")
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
     return HealthResponse(
-        status="healthy", backend=store.backend, items_count=len(store.stored_data)
+        status="healthy",
+        backend=store.backend,
+        items_count=len(store.stored_data)
     )
 
 
@@ -153,11 +167,10 @@ async def batch_insert_items(request: BatchInsertRequest, req: Request):
 
 @app.post("/encode", response_model=EncodeResponse)
 async def encode_data(request: EncodeRequest):
-    """Encode data into a vector without storing it."""
+    """Encode structural data into a vector (original functionality)."""
     try:
         # Parse the data
         parsed = parse_data(request.data, request.data_type)
-
         # Encode to vector
         encoded_vector = store.encoder.encode_data(parsed)
 
@@ -165,12 +178,75 @@ async def encode_data(request: EncodeRequest):
         cpu_vector = store.vector_manager.to_cpu(encoded_vector)
         vector_list = cpu_vector.tolist()
 
-        logger.info(f"Encoded data to vector of dimension {len(vector_list)}")
-        return EncodeResponse(vector=vector_list)
+        logger.info(f"Encoded structural data to vector of dimension {len(vector_list)}")
+        return EncodeResponse(vector=vector_list, encoding_type=f"structural_{request.data_type}")
 
     except Exception as e:
         logger.error(f"Encode failed: {e}")
         raise HTTPException(status_code=400, detail=f"Encode failed: {str(e)}")
+
+
+@app.post("/encode/mathematical", response_model=EncodeResponse)
+async def encode_mathematical(request: MathematicalEncodeRequest):
+    """Encode mathematical primitives (fundamental VSA/HDC capabilities)."""
+    try:
+        # Validate primitive
+        try:
+            primitive = MathematicalPrimitive(request.primitive)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown mathematical primitive: {request.primitive}")
+
+        # Encode mathematical primitive
+        encoded_vector = store.encoder.encode_mathematical_primitive(primitive, request.value)
+
+        # Convert to list
+        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        vector_list = cpu_vector.tolist()
+
+        logger.info(f"Encoded mathematical primitive {request.primitive}({request.value}) to {len(vector_list)}D vector")
+        return EncodeResponse(vector=vector_list, encoding_type=f"mathematical_{request.primitive}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Mathematical encode failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Mathematical encode failed: {str(e)}")
+
+
+@app.post("/encode/compose", response_model=EncodeResponse)
+async def compose_mathematical(request: MathematicalComposeRequest):
+    """Compose mathematical vectors (fundamental VSA/HDC operations)."""
+    try:
+        import numpy as np
+
+        # Convert input vectors to numpy arrays
+        np_vectors = []
+        for vec_list in request.vectors:
+            np_vec = np.array(vec_list, dtype=np.int8)
+            np_vectors.append(np_vec)
+
+        # Perform mathematical operation
+        if request.operation == "bind":
+            result_vector = store.encoder.mathematical_bind(*np_vectors)
+            encoding_type = f"compose_bind_{len(np_vectors)}_vectors"
+        elif request.operation == "bundle":
+            result_vector = store.encoder.mathematical_bundle(np_vectors)
+            encoding_type = f"compose_bundle_{len(np_vectors)}_vectors"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
+
+        # Convert result to list
+        cpu_result = store.vector_manager.to_cpu(result_vector)
+        result_list = cpu_result.tolist()
+
+        logger.info(f"Composed {len(np_vectors)} vectors with {request.operation}")
+        return EncodeResponse(vector=result_list, encoding_type=encoding_type)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Mathematical composition failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Mathematical composition failed: {str(e)}")
 
 
 @app.post("/query", response_model=QueryResponse)

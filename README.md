@@ -28,7 +28,9 @@ This talk by Carin Meier was the spark that got this project started:
 ## How Holon Works
 
 Holon encodes structured JSON/EDN into high-dimensional bipolar vectors using recursive binding (keys × values) and bundling (sum + threshold).
-Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and or logic.
+Supports positional, chained, n-gram, and bundle list modes, guards, negations, wildcards, and mathematical primitives.
+
+**Mathematical Primitives**: Core VSA/HDC capabilities for mathematical pattern recognition including convergence rates, iteration complexity, frequency domains, amplitude scales, power-law exponents, clustering coefficients, topological distance, and self-similarity measures.
 
 <div align="center">
 <img src="assets/time-bending-lattices.gif" alt="Time-Bending Lattices Demo">
@@ -46,6 +48,45 @@ The core concept uses Vector Symbolic Architectures to encode structured data by
 
 For example, `{"user": "alice", "action": "login"}` and `{:user "alice" :actions ["login"]}` are encoded with structural fidelity.
 
+### Mathematical Primitives
+
+Beyond structural encoding, Holon provides fundamental mathematical primitives for pattern recognition through a unified `/encode` endpoint:
+
+```bash
+# Mathematical primitives
+POST /encode
+{
+  "mathematical_primitive": "convergence_rate",
+  "primitive_value": 0.85
+}
+
+# Mathematical composition
+POST /encode
+{
+  "operation": "bind",
+  "input_vectors": [[1, -1, 0, ...], [0, 1, -1, ...]]
+}
+
+# Structural data (original functionality)
+POST /encode
+{
+  "data": "{\"user\": \"alice\"}",
+  "data_type": "json"
+}
+```
+
+**Available Primitives:**
+- **Convergence Analysis**: `convergence_rate` - Mathematical stability
+- **Computational Complexity**: `iteration_complexity` - Algorithmic depth
+- **Wave Phenomena**: `frequency_domain` - Physical frequency
+- **Energy Scales**: `amplitude_scale` - Magnitude properties
+- **Network Topologies**: `power_law_exponent` - Scale-free properties
+- **Local Connectivity**: `clustering_coefficient` - Neighborhood structure
+- **Path Properties**: `topological_distance` - Distance metrics
+- **Fractal Properties**: `self_similarity` - Self-similar patterns
+
+These primitives enable semantic similarity for mathematical patterns, going beyond structural matching to understand mathematical relationships.
+
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
 
@@ -54,6 +95,7 @@ Named after Arthur Koestler's concept of a "holon"—a self-contained whole that
 Comprehensive validation results:
 - **RPM geometric reasoning**: 100% accuracy on implemented rules ([RPM Findings](docs/rpm_geometric_solution_findings.md))
 - **Graph topology recognition**: 100% family clustering ([Challenge 2 Assessment](docs/challenge_2_gaps_and_improvements.md))
+- **Mathematical primitives**: 8 primitives for semantic encoding ([Mathematical Primitives Findings](docs/challenge_2_mathematical_primitives_findings.md))
 - **Hybrid text search**: 75% F1 score ([Quote Finder Improvements](docs/quote_finder_improvements.md))
 - **Geometric constraint satisfaction**: 98% Sudoku completion ([Sudoku Findings](docs/sudoku_geometric_solution_findings.md))
 

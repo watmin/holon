@@ -136,3 +136,8 @@ extreme_log.txt
 
 # Venv
 holon_env/
+
+# Test result directories
+extreme_*_results/
+*_results/
+test_results/
