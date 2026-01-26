@@ -418,9 +418,9 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
 
     # Query 2: Cantrips useful for stealth/illusion
     print("2. Cantrips useful for stealth and illusion")
-    guard = {"level": "cantrip", "tags": {"$contains": "stealth"}}
+    guard = {"level": "cantrip"}
 
-    results = magic_store.query_magic(guard=guard, top_k=10)
+    results = magic_store.query_magic(guard=guard, top_k=20)  # Get more results
     stealth_cantrips = [
         (mid, score, magic)
         for mid, score, magic in results
@@ -437,14 +437,15 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
 
     # Query 3: Magic items that give flight or teleportation, under legendary rarity
     print("3. Magic items with flight/teleportation, NOT legendary rarity")
-    guard = {"type": "item", "rarity": {"$not": ":legendary"}}
+    guard = {"type": "item"}
 
-    results = magic_store.query_magic(guard=guard, top_k=10)
+    results = magic_store.query_magic(guard=guard, top_k=20)  # Get more results
     flight_items = [
         (mid, score, magic)
         for mid, score, magic in results
-        if "flight" in magic.get("tags", set())
-        or "teleportation" in magic.get("tags", set())
+        if ("flight" in magic.get("tags", set())
+            or "teleportation" in magic.get("tags", set()))
+        and magic.get("rarity") != ":legendary"  # Filter out legendary items
     ]
 
     print(f"Found {len(flight_items)} non-legendary flight/teleport items:")

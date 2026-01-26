@@ -20,7 +20,7 @@ def create_sample_recipes():
         {
             "name": "Classic Lasagna",
             "cuisine": ":italian",
-            "diet": "#{}",  # empty set means no special diet
+            "diet": set(),  # empty set means no special diet
             "difficulty": ":medium",
             "time": 90,
             "ingredients": [
@@ -34,12 +34,12 @@ def create_sample_recipes():
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
                 {"item": "italian seasoning", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"comfort" "family" "baking"}',
+            "tags": {"comfort", "family", "baking"},
         },
         {
             "name": "Vegan Eggplant Parmesan",
             "cuisine": ":italian",
-            "diet": '#{"vegan"}',
+            "diet": {"vegan"},
             "difficulty": ":medium",
             "time": 60,
             "ingredients": [
@@ -51,7 +51,7 @@ def create_sample_recipes():
                 {"item": "olive oil", "amount": 3, "unit": ":tbsp"},
                 {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"vegan" "italian" "vegetarian"}',
+            "tags": {"vegan", "italian", "vegetarian"},
         },
         # Asian recipes
         {
@@ -72,12 +72,12 @@ def create_sample_recipes():
                 {"item": "palm sugar", "amount": 1, "unit": ":tbsp"},
                 {"item": "chili flakes", "amount": 0.5, "unit": ":tsp"},
             ],
-            "tags": '#{"thai" "noodles" "quick" "spicy"}',
+            "tags": {"thai", "noodles", "quick", "spicy"},
         },
         {
             "name": "Mapo Tofu",
             "cuisine": ":asian",
-            "diet": '#{"vegan"}',
+            "diet": {"vegan"},
             "difficulty": ":easy",
             "time": 25,
             "ingredients": [
@@ -91,13 +91,13 @@ def create_sample_recipes():
                 {"item": "cornstarch", "amount": 1, "unit": ":tbsp"},
                 {"item": "sesame oil", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"chinese" "spicy" "quick" "comfort"}',
+            "tags": {"chinese", "spicy", "quick", "comfort"},
         },
         # Mexican recipes
         {
             "name": "Chicken Tacos",
             "cuisine": ":mexican",
-            "diet": '#{"gluten-free"}',
+            "diet": {"gluten-free"},
             "difficulty": ":easy",
             "time": 20,
             "ingredients": [
@@ -111,12 +111,12 @@ def create_sample_recipes():
                 {"item": "chili powder", "amount": 1, "unit": ":tsp"},
                 {"item": "garlic powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "quick" "gluten-free" "protein"}',
+            "tags": {"mexican", "quick", "gluten-free", "protein"},
         },
         {
             "name": "Vegan Burrito Bowl",
             "cuisine": ":mexican",
-            "diet": '#{"vegan" "gluten-free"}',
+            "diet": {"vegan", "gluten-free"},
             "difficulty": ":easy",
             "time": 35,
             "ingredients": [
@@ -129,13 +129,13 @@ def create_sample_recipes():
                 {"item": "cumin", "amount": 1, "unit": ":tsp"},
                 {"item": "chili powder", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"mexican" "vegan" "gluten-free" "healthy"}',
+            "tags": {"mexican", "vegan", "gluten-free", "healthy"},
         },
         # Middle Eastern recipes
         {
             "name": "Chicken Shawarma",
             "cuisine": ":middle-eastern",
-            "diet": '#{"gluten-free"}',
+            "diet": {"gluten-free"},
             "difficulty": ":medium",
             "time": 45,
             "ingredients": [
@@ -149,12 +149,12 @@ def create_sample_recipes():
                 {"item": "cinnamon", "amount": 0.5, "unit": ":tsp"},
                 {"item": "olive oil", "amount": 2, "unit": ":tbsp"},
             ],
-            "tags": '#{"middle-eastern" "grilled" "spicy" "protein"}',
+            "tags": {"middle-eastern", "grilled", "spicy", "protein"},
         },
         {
             "name": "Falafel Bowls",
             "cuisine": ":middle-eastern",
-            "diet": '#{"vegan" "gluten-free"}',
+            "diet": {"vegan", "gluten-free"},
             "difficulty": ":medium",
             "time": 40,
             "ingredients": [
@@ -168,13 +168,13 @@ def create_sample_recipes():
                 {"item": "tahini", "amount": 0.25, "unit": ":cup"},
                 {"item": "lemon", "amount": 0.5, "unit": ":whole"},
             ],
-            "tags": '#{"middle-eastern" "vegan" "fried" "healthy"}',
+            "tags": {"middle-eastern", "vegan", "fried", "healthy"},
         },
         # Indian recipes
         {
             "name": "Butter Chicken",
             "cuisine": ":indian",
-            "diet": '#{"gluten-free"}',
+            "diet": {"gluten-free"},
             "difficulty": ":medium",
             "time": 50,
             "ingredients": [
@@ -188,12 +188,12 @@ def create_sample_recipes():
                 {"item": "garlic", "amount": 3, "unit": ":cloves"},
                 {"item": "onion", "amount": 1, "unit": ":medium"},
             ],
-            "tags": '#{"indian" "curry" "creamy" "comfort"}',
+            "tags": {"indian", "curry", "creamy", "comfort"},
         },
         {
             "name": "Chana Masala",
             "cuisine": ":indian",
-            "diet": '#{"vegan" "gluten-free"}',
+            "diet": {"vegan", "gluten-free"},
             "difficulty": ":easy",
             "time": 35,
             "ingredients": [
@@ -208,7 +208,7 @@ def create_sample_recipes():
                 {"item": "garam masala", "amount": 1, "unit": ":tsp"},
                 {"item": "coconut oil", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"indian" "curry" "vegan" "protein"}',
+            "tags": {"indian", "curry", "vegan", "protein"},
         },
         # American recipes
         {
@@ -222,12 +222,12 @@ def create_sample_recipes():
                 {"item": "cheddar cheese", "amount": 2, "unit": ":slices"},
                 {"item": "butter", "amount": 1, "unit": ":tbsp"},
             ],
-            "tags": '#{"american" "quick" "comfort" "sandwich"}',
+            "tags": {"american", "quick", "comfort", "sandwich"},
         },
         {
             "name": "Vegan Mac and Cheese",
             "cuisine": ":american",
-            "diet": '#{"vegan"}',
+            "diet": {"vegan"},
             "difficulty": ":easy",
             "time": 25,
             "ingredients": [
@@ -239,7 +239,7 @@ def create_sample_recipes():
                 {"item": "turmeric", "amount": 0.5, "unit": ":tsp"},
                 {"item": "salt", "amount": 1, "unit": ":tsp"},
             ],
-            "tags": '#{"american" "vegan" "comfort" "pasta"}',
+            "tags": {"american", "vegan", "comfort", "pasta"},
         },
     ]
 
@@ -258,6 +258,11 @@ def convert_recipe_to_edn(recipe):
             return str(value)
         elif isinstance(value, list):
             return f"[{', '.join(format_ingredient(ing) for ing in value)}]"
+        elif isinstance(value, set):
+            if value:  # Non-empty set
+                return f'#{{{", ".join(f"{item}" for item in value)}}}'
+            else:  # Empty set
+                return '#{}'
         else:
             return str(value)
 
@@ -271,7 +276,7 @@ def convert_recipe_to_edn(recipe):
         elif key == "cuisine":
             edn_parts.append(f":{key} {value}")
         elif key == "diet":
-            edn_parts.append(f":{key} {value}")
+            edn_parts.append(f":{key} {format_value(value)}")
         elif key == "difficulty":
             edn_parts.append(f":{key} {value}")
         elif key == "time":
@@ -281,7 +286,7 @@ def convert_recipe_to_edn(recipe):
                 f':{key} [{", ".join(format_ingredient(ing) for ing in value)}]'
             )
         elif key == "tags":
-            edn_parts.append(f":{key} {value}")
+            edn_parts.append(f":{key} {format_value(value)}")
 
     return f"{{{', '.join(edn_parts)}}}"
 
@@ -377,30 +382,35 @@ def main():
     # 1. Find recipes similar to "classic lasagna"
     query_recipes(
         store,
-        '{:name "classic lasagna"}',
-        "1. FUZZY SIMILARITY: Recipes similar to 'classic lasagna'",
+        '{:name "classic lasagna", :cuisine :italian, :difficulty :medium}',
+        "1. FUZZY SIMILARITY: Recipes similar to classic lasagna",
+        top_k=5
     )
 
     # 2. Recipes similar to pad thai, but without shrimp
     query_recipes(
         store,
-        '{:name "pad thai"}',
+        '{:name "pad thai", :cuisine :asian, :difficulty :medium}',
         "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
         negations={"ingredients": [{"item": "shrimp"}]},
+        top_k=5
     )
 
     # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes
     # with different proteins)
     query_recipes(
         store,
-        '{:name "mapo tofu"}',
+        '{:name "mapo tofu", :cuisine :asian, :difficulty :easy}',
         "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
         negations={"ingredients": [{"item": "tofu"}]},
+        top_k=3
     )
 
     # 4. Dishes with "curry" in tags
     query_recipes(
-        store, '{:tags #{"curry"}}', "4. TAG SIMILARITY: Dishes with 'curry' tag"
+        store, '{:tags #{"curry"}, :cuisine :indian}',
+        "4. TAG SIMILARITY: Indian curry dishes",
+        top_k=3
     )
 
     # 5. Asian cuisine recipes

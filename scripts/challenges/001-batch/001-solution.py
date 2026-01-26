@@ -358,7 +358,7 @@ def ingest_tasks(store, tasks):
     print("✅ All tasks ingested successfully!")
 
 
-def query_tasks(store, query, description, top_k=10, guard=None, negations=None):
+def query_tasks(store, query, description, top_k=10, guard=None, negations=None, threshold=0.0):
     """Query tasks and display results."""
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
@@ -366,10 +366,12 @@ def query_tasks(store, query, description, top_k=10, guard=None, negations=None)
         print(f"Guard: {guard}")
     if negations:
         print(f"Negations: {negations}")
+    if threshold > 0.0:
+        print(f"Threshold: {threshold}")
 
     try:
         results = store.query(
-            query, guard=guard, negations=negations, top_k=top_k, threshold=0.0
+            query, guard=guard, negations=negations, top_k=top_k, threshold=threshold
         )
 
         if not results:
@@ -417,11 +419,12 @@ def main():
     print("🧪 QUERY DEMONSTRATIONS")
     print("=" * 50)
 
-    # 1. Fuzzy similarity query
+    # 1. Fuzzy similarity query - find tasks with similar titles
     query_tasks(
         store,
-        '{"title": "prepare presentation"}',
-        "1. FUZZY SIMILARITY: Tasks similar to 'prepare presentation'",
+        '{"title": "prepare presentation", "project": "work", "priority": "high"}',
+        "1. FUZZY SIMILARITY: Tasks similar to preparing presentations",
+        top_k=5  # Focus on top 5 most relevant
     )
 
     # 2. Guard query (high priority tasks)
@@ -478,7 +481,9 @@ def main():
 
     # 10. Tag-based similarity (learning-related tasks)
     query_tasks(
-        store, '{"tags": ["learning"]}', "10. TAG SIMILARITY: Learning-related tasks"
+        store, '{"tags": ["learning"], "project": "side"}',
+        "10. TAG SIMILARITY: Side project learning tasks",
+        top_k=3
     )
 
     print("\n" + "=" * 50)
