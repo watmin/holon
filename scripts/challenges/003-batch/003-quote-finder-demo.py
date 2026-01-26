@@ -33,6 +33,7 @@ class QuoteFinder:
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
         self.quotes_data = []  # Store full text for demo (not in actual DB)
+        self.id_to_quote = {}  # Map vector IDs to quote data
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file."""
@@ -96,18 +97,11 @@ class QuoteFinder:
         return words
 
     def create_unit_data(self, quote: Dict[str, Any]) -> Dict[str, Any]:
-        """Create unit data structure for Holon (metadata only, no full text)."""
+        """Create unit data structure for Holon (words only for vector, metadata stored separately)."""
         words = self.normalize_words(quote["text"])
 
-        return {
-            "words": {"_encode_mode": "ngram", "sequence": words},
-            "metadata": {
-                "chapter": quote["chapter"],
-                "paragraph": quote["paragraph"],
-                "page": quote["page"],
-                "book_title": quote["book_title"],
-            },
-        }
+        # Store ONLY the words for vector encoding - metadata is retrieved by ID
+        return {"words": {"_encode_mode": "ngram", "sequence": words}}
 
     def ingest_quotes(self, quotes: List[Dict[str, Any]]) -> List[str]:
         """Ingest quotes into Holon store using metadata-only approach."""
@@ -123,6 +117,11 @@ class QuoteFinder:
 
         # Batch insert for efficiency
         ids = self.store.batch_insert(units_data, data_type="json")
+
+        # Create mapping from vector IDs to quote data
+        for vector_id, quote in zip(ids, quotes):
+            self.id_to_quote[vector_id] = quote
+
         logger.info(f"Successfully ingested {len(ids)} quote units")
         return ids
 
@@ -140,13 +139,87 @@ class QuoteFinder:
         cpu_vector = self.store.vector_manager.to_cpu(vector)
         return cpu_vector.tolist()
 
-    def search_quotes(
+    def search_quotes_hybrid(
         self,
         query_phrase: str,
         top_k: int = 5,
-        threshold: float = 0.1,
+        vsa_threshold: float = 0.3,  # Higher threshold for VSA (more selective)
+        fuzzy_threshold: float = 0.6,  # Lower threshold for fuzzy (more inclusive)
         chapter_filter: str = None,
     ) -> List[Dict[str, Any]]:
+        """
+        Hybrid search: VSA/HDC for exact matches + traditional fuzzy matching for related text.
+        This follows Challenge 4's hybrid approach pattern.
+        """
+        logger.info(f"Hybrid search for: '{query_phrase}'")
+
+        words = self.normalize_words(query_phrase)
+        probe_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
+
+        # Build guard for chapter filtering
+        guard = None
+        if chapter_filter:
+            guard = {"metadata": {"chapter": chapter_filter}}
+
+        # Phase 1: VSA/HDC search for exact/high-similarity matches
+        vsa_results = self.store.query(
+            probe=json.dumps(probe_data),
+            data_type="json",
+            top_k=top_k,
+            threshold=vsa_threshold,  # Higher threshold = more selective
+            guard=guard,
+        )
+
+        # Convert VSA results to our format
+        hybrid_results = []
+        seen_quotes = set()
+
+        for data_id, vsa_score, data in vsa_results:
+            original_quote = self.id_to_quote.get(data_id)
+            if original_quote:
+                result = {
+                    "id": data_id,
+                    "vsa_score": vsa_score,
+                    "fuzzy_score": 1.0,  # Exact match from VSA
+                    "combined_score": vsa_score,  # For now, just use VSA score
+                    "search_method": "vsa_exact",
+                    "metadata": original_quote,
+                    "reconstructed_text": original_quote["text"],
+                    "search_words": words,
+                }
+                hybrid_results.append(result)
+                seen_quotes.add(data_id)
+
+        # Phase 2: If we don't have enough VSA results, add fuzzy text matching
+        if len(hybrid_results) < top_k:
+            fuzzy_candidates = self._fuzzy_text_search(
+                query_phrase, fuzzy_threshold, exclude_ids=seen_quotes
+            )
+
+            # Add fuzzy results
+            for candidate in fuzzy_candidates:
+                if len(hybrid_results) >= top_k:
+                    break
+
+                # Calculate combined score (VSA would be 0 for fuzzy matches)
+                combined_score = candidate["fuzzy_score"] * 0.5  # Weight fuzzy matches lower
+
+                result = {
+                    "id": candidate["id"],
+                    "vsa_score": 0.0,
+                    "fuzzy_score": candidate["fuzzy_score"],
+                    "combined_score": combined_score,
+                    "search_method": "fuzzy_text",
+                    "metadata": candidate["metadata"],
+                    "reconstructed_text": candidate["text"],
+                    "search_words": words,
+                }
+                hybrid_results.append(result)
+
+        # Sort by combined score
+        hybrid_results.sort(key=lambda x: x["combined_score"], reverse=True)
+
+        return hybrid_results[:top_k]
         """Search for quotes using bootstrapped vector."""
         logger.info(f"Searching for: '{query_phrase}'")
 
@@ -175,28 +248,20 @@ class QuoteFinder:
         print(f"DEBUG: Query returned {len(results)} raw results for '{query_phrase}'")
         if results:
             print(
-                f"DEBUG: First result score: {results[0][1]:.3f}, metadata: {results[0][2]['metadata']}"
+                f"DEBUG: First result score: {results[0][1]:.3f}, data keys: {list(results[0][2].keys())}"
             )
 
         # Enrich results with reconstructed text (from our demo store)
         enriched_results = []
         for data_id, score, data in results:
-            # Find the original quote data
-            original_quote = None
-            for quote in self.quotes_data:
-                # Match by metadata (since we don't store text)
-                if (
-                    quote["chapter"] == data["metadata"]["chapter"]
-                    and quote["page"] == data["metadata"]["page"]
-                ):
-                    original_quote = quote
-                    break
+            # Get the original quote data using the vector ID
+            original_quote = self.id_to_quote.get(data_id)
 
             enriched_results.append(
                 {
                     "id": data_id,
                     "score": score,
-                    "metadata": data["metadata"],
+                    "metadata": original_quote if original_quote else {},
                     "reconstructed_text": original_quote["text"]
                     if original_quote
                     else "Text not found",
@@ -205,6 +270,106 @@ class QuoteFinder:
             )
 
         return enriched_results
+
+    def search_quotes(
+        self,
+        query_phrase: str,
+        top_k: int = 5,
+        threshold: float = 0.1,
+        chapter_filter: str = None,
+    ) -> List[Dict[str, Any]]:
+        """Original VSA-only search method (kept for comparison)."""
+        logger.info(f"VSA-only search for: '{query_phrase}'")
+
+        words = self.normalize_words(query_phrase)
+        probe_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
+
+        guard = None
+        if chapter_filter:
+            guard = {"metadata": {"chapter": chapter_filter}}
+
+        results = self.store.query(
+            probe=json.dumps(probe_data),
+            data_type="json",
+            top_k=top_k,
+            threshold=threshold,
+            guard=guard,
+        )
+
+        enriched_results = []
+        for data_id, score, data in results:
+            original_quote = self.id_to_quote.get(data_id)
+            enriched_results.append(
+                {
+                    "id": data_id,
+                    "score": score,
+                    "metadata": original_quote if original_quote else {},
+                    "reconstructed_text": original_quote["text"]
+                    if original_quote
+                    else "Text not found",
+                    "search_words": words,
+                }
+            )
+
+        return enriched_results
+
+    def _fuzzy_text_search(
+        self, query_phrase: str, min_similarity: float = 0.6, exclude_ids: set = None
+    ) -> List[Dict[str, Any]]:
+        """Traditional fuzzy text search using difflib."""
+        if exclude_ids is None:
+            exclude_ids = set()
+
+        import difflib
+
+        query_lower = query_phrase.lower().strip()
+        candidates = []
+
+        for quote in self.quotes_data:
+            # Skip if already found by VSA
+            quote_id = None
+            for vid, q in self.id_to_quote.items():
+                if q == quote:
+                    quote_id = vid
+                    break
+
+            if quote_id in exclude_ids:
+                continue
+
+            quote_text_lower = quote["text"].lower()
+
+            # Exact substring match gets highest score
+            if query_lower in quote_text_lower:
+                similarity = 1.0
+            else:
+                # Fuzzy matching with sliding window
+                matcher = difflib.SequenceMatcher(None, query_lower, quote_text_lower)
+                similarity = matcher.ratio()
+
+                # Also try partial matches
+                if similarity < min_similarity:
+                    # Split query into words and find best partial match
+                    query_words = query_lower.split()
+                    best_partial = 0.0
+
+                    for i in range(len(quote_text_lower) - len(query_lower) + 1):
+                        window = quote_text_lower[i:i+len(query_lower)]
+                        window_matcher = difflib.SequenceMatcher(None, query_lower, window)
+                        best_partial = max(best_partial, window_matcher.ratio())
+
+                    similarity = max(similarity, best_partial)
+
+            if similarity >= min_similarity:
+                candidates.append({
+                    "id": quote_id,
+                    "text": quote["text"],
+                    "metadata": quote,
+                    "fuzzy_score": similarity,
+                })
+
+        # Sort by similarity
+        candidates.sort(key=lambda x: x["fuzzy_score"], reverse=True)
+        return candidates
 
 
 def main():
@@ -244,70 +409,51 @@ def main():
     ids = finder.ingest_quotes(quotes)
     print(f"💾 Ingested {len(ids)} units into Holon store")
 
-    # Demo searches
+    # Demo searches - showing both broken VSA-only and fixed hybrid approaches
     print("\n🔎 Running Search Demos:")
     print("-" * 30)
 
-    # Demo 1: Exact quote search
-    print("\n1. Exact quote search:")
-    results = finder.search_quotes("Everything depends upon relative minuteness")
-    print(f"   Found {len(results)} results:")
-    for result in results:
-        print(
-            f"   Score: {result['score']:.3f} | Chapter: {result['metadata']['chapter']} | Page: {result['metadata']['page']}"
-        )
-        print(f"   Text: {result['reconstructed_text'][:80]}...")
-        print(f"   Search words: {result['search_words']}")
+    test_queries = [
+        ("Everything depends upon relative minuteness", "exact match"),
+        ("depends on relative smallness", "fuzzy similar"),
+        ("differential symbol", "partial phrase"),
+        ("integration", "single word"),
+    ]
+
+    for i, (query, desc) in enumerate(test_queries, 1):
+        print(f"\n{i}. {desc.upper()}: '{query}'")
+        print("-" * 50)
+
+        # Show broken VSA-only approach
+        print("   ❌ BROKEN VSA-only approach:")
+        vsa_results = finder.search_quotes(
+            query, threshold=0.0
+        )  # This calls the old method
+        print(f"      Found {len(vsa_results)} results:")
+        for result in vsa_results[:2]:  # Show top 2
+            print(
+                f"      Score: {result['score']:.3f} | Text: {result['reconstructed_text'][:50]}..."
+            )
+
+        # Show fixed hybrid approach
+        print("   ✅ FIXED hybrid approach:")
+        hybrid_results = finder.search_quotes_hybrid(query)
+        print(f"      Found {len(hybrid_results)} results:")
+        for result in hybrid_results:
+            method = result['search_method']
+            score_type = "VSA" if result['vsa_score'] > 0 else "Fuzzy"
+            score = result['vsa_score'] if result['vsa_score'] > 0 else result['fuzzy_score']
+            print(
+                f"      {score_type}: {score:.3f} ({method}) | Text: {result['reconstructed_text'][:50]}..."
+            )
         print()
 
-    # Demo 2: Fuzzy search
-    print("\n2. Fuzzy search (similar phrase):")
-    results = finder.search_quotes(
-        "depends on relative smallness", threshold=0.0
-    )  # Lower threshold for fuzzy
-    print(f"   Found {len(results)} results:")
-    for result in results:
-        print(
-            f"   Score: {result['score']:.3f} | Chapter: {result['metadata']['chapter']} | Page: {result['metadata']['page']}"
-        )
-        print(f"   Text: {result['reconstructed_text'][:80]}...")
-        print(f"   Search words: {result['search_words']}")
-        print()
-
-    # Demo 3: Partial phrase
-    print("\n3. Partial phrase search:")
-    results = finder.search_quotes(
-        "differential symbol", threshold=0.0
-    )  # Lower threshold for partial
-    print(f"   Found {len(results)} results:")
-    for result in results:
-        print(
-            f"   Score: {result['score']:.3f} | Chapter: {result['metadata']['chapter']} | Page: {result['metadata']['page']}"
-        )
-        print(f"   Text: {result['reconstructed_text'][:80]}...")
-        print(f"   Search words: {result['search_words']}")
-        print()
-
-    # Demo 4: Vector bootstrapping showcase
-    print("\n4. Vector bootstrapping demo:")
+    # Demo 5: Vector bootstrapping showcase
+    print("\n5. Vector bootstrapping demo:")
     phrase = "calculus tricks are easy"
     vector = finder.bootstrap_search_vector(phrase)
     print(f"   Bootstrapped vector for '{phrase}': {len(vector)} dimensions")
     print(f"   Sample values: {vector[:5]}...")
-
-    # Demo 5: Chapter filtering
-    print("\n5. Chapter-filtered search:")
-    results = finder.search_quotes(
-        "integration", threshold=0.0, chapter_filter="Unknown"
-    )  # All are Unknown, search for integration
-    print(f"   Found {len(results)} results:")
-    for result in results:
-        print(
-            f"   Score: {result['score']:.3f} | Chapter: {result['metadata']['chapter']} | Page: {result['metadata']['page']}"
-        )
-        print(f"   Text: {result['reconstructed_text'][:80]}...")
-        print(f"   Search words: {result['search_words']}")
-        print()
 
     print("\n✅ Demo completed!")
     print("✨ Key features demonstrated:")
