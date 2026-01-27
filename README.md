@@ -50,29 +50,17 @@ For example, `{"user": "alice", "action": "login"}` and `{:user "alice" :actions
 
 ### Mathematical Primitives
 
-Beyond structural encoding, Holon provides fundamental mathematical primitives for pattern recognition through a unified `/encode` endpoint:
+Beyond structural encoding, Holon provides fundamental mathematical primitives for pattern recognition through the unified client interface:
 
-```bash
+```python
 # Mathematical primitives
-POST /encode
-{
-  "mathematical_primitive": "convergence_rate",
-  "primitive_value": 0.85
-}
+vector = client.encode_mathematical("convergence_rate", 0.85)
 
-# Mathematical composition
-POST /encode
-{
-  "operation": "bind",
-  "input_vectors": [[1, -1, 0, ...], [0, 1, -1, ...]]
-}
+# Mathematical composition (bind/bundle operations)
+composed_vector = client.compose_vectors("bind", [vector1, vector2])
 
-# Structural data (original functionality)
-POST /encode
-{
-  "data": "{\"user\": \"alice\"}",
-  "data_type": "json"
-}
+# Structural data encoding (original functionality)
+vector = client.encode_vectors_json({"user": "alice"})
 ```
 
 **Available Primitives:**
@@ -97,7 +85,7 @@ Comprehensive validation results:
 - **Graph topology recognition**: 100% family clustering ([Challenge 2 Assessment](docs/challenge_2_gaps_and_improvements.md))
 - **Mathematical primitives**: 8 primitives for semantic encoding ([Mathematical Primitives Findings](docs/challenge_2_mathematical_primitives_findings.md))
 - **Hybrid text search**: 75% F1 score ([Quote Finder Improvements](docs/quote_finder_improvements.md))
-- **Geometric constraint satisfaction**: 98% Sudoku completion ([Sudoku Findings](docs/sudoku_geometric_solution_findings.md))
+- **Geometric constraint satisfaction**: Sudoku solver planned ([Sudoku Findings](docs/sudoku_geometric_solution_findings.md))
 
 ## Use Cases
 
@@ -114,7 +102,7 @@ Challenge solutions demonstrating capabilities:
 - **RPM solver** (geometric rule learning, 100% accuracy on 4 implemented rules) - ✅ Complete
 - **Graph matching** (VSA/HDC topology recognition, 100% family clustering) - ✅ Complete
 - **Quote finder** (hybrid VSA + traditional text search, 75% F1 score) - ✅ Working hybrid system
-- **Sudoku solver** (geometric constraint satisfaction, 98% completion) - ✅ Working geometric solver
+- **Sudoku solver** (geometric constraint satisfaction) - 📋 Planned implementation
 
 See [docs/](docs/) for detailed documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
 
@@ -440,7 +428,7 @@ Comprehensive validation results available in docs:
 - [RPM Geometric Reasoning](docs/rpm_geometric_solution_findings.md) - 100% accuracy on geometric rule learning
 - [Graph Topology Recognition](docs/challenge_2_gaps_and_improvements.md) - 100% family clustering breakthrough
 - [Hybrid Text Search](docs/quote_finder_improvements.md) - 75% F1 score validation
-- [Geometric Constraint Satisfaction](docs/sudoku_geometric_solution_findings.md) - 98% Sudoku completion
+- [Geometric Constraint Satisfaction](docs/sudoku_geometric_solution_findings.md) - Analysis and planned implementation
 - [Comprehensive Assessment](docs/comprehensive_challenge_assessment.md) - All challenges evaluated
 
 ## Challenge Implementations
@@ -449,7 +437,7 @@ Challenge solutions available in scripts/challenges/:
 - **Batch 1**: Production-ready fuzzy task retrieval system
 - **Batch 2**: Complete RPM geometric reasoning (100% accuracy) + VSA/HDC graph matching (100% topology recognition)
 - **Batch 3**: Hybrid quote finder (75% F1 score)
-- **Batch 4**: Geometric Sudoku solver (98% completion)
+- **Batch 4**: Not yet implemented (will use Holon for advanced reasoning)
 - **Batch 5-6**: Additional challenge implementations
 
 MIT licensed. FastAPI server included.
