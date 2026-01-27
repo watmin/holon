@@ -9,7 +9,7 @@ import time
 from typing import Dict, List, Tuple
 from pathlib import Path
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 import json
 import logging
 import re
@@ -24,6 +24,7 @@ class QuoteFinder:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.quotes_data = []
         self.id_to_quote = {}
 
@@ -45,10 +46,10 @@ class QuoteFinder:
         units_data = []
         for quote in quotes:
             unit_data = self.create_unit_data(quote)
-            units_data.append(json.dumps(unit_data))
+            units_data.append(unit_data)
             self.quotes_data.append(quote)
 
-        ids = self.store.batch_insert(units_data, data_type="json")
+        ids = self.client.insert_batch_json(units_data)
 
         for vector_id, quote in zip(ids, quotes):
             self.id_to_quote[vector_id] = quote
@@ -66,9 +67,8 @@ class QuoteFinder:
             guard = {"metadata": {"chapter": chapter_filter}}
 
         # Phase 1: VSA/HDC search for exact/high-similarity matches
-        vsa_results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        vsa_results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=vsa_threshold,
             guard=guard,
@@ -78,7 +78,9 @@ class QuoteFinder:
         hybrid_results = []
         seen_quotes = set()
 
-        for data_id, vsa_score, data in vsa_results:
+        for result_data in vsa_results:
+            data_id = result_data["id"]
+            vsa_score = result_data["score"]
             original_quote = self.id_to_quote.get(data_id)
             if original_quote:
                 result = {

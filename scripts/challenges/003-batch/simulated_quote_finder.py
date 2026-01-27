@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 logging.basicConfig(level=logging.INFO)
@@ -243,6 +243,7 @@ class SimulatedQuoteFinderApp:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.indexed_content = []
         self.locator = None
 
@@ -257,7 +258,7 @@ class SimulatedQuoteFinderApp:
             print(f"💾 Storing {len(chunks)} content chunks...")
             for chunk in chunks:
                 unit_data = indexer.create_chunk_unit(chunk)
-                chunk_id = self.store.insert(json.dumps(unit_data), "json")
+                chunk_id = self.client.insert_json(unit_data)
                 chunk["stored_id"] = chunk_id
                 self.indexed_content.append(chunk)
 
@@ -323,12 +324,15 @@ class SimulatedQuoteFinderApp:
 
         probe_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
-        results = self.store.query(
-            probe=json.dumps(probe_data), data_type="json", top_k=top_k, threshold=0.0
+        results = self.client.search_json(
+            probe_data, top_k=top_k, threshold=0.0
         )
 
         locations = []
-        for vector_id, score, stored_data in results:
+        for result_data in results:
+            vector_id = result_data["id"]
+            score = result_data["score"]
+            stored_data = result_data["data"]
             chunk = next(
                 (c for c in self.indexed_content if c.get("stored_id") == vector_id),
                 None,

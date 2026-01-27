@@ -10,7 +10,7 @@ import random
 from typing import Dict, List, Tuple, Set
 from pathlib import Path
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class RPMStatisticalValidator:
@@ -35,8 +35,9 @@ class RPMStatisticalValidator:
         print("🧠 Setting up RPM Statistical Validation Suite")
         print("=" * 50)
 
-        # Initialize Holon store
+        # Initialize Holon store and client
         self.store = CPUStore(dimensions=16000)
+        self.client = HolonClient(local_store=self.store)
 
         # Generate comprehensive training set (complete matrices)
         training_matrices = []
@@ -55,8 +56,8 @@ class RPMStatisticalValidator:
         # Ingest training data
         print(f"💾 Ingesting {len(training_matrices)} complete training matrices...")
         for matrix in training_matrices:
-            matrix_json = self.edn_to_json(matrix)
-            self.store.insert(matrix_json, data_type="json")
+            matrix_dict = matrix  # Already in EDN format
+            self.client.insert_json(matrix_dict)
 
         # Generate test matrices (incomplete, need completion)
         print("🎯 Generating test matrices (incomplete, need completion)...")
@@ -164,11 +165,11 @@ class RPMStatisticalValidator:
         }
 
         # Find complete matrices with similar structure
-        complete_results = self.store.query(
-            self.edn_to_json(probe_structure),
+        probe_dict = probe_structure  # Already in EDN format
+        complete_results = self.client.search_json(
+            probe_dict,
             negations={"missing-position": {"$any": True}},  # Exclude incomplete matrices
             top_k=5,
-            data_type="json",
             threshold=0.0
         )
 
@@ -178,7 +179,7 @@ class RPMStatisticalValidator:
 
         # Use the top result's missing panel as prediction
         top_result = complete_results[0]
-        top_matrix = top_result[2]  # matrix data
+        top_matrix = top_result["data"]  # matrix data
         predicted_panel = top_matrix["panels"].get(missing_pos, {})
 
         return {

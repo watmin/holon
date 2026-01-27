@@ -5,7 +5,8 @@ Proper Statistical Validation for Challenge 2 RPM - Using Real Implementation
 
 import json
 import time
-from holon import CPUStore
+import edn_format
+from holon import CPUStore, HolonClient
 
 # Copy the actual matrix generation and validation functions from the main implementation
 def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=None):
@@ -294,8 +295,9 @@ def run_proper_validation():
     print("🧠 Challenge 2 RPM - Proper Statistical Validation")
     print("=" * 55)
 
-    # Initialize store
+    # Initialize store and client
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Generate training data (complete matrices)
     rules = ["progression", "xor", "union", "intersection"]
@@ -308,7 +310,8 @@ def run_proper_validation():
 
     print(f"Training with {len(training_matrices)} complete matrices...")
     for matrix in training_matrices:
-        store.insert(edn_to_json(matrix), data_type="json")
+        edn_string = edn_format.dumps(matrix)
+        client.insert(edn_string, data_type="edn")
 
     # Generate test data (incomplete matrices)
     test_matrices = []
@@ -336,7 +339,7 @@ def run_proper_validation():
         rule_stats[rule]["total"] += 1
 
         start_time = time.time()
-        predicted = predict_missing_panel(store, test_matrix, rule)
+        predicted = predict_missing_panel(client, test_matrix, rule)
         response_time = time.time() - start_time
         total_time += response_time
 
@@ -374,29 +377,37 @@ def run_proper_validation():
 
     return accuracy
 
-def predict_missing_panel(store, matrix, rule):
+def predict_missing_panel(client, matrix, rule):
     """Predict missing panel using the actual Challenge 2 approach"""
     missing_pos = matrix["missing-position"]
     panels = matrix["panels"]
 
+    # Convert sets to lists for JSON serialization
+    probe_panels = {}
+    for pos, panel_data in panels.items():
+        probe_panels[pos] = {
+            "shapes": list(panel_data.get("shapes", [])),
+            "count": panel_data.get("count", 0),
+            "color": panel_data.get("color", "unknown")
+        }
+
     probe_structure = {
-        "panels": panels,
+        "panels": probe_panels,
         "rule": rule,
     }
 
-    complete_results = store.query(
-        edn_to_json(probe_structure),
+    complete_results = client.search_json(
+        probe_structure,
         negations={"missing-position": {"$any": True}},
-        top_k=3,
-        data_type="json"
+        top_k=3
     )
 
     if not complete_results:
         return {"shapes": [], "count": 0, "color": "unknown"}
 
     # For union rule, use hybrid validation
-    for comp_id, comp_score, comp_data in complete_results:
-        comp_matrix = comp_data
+    for result in complete_results:
+        comp_matrix = result["data"]
         if rule == "union":
             if validate_union_matrix_fit(matrix, comp_matrix, missing_pos):
                 actual_missing = comp_matrix["panels"].get(missing_pos, {})

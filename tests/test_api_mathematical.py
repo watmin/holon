@@ -39,7 +39,8 @@ class TestMathematicalAPIEndpoints:
     def test_encode_mathematical_primitive_endpoint(self, client):
         """Test mathematical primitive encoding via /encode/mathematical endpoint."""
         response = client.post(
-            "/encode/mathematical", json={"primitive": "convergence_rate", "value": 0.8}
+            "/api/v1/vectors/encode/mathematical",
+            json={"primitive": "convergence_rate", "value": 0.8},
         )
 
         assert response.status_code == 200
@@ -54,19 +55,21 @@ class TestMathematicalAPIEndpoints:
         """Test mathematical binding via /encode/compose endpoint."""
         # First create some vectors
         vec1_response = client.post(
-            "/encode/mathematical", json={"primitive": "convergence_rate", "value": 0.8}
+            "/api/v1/vectors/encode/mathematical",
+            json={"primitive": "convergence_rate", "value": 0.8},
         )
         vec1 = vec1_response.json()["vector"]
 
         vec2_response = client.post(
-            "/encode/mathematical",
+            "/api/v1/vectors/encode/mathematical",
             json={"primitive": "iteration_complexity", "value": 50},
         )
         vec2 = vec2_response.json()["vector"]
 
         # Bind them via compose endpoint
         bind_response = client.post(
-            "/encode/compose", json={"operation": "bind", "vectors": [vec1, vec2]}
+            "/api/v1/vectors/compose",
+            json={"operation": "bind", "vectors": [vec1, vec2]},
         )
 
         assert bind_response.status_code == 200
@@ -81,18 +84,21 @@ class TestMathematicalAPIEndpoints:
         """Test mathematical bundling via /encode/compose endpoint."""
         # Create vectors
         vec1_response = client.post(
-            "/encode/mathematical", json={"primitive": "frequency_domain", "value": 2.5}
+            "/api/v1/vectors/encode/mathematical",
+            json={"primitive": "frequency_domain", "value": 2.5},
         )
         vec1 = vec1_response.json()["vector"]
 
         vec2_response = client.post(
-            "/encode/mathematical", json={"primitive": "amplitude_scale", "value": 0.8}
+            "/api/v1/vectors/encode/mathematical",
+            json={"primitive": "amplitude_scale", "value": 0.8},
         )
         vec2 = vec2_response.json()["vector"]
 
         # Bundle them via compose endpoint
         bundle_response = client.post(
-            "/encode/compose", json={"operation": "bundle", "vectors": [vec1, vec2]}
+            "/api/v1/vectors/compose",
+            json={"operation": "bundle", "vectors": [vec1, vec2]},
         )
 
         assert bundle_response.status_code == 200
@@ -105,7 +111,7 @@ class TestMathematicalAPIEndpoints:
     def test_invalid_mathematical_primitive(self, client):
         """Test invalid primitive returns error via mathematical endpoint."""
         response = client.post(
-            "/encode/mathematical",
+            "/api/v1/vectors/encode/mathematical",
             json={"primitive": "invalid_primitive", "value": 1.0},
         )
 
@@ -115,7 +121,7 @@ class TestMathematicalAPIEndpoints:
     def test_mathematical_bind_empty_vectors(self, client):
         """Test mathematical bind with empty vector list via compose endpoint."""
         response = client.post(
-            "/encode/compose", json={"operation": "bind", "vectors": []}
+            "/api/v1/vectors/compose", json={"operation": "bind", "vectors": []}
         )
 
         # Should succeed and return zero vector (handled gracefully)
@@ -140,7 +146,8 @@ class TestMathematicalAPIEndpoints:
 
         for primitive in primitives:
             response = client.post(
-                "/encode/mathematical", json={"primitive": primitive, "value": 1.0}
+                "/api/v1/vectors/encode/mathematical",
+                json={"primitive": primitive, "value": 1.0},
             )
 
             assert response.status_code == 200, f"Failed for {primitive}"
@@ -175,13 +182,13 @@ class TestMathematicalAPIIntegration:
 
         # Store it
         store_response = client.post(
-            "/insert", json={"data": json.dumps(test_data), "data_type": "json"}
+            "/api/v1/items", json={"data": json.dumps(test_data), "data_type": "json"}
         )
         assert store_response.status_code == 200
 
         # Query for fractal matrices
         query_response = client.post(
-            "/query",
+            "/api/v1/search",
             json={"probe": '{"rule": "fractal"}', "data_type": "json", "top_k": 5},
         )
         assert query_response.status_code == 200

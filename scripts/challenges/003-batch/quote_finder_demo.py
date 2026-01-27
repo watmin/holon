@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 # Configure logging
@@ -22,6 +22,7 @@ class ComprehensiveQuoteFinder:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.processed_quotes = []  # Store processed quotes for validation
 
     def load_processed_quotes(self, json_file: str) -> List[Dict[str, Any]]:
@@ -73,13 +74,13 @@ class ComprehensiveQuoteFinder:
         units_data = []
         for quote in quotes:
             unit_data = self.create_quote_unit(quote)
-            units_data.append(json.dumps(unit_data))
+            units_data.append(unit_data)
 
             # Keep processed quotes for validation
             self.processed_quotes.append(quote)
 
         # Batch insert for efficiency
-        ids = self.store.batch_insert(units_data, data_type="json")
+        ids = self.client.insert_batch_json(units_data)
         print(f"✅ Successfully ingested {len(ids)} quote units")
         return ids
 
@@ -90,12 +91,8 @@ class ComprehensiveQuoteFinder:
         # Create the same encoding structure as stored units
         encode_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
-        # Use the encoder directly (simulating the API)
-        vector = self.store.encoder.encode_data(encode_data)
-
-        # Convert to list for API-like response
-        cpu_vector = self.store.vector_manager.to_cpu(vector)
-        return cpu_vector.tolist()
+        # Use the client to encode (simulating the API)
+        return self.client.encode_vectors_json(encode_data)
 
     def search_quotes(
         self,
@@ -129,9 +126,8 @@ class ComprehensiveQuoteFinder:
             guard = None
 
         # Query the store
-        results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=threshold,
             guard=guard,
@@ -141,7 +137,10 @@ class ComprehensiveQuoteFinder:
 
         # Enrich results with reconstructed text and validation
         enriched_results = []
-        for data_id, score, data in results:
+        for result_data in results:
+            data_id = result_data["id"]
+            score = result_data["score"]
+            data = result_data["data"]
             # Find the original quote data for validation
             original_quote = None
             for quote in self.processed_quotes:

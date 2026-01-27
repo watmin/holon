@@ -85,7 +85,7 @@ Challenge 3 aimed to build a "quote finder" using Holon's VSA/HDC for efficient 
 ```python
 def search_quotes_hybrid(query):
     # Phase 1: VSA/HDC for exact matches
-    vsa_results = store.query(probe_data, threshold=0.3)
+    vsa_results = client.search_json(probe_data, threshold=0.3)
 
     # Phase 2: Traditional fuzzy matching for related queries
     if len(vsa_results) < top_k:

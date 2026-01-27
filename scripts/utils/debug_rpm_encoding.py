@@ -8,7 +8,7 @@ We'll examine the vector encodings and see if they preserve geometric relationsh
 
 import json
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def debug_matrix_encoding():
@@ -17,6 +17,7 @@ def debug_matrix_encoding():
     print("=" * 50)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Create simple test matrices
     test_matrices = [
@@ -119,30 +120,30 @@ def debug_matrix_encoding():
                 )
 
         # Insert and get ID
-        matrix_json = json.dumps(matrix, default=list)
-        matrix_id = store.insert(matrix_json)
+        matrix_dict = json.loads(json.dumps(matrix, default=list))
+        matrix_id = client.insert_json(matrix_dict)
         print(f"  Inserted with ID: {matrix_id}")
 
     # Test similarity between complete matrices
     print("\n🔗 Testing similarity between complete matrices:")
-    results = store.query('{"rule": "progression"}', top_k=5)
+    results = client.search_json({"rule": "progression"}, top_k=5)
     if results:
-        for i, (id, score, data) in enumerate(results):
-            print(f"  {i+1}. Matrix {data['matrix-id']}: {score:.3f}")
-    results = store.query('{"rule": "xor"}', top_k=5)
+        for i, result in enumerate(results):
+            print(f"  {i+1}. Matrix {result['data']['matrix-id']}: {result['score']:.3f}")
+    results = client.search_json({"rule": "xor"}, top_k=5)
     if results:
-        for i, (id, score, data) in enumerate(results):
-            print(f"  {i+1}. Matrix {data['matrix-id']}: {score:.3f}")
+        for i, result in enumerate(results):
+            print(f"  {i+1}. Matrix {result['data']['matrix-id']}: {result['score']:.3f}")
     # Test cross-rule similarity (should be low)
     print("\n🔄 Testing cross-rule similarity (should be low):")
-    results = store.query('{"matrix-id": "simple-progression"}', top_k=5)
-    progression_results = [r for r in results if r[2].get("rule") == "progression"]
-    xor_results = [r for r in results if r[2].get("rule") == "xor"]
+    results = client.search_json({"matrix-id": "simple-progression"}, top_k=5)
+    progression_results = [r for r in results if r["data"].get("rule") == "progression"]
+    xor_results = [r for r in results if r["data"].get("rule") == "xor"]
 
     if progression_results:
-        print(f"  Progression matrix: {progression_results[0][1]:.3f}")
+        print(f"  Progression matrix: {progression_results[0]['score']:.3f}")
     if xor_results:
-        print(f"  XOR matrix: {xor_results[0][1]:.3f}")
+        print(f"  XOR matrix: {xor_results[0]['score']:.3f}")
     # Now test missing panel completion
     print("\n🧩 Testing missing panel completion:")  # Create matrix with missing panel
     incomplete_matrix = {
@@ -181,22 +182,24 @@ def debug_matrix_encoding():
     print("  Expected missing panel: [] (count: 0, color: black)")
 
     # Insert incomplete matrix
-    matrix_json = json.dumps(incomplete_matrix, default=list)
-    store.insert(matrix_json)
+    incomplete_dict = json.loads(json.dumps(incomplete_matrix, default=list))
+    client.insert_json(incomplete_dict)
 
     # Query for completion
     probe = {"panels": incomplete_matrix["panels"], "rule": "xor"}
 
     print("\n🔮 Searching for geometrically similar complete matrices...")
-    results = store.query(
-        json.dumps(probe, default=list),
+    results = client.search_json(
+        probe,
         negations={"missing-position": {"$any": True}},
         top_k=5,
     )
 
     print(f"  Found {len(results)} results:")
     found_correct = False
-    for i, (id, score, data) in enumerate(results):
+    for i, result in enumerate(results):
+        data = result["data"]
+        score = result["score"]
         matrix_name = data.get("matrix-id", "unknown")
         rule = data.get("rule", "unknown")
 
@@ -220,11 +223,11 @@ def debug_matrix_encoding():
         print("  ❌ FAILURE: No correct completion found")
 
         # Let's see what the actual complete XOR matrix looks like
-        complete_results = store.query(
-            '{"rule": "xor"}', negations={"missing-position": {"$any": True}}
+        complete_results = client.search_json(
+            {"rule": "xor"}, negations={"missing-position": {"$any": True}}
         )
         if complete_results:
-            data = complete_results[0][2]
+            data = complete_results[0]["data"]
             complete_panel = data.get("panels", {}).get("row3-col3", {})
             print(
                 f"  Expected from complete matrix: {complete_panel.get('shapes', [])} "

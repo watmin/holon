@@ -11,7 +11,8 @@ import random
 import time
 from statistics import mean, stdev
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
+import edn_format
 
 
 # Copy functions (same as before)
@@ -139,6 +140,7 @@ def test_novel_problem_generation():
     print("=" * 60)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Train on a small, fixed set
     training_matrices = []
@@ -146,7 +148,7 @@ def test_novel_problem_generation():
         for i in range(2):  # Only 2 training examples per rule
             matrix = generate_rpm_matrix(f"train-{rule}-{i}", rule)
             training_matrices.append(matrix)
-            store.insert(edn_to_json(matrix))
+            client.insert(edn_format.dumps(matrix), data_type="edn")
 
     print(f"Trained on {len(training_matrices)} matrices")
 
@@ -165,13 +167,13 @@ def test_novel_problem_generation():
 
         probe = {"panels": matrix["panels"], "rule": matrix["rule"]}
 
-        results = store.query(
-            edn_to_json(probe), negations={"missing-position": {"$any": True}}, top_k=3
+        results = client.search(
+            edn_format.dumps(probe), data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
         )
 
         found_correct = False
-        for result in results:
-            data = result[2]
+        for result_data in results:
+            data = result_data["data"]
             actual = data.get("panels", {}).get("row3-col3", {})
 
             if (
@@ -207,6 +209,7 @@ def test_cross_validation():
 
     for fold in range(5):
         store = CPUStore(dimensions=16000)
+        client = HolonClient(local_store=store)
 
         # Split data
         test_start = fold * fold_size
@@ -217,7 +220,7 @@ def test_cross_validation():
 
         # Train on training set
         for matrix in train_set:
-            store.insert(edn_to_json(matrix))
+            client.insert(edn_format.dumps(matrix), data_type="edn")
 
         # Test on held-out set (create incomplete versions)
         correct = 0
@@ -236,15 +239,15 @@ def test_cross_validation():
 
             probe = {"panels": incomplete["panels"], "rule": incomplete["rule"]}
 
-            results = store.query(
-                edn_to_json(probe),
+            results = client.search(
+                edn_format.dumps(probe),
                 negations={"missing-position": {"$any": True}},
                 top_k=3,
             )
 
             found_correct = False
-            for result in results:
-                data = result[2]
+            for result_data in results:
+                data = result_data["data"]
                 actual = data.get("panels", {}).get("row3-col3", {})
 
                 if (
@@ -306,12 +309,13 @@ def test_ablation_study():
 def test_single_configuration(complete_refs=True, vector_similarity=True):
     """Helper for ablation testing."""
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Setup: add complete references if requested
     if complete_refs:
         for rule in ["progression", "xor"]:
             matrix = generate_rpm_matrix(f"ref-{rule}", rule)
-            store.insert(edn_to_json(matrix))
+            client.insert(edn_format.dumps(matrix), data_type="edn")
 
     # Test completion
     correct = 0
@@ -325,15 +329,15 @@ def test_single_configuration(complete_refs=True, vector_similarity=True):
         if vector_similarity:
             # Use our VSA/HDC approach
             probe = {"panels": matrix["panels"], "rule": rule}
-            results = store.query(
-                edn_to_json(probe),
+            results = client.search(
+                edn_format.dumps(probe),
                 negations={"missing-position": {"$any": True}},
                 top_k=3,
             )
 
             found_correct = False
-            for result in results:
-                data = result[2]
+            for result_data in results:
+                data = result_data["data"]
                 actual = data.get("panels", {}).get("row3-col3", {})
 
                 if (
@@ -362,13 +366,14 @@ def test_scale_performance():
 
     for scale in [10, 25, 50, 100]:
         store = CPUStore(dimensions=16000)
+        client = HolonClient(local_store=store)
 
         # Train on scale examples
         training_start = time.time()
         for rule in ["progression", "xor"]:
             for i in range(scale // 2):
                 matrix = generate_rpm_matrix(f"scale-{rule}-{i}", rule)
-                store.insert(edn_to_json(matrix))
+                client.insert(edn_format.dumps(matrix), data_type="edn")
         training_time = time.time() - training_start
 
         # Test completion
@@ -384,14 +389,14 @@ def test_scale_performance():
             expected = compute_expected_missing_panel(matrix, "row3-col3")
 
             probe = {"panels": matrix["panels"], "rule": rule}
-            results = store.query(
-                edn_to_json(probe),
+            results = client.search(
+                edn_format.dumps(probe),
                 negations={"missing-position": {"$any": True}},
                 top_k=3,
             )
 
-            for result in results:
-                data = result[2]
+            for result_data in results:
+                data = result_data["data"]
                 actual = data.get("panels", {}).get("row3-col3", {})
 
                 if (
@@ -441,11 +446,12 @@ def test_adversarial_cases():
     print("=" * 60)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Train on normal cases
     for rule in ["progression", "xor"]:
         matrix = generate_rpm_matrix(f"normal-{rule}", rule)
-        store.insert(edn_to_json(matrix))
+        client.insert(edn_format.dumps(matrix), data_type="edn")
 
     adversarial_tests = [
         ("duplicate_panels", "Matrices with identical panels"),
@@ -497,13 +503,13 @@ def test_adversarial_cases():
     }
     probe = {"panels": matrix["panels"], "rule": "progression"}
 
-    results_found = store.query(
-        edn_to_json(probe), negations={"missing-position": {"$any": True}}, top_k=3
+    results_found = client.search(
+        edn_format.dumps(probe), data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
     )
 
     duplicate_works = False
-    for result in results_found:
-        data = result[2]
+    for result_data in results_found:
+        data = result_data["data"]
         actual = data.get("panels", {}).get("row3-col3", {})
         if (
             set(actual.get("shapes", [])) == expected["shapes"]
@@ -519,13 +525,13 @@ def test_adversarial_cases():
     expected_edge = {"shapes": set(), "count": 0, "color": "black"}
 
     probe_edge = {"panels": xor_edge["panels"], "rule": "xor"}
-    results_edge = store.query(
-        edn_to_json(probe_edge), negations={"missing-position": {"$any": True}}, top_k=3
+    results_edge = client.search(
+        edn_format.dumps(probe_edge), data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
     )
 
     edge_works = False
-    for result in results_edge:
-        data = result[2]
+    for result_data in results_edge:
+        data = result_data["data"]
         actual = data.get("panels", {}).get("row1-col1", {})
         if (
             set(actual.get("shapes", [])) == expected_edge["shapes"]

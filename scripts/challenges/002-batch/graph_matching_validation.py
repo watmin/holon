@@ -6,7 +6,7 @@ Tests VSA/HDC geometric graph similarity against known graph structures
 
 import json
 import time
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 # Copy the graph generation from the solution
 def generate_test_graphs():
@@ -93,14 +93,15 @@ def run_graph_validation():
     graphs = generate_test_graphs()
     print(f"Generated {len(graphs)} test graphs")
 
-    # Initialize store and ingest
+    # Initialize store and client
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
     print("Ingesting graphs into Holon...")
 
     for graph in graphs:
-        # Convert to JSON and ingest
-        graph_json = json.dumps(graph, default=str)
-        store.insert(graph_json, data_type="json")
+        # Convert to JSON-compatible dict and ingest
+        graph_dict = json.loads(json.dumps(graph, default=str))
+        client.insert_json(graph_dict)
 
     print(f"✅ Ingested {len(graphs)} graphs")
 
@@ -139,9 +140,8 @@ def run_graph_validation():
 
         # Run similarity query
         start_time = time.time()
-        query_results = store.query(
-            json.dumps(test["query"]),
-            data_type="json",
+        query_results = client.search_json(
+            test["query"],
             top_k=10,
             threshold=0.0
         )
@@ -150,7 +150,9 @@ def run_graph_validation():
 
         # Extract similarity scores
         similarities = {}
-        for graph_id, score, _ in query_results:
+        for result in query_results:
+            graph_id = result["id"]
+            score = result["score"]
             # Find the graph name
             for graph in graphs:
                 if graph["graph-id"] == graph_id:

@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 logging.basicConfig(level=logging.INFO)
@@ -201,6 +201,7 @@ class IntelligentQuoteFinder:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.locator = None
 
     def ingest_pdf_content(self, pdf_index_file: str) -> bool:
@@ -215,7 +216,7 @@ class IntelligentQuoteFinder:
             # Store chunks in vector database
             for chunk in indexed_chunks:
                 unit_data = self._create_chunk_unit(chunk)
-                chunk_id = self.store.insert(json.dumps(unit_data), "json")
+                chunk_id = self.client.insert_json(unit_data)
                 chunk["stored_id"] = chunk_id
 
             # Initialize locator

@@ -123,11 +123,15 @@ See [docs/](docs/) for detailed documentation, API reference, and [architecture 
 
 ### Basic Usage
 ```python
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
+# Create store and client
 store = CPUStore()
-store.insert('{"name": "Alice", "role": "developer"}')
-results = store.query('{"role": "developer"}')
+client = HolonClient(local_store=store)
+
+# Insert and query data
+client.insert_json({"name": "Alice", "role": "developer"})
+results = client.search_json({"role": "developer"})
 print(f"Found {len(results)} developers")
 ```
 
@@ -136,16 +140,16 @@ This inserts JSON data like `{"name": "Alice", "role": "developer"}` and queries
 ### Advanced Queries
 ```python
 # Wildcards - match any value for a field
-store.query('{"role": {"$any": true}}')  # Any role
+client.search_json({"role": {"$any": true}})  # Any role
 
 # Guards - exact post-query filtering
-store.query('{"name": "Alice"}', guard={"role": "developer"})
+client.search_json({"name": "Alice"}, guard={"role": "developer"})
 
 # Negations - exclude specific values
-store.query('{"role": "developer"}', negations={"name": {"$not": "Alice"}})
+client.search_json({"role": "developer"}, negations={"name": {"$not": "Alice"}})
 
 # Disjunctions - OR logic in query probe
-store.query('{"$or": [{"role": "developer"}, {"role": "designer"}]})
+client.search_json({"$or": [{"role": "developer"}, {"role": "designer"}]})
 ```
 
 ### Complex Guard Syntax with $or Logic
@@ -154,7 +158,7 @@ Guards support sophisticated compound conditions using structured `$or` for powe
 
 ```python
 # Complex OR conditions in guards
-results = store.query('{}', guard={
+results = client.search_json({}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},     # High priority TODO items
         {"project": "side", "category": "urgent"}   # OR urgent side projects
@@ -162,7 +166,7 @@ results = store.query('{}', guard={
 })
 
 # Nested OR conditions for hierarchical filtering
-results = store.query('{"project": "work"}', guard={
+results = client.search_json({"project": "work"}, guard={
     "status": "active",
     "tags": {
         "$or": [
@@ -173,8 +177,8 @@ results = store.query('{"project": "work"}', guard={
 })
 
 # Combined with negations for precise filtering
-results = store.query(
-    '{"project": "side"}',
+results = client.search_json(
+    {"project": "side"},
     guard={
         "$or": [
             {"priority": "high"},
@@ -188,13 +192,13 @@ results = store.query(
 ### Query Pattern Examples
 ```python
 # Fuzzy similarity search
-store.query('{"title": "prepare presentation"}')
+client.search_json({"title": "prepare presentation"})
 
 # Exact structural matching with guards
-store.query('{"role": "developer"}', guard={"status": "active"})
+client.search_json({"role": "developer"}, guard={"status": "active"})
 
 # Complex compound conditions
-store.query('{}', guard={
+client.search_json({}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},
         {"project": "personal", "due": "2026-01-25"}
@@ -202,7 +206,7 @@ store.query('{}', guard={
 })
 
 # Context-aware filtering
-store.query('{"context": ["computer"]}', guard={"priority": "high"})
+client.search_json({"context": ["computer"]}, guard={"priority": "high"})
 ```
 
 ### EDN Support
@@ -211,16 +215,16 @@ Holon fully supports **EDN (Extensible Data Notation)** for richer, more express
 
 ```python
 # Keywords (prefixed with :) - self-evaluating identifiers
-store.insert('{:user "alice" :role :admin}', data_type='edn')
+client.insert('{:user "alice" :role :admin}', data_type='edn')
 
 # Sets - unique collections with #{} syntax
-store.insert('{:name "alice" :skills #{"clojure" "python" "ml"}}', data_type='edn')
+client.insert('{:name "alice" :skills #{"clojure" "python" "ml"}}', data_type='edn')
 
 # Symbols - unquoted identifiers for domain-specific meanings
-store.insert('{:event login :timestamp (java.util.Date.)}', data_type='edn')
+client.insert('{:event login :timestamp (java.util.Date.)}', data_type='edn')
 
 # Rich nested structures
-store.insert('''
+client.insert('''
 {:user {:name "alice" :id 123}
  :actions [{:type :login :time "2024-01-01"}
            {:type :edit :resource :profile}]
@@ -228,7 +232,7 @@ store.insert('''
 ''', data_type='edn')
 
 # Query with EDN syntax
-results = store.query('{:user {:name "alice"}}', data_type='edn')
+results = client.search('{:user {:name "alice"}}', data_type='edn')
 ```
 
 **EDN Advantages over JSON:**
@@ -255,18 +259,18 @@ curl -X POST http://localhost:8000/query -H "Content-Type: application/json" -d 
 ### Complex Use Case: AI Agent Memory
 ```python
 # Store conversation history
-store.insert('{"session": "123", "user": "alice", "message": "How does HDC work?"}')
-store.insert('{"session": "123", "user": "bot", "message": "HDC uses high-dim vectors"}')
+client.insert_json({"session": "123", "user": "alice", "message": "How does HDC work?"})
+client.insert_json({"session": "123", "user": "bot", "message": "HDC uses high-dim vectors"})
 
 # Find bot responses in session 123
-results = store.query('{"user": "bot"}', guard={"session": "123"})
+results = client.search_json({"user": "bot"}, guard={"session": "123"})
 print(f"Bot responses in session 123: {len(results)}")
 ```
 
 ### Advanced Guards with Structured OR
 ```python
 # Complex compound conditions using structured $or
-results = store.query('{}', guard={
+results = client.search_json({}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},  # High priority tasks that are todo
         {"project": "side", "category": "urgent"} # OR urgent side projects
@@ -399,24 +403,25 @@ pip install -e .
 ### Basic Usage
 
 ```python
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
-# Create a store
+# Create store and client (works locally or remotely)
 store = CPUStore(dimensions=16000)
+client = HolonClient(local_store=store)
 
 # Insert JSON data
-data_id = store.insert('{"name": "Alice", "age": 30}', 'json')
+data_id = client.insert_json({"name": "Alice", "age": 30})
 
 # Query similar JSON data
-results = store.query('{"name": "Alice"}', 'json')
-for id, score, data in results:
-    print(f"Score: {score}, Data: {data}")
+results = client.search_json({"name": "Alice"})
+for result in results:
+    print(f"Score: {result['score']}, Data: {result['data']}")
 
 # Insert EDN data with richer structures
-edn_id = store.insert('{:name "Bob", :skills #{"clojure" "python"}}', 'edn')
+edn_id = client.insert('{:name "Bob", :skills #{"clojure" "python"}}', data_type="edn")
 
 # Query EDN data
-edn_results = store.query('{:skills #{"python"}}', 'edn')
+edn_results = client.search('{:skills #{"python"}}', data_type="edn")
 ```
 
 See `examples/basic_usage.py` for JSON examples and `examples/edn_usage.py` for EDN examples.

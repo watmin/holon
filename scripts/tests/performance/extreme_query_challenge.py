@@ -9,7 +9,7 @@ import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_extreme_data(num_items=5000):
@@ -117,13 +117,14 @@ def run_extreme_challenge():
     print("=" * 70)
 
     store = CPUStore()
+    client = HolonClient(local_store=store)
     data = generate_extreme_data(num_items)
 
     # Insert data
     print(f"📥 Inserting {num_items} blobs...")
     start = time.time()
     for blob in data:
-        store.insert(json.dumps(blob))
+        client.insert_json(blob)
     insert_time = time.time() - start
     print(f"  Insert Time: {insert_time:.2f}s ({num_items/insert_time:.1f} blobs/sec)")
 
@@ -138,7 +139,7 @@ def run_extreme_challenge():
 
     def run_query(q_idx, probe, guard, negations):
         start = time.time()
-        results = store.query(probe, top_k=10, guard=guard, negations=negations or {})
+        results = client.search_json(probe, top_k=10, guard=guard, negations=negations or {})
         query_time = time.time() - start
         return q_idx, len(results), query_time
 

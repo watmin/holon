@@ -38,8 +38,8 @@ The comprehensive test was **structurally flawed**:
 # ❌ BROKEN: Only inserts incomplete matrices
 for test in tests:
     incomplete_matrix = generate_matrix(missing_panel=True)
-    store.insert(incomplete_matrix)  # Nothing to learn from!
-    results = store.query(incomplete_matrix)  # Tries to find patterns from nothing
+    client.insert_json(incomplete_matrix)  # Nothing to learn from!
+    results = client.search_json(incomplete_matrix)  # Tries to find patterns from nothing
 ```
 
 **Issue**: The system was trying to learn geometric rules from incomplete examples, but had no complete reference matrices to establish baseline patterns.
@@ -49,12 +49,11 @@ for test in tests:
 ```python
 # ✅ CORRECT: First learn from complete examples
 complete_matrices = [generate_matrix(rule) for rule in rules]
-for matrix in complete_matrices:
-    store.insert(matrix)  # Establish geometric patterns
+client.insert_batch_json(complete_matrices)  # Establish geometric patterns
 
 # Then test completion
 incomplete_matrix = generate_matrix(missing_panel=True)
-results = store.query(incomplete_matrix)  # Now has patterns to complete from
+results = client.search_json(incomplete_matrix)  # Now has patterns to complete from
 ```
 
 ## Validation Results
@@ -159,10 +158,10 @@ for position, panel in matrix.panels:
 ```python
 # Find geometrically analogous complete matrices
 incomplete_structure = encode_partial_matrix(matrix)
-complete_matches = store.similarity_search(incomplete_structure)
+complete_matches = client.search_json(incomplete_structure)
 
 # Extract missing panel from best geometric analog
-predicted_panel = complete_matches[0].get_missing_panel(position)
+predicted_panel = complete_matches[0]["data"].get_missing_panel(position)
 ```
 
 ## Future Work

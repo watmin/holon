@@ -9,7 +9,7 @@ and advanced querying using Holon's vector symbolic architecture.
 
 import json
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def create_sample_recipes():
@@ -291,14 +291,19 @@ def convert_recipe_to_edn(recipe):
     return f"{{{', '.join(edn_parts)}}}"
 
 
-def ingest_recipes(store, recipes):
+def ingest_recipes(client, recipes):
     """Ingest recipes into the Holon store."""
     print(f"📥 Ingesting {len(recipes)} recipes into Holon memory...")
 
     for i, recipe in enumerate(recipes):
-        # Convert to EDN format
-        recipe_edn = convert_recipe_to_edn(recipe)
-        store.insert(recipe_edn, data_type="edn")
+        # Convert to dict format (client handles JSON conversion)
+        recipe_dict = recipe.copy()
+        # Convert sets to lists for JSON compatibility
+        if 'diet' in recipe_dict and isinstance(recipe_dict['diet'], set):
+            recipe_dict['diet'] = list(recipe_dict['diet'])
+        if 'tags' in recipe_dict and isinstance(recipe_dict['tags'], set):
+            recipe_dict['tags'] = list(recipe_dict['tags'])
+        client.insert_json(recipe_dict)
         if (i + 1) % 3 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(recipes)} recipes")
 
@@ -306,7 +311,7 @@ def ingest_recipes(store, recipes):
 
 
 def query_recipes(
-    store, query, description, top_k=10, guard=None, negations=None, data_type="edn"
+    client, query, description, top_k=10, guard=None, negations=None
 ):
     """Query recipes and display results."""
     print(f"\n🔍 {description}")
@@ -317,9 +322,15 @@ def query_recipes(
         print(f"Negations: {negations}")
 
     try:
-        results = store.query(
-            query,
-            data_type=data_type,
+        # Convert query string to dict if needed
+        if isinstance(query, str):
+            # Simple conversion for basic queries - in practice this would be more sophisticated
+            query_dict = {"name": query.replace('"', '')} if '"name"' in query else {}
+        else:
+            query_dict = query
+
+        results = client.search_json(
+            query_dict,
             guard=guard,
             negations=negations,
             top_k=top_k,
@@ -334,8 +345,8 @@ def query_recipes(
             f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):"
         )
 
-        for i, (recipe_id, score, recipe_data) in enumerate(results):
-            recipe = recipe_data  # Already parsed EDN
+        for i, result in enumerate(results):
+            recipe = result["data"]
             # EDN keywords are parsed as Keyword objects, need to access by keyword
             from edn_format import Keyword
 
@@ -365,14 +376,15 @@ def main():
     print("🍳 Recipe Memory & Substitution Finder Demo")
     print("=" * 55)
 
-    # Initialize Holon store
-    print("🚀 Initializing Holon CPUStore...")
+    # Initialize Holon store and client
+    print("🚀 Initializing Holon CPUStore and Client...")
     store = CPUStore(dimensions=16000)
-    print("✅ Store initialized with 16,000 dimensions")
+    client = HolonClient(local_store=store)
+    print("✅ Store and client initialized with 16,000 dimensions")
 
     # Create and ingest sample recipes
     recipes = create_sample_recipes()
-    ingest_recipes(store, recipes)
+    ingest_recipes(client, recipes)
 
     # Demonstrate various query types
     print("\n" + "=" * 55)
@@ -381,16 +393,16 @@ def main():
 
     # 1. Find recipes similar to "classic lasagna"
     query_recipes(
-        store,
-        '{:name "classic lasagna", :cuisine :italian, :difficulty :medium}',
+        client,
+        {"name": "classic lasagna", "cuisine": ":italian", "difficulty": ":medium"},
         "1. FUZZY SIMILARITY: Recipes similar to classic lasagna",
         top_k=5
     )
 
     # 2. Recipes similar to pad thai, but without shrimp
     query_recipes(
-        store,
-        '{:name "pad thai", :cuisine :asian, :difficulty :medium}',
+        client,
+        {"name": "pad thai", "cuisine": ":asian", "difficulty": ":medium"},
         "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
         negations={"ingredients": [{"item": "shrimp"}]},
         top_k=5
@@ -399,8 +411,8 @@ def main():
     # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes
     # with different proteins)
     query_recipes(
-        store,
-        '{:name "mapo tofu", :cuisine :asian, :difficulty :easy}',
+        client,
+        {"name": "mapo tofu", "cuisine": ":asian", "difficulty": ":easy"},
         "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
         negations={"ingredients": [{"item": "tofu"}]},
         top_k=3
@@ -408,20 +420,20 @@ def main():
 
     # 4. Dishes with "curry" in tags
     query_recipes(
-        store, '{:tags #{"curry"}, :cuisine :indian}',
+        client, {"tags": ["curry"], "cuisine": ":indian"},
         "4. TAG SIMILARITY: Indian curry dishes",
         top_k=3
     )
 
     # 5. Asian cuisine recipes
-    query_recipes(store, "{:cuisine :asian}", "5. CUISINE FILTER: Asian recipes")
+    query_recipes(client, {"cuisine": ":asian"}, "5. CUISINE FILTER: Asian recipes")
 
     # 6. Vegan recipes
-    query_recipes(store, '{:diet #{"vegan"}}', "6. DIET FILTER: Vegan recipes")
+    query_recipes(client, {"diet": ["vegan"]}, "6. DIET FILTER: Vegan recipes")
 
     # 7. Comfort food recipes
     query_recipes(
-        store, '{:tags #{"comfort"}}', "7. TAG SIMILARITY: Comfort food recipes"
+        client, {"tags": ["comfort"]}, "7. TAG SIMILARITY: Comfort food recipes"
     )
 
     print("\n" + "=" * 55)

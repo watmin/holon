@@ -7,7 +7,7 @@ Tests fuzzy search, guards, negations, wildcards, disjunctions, etc.
 import json
 import time
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_test_data():
@@ -49,13 +49,14 @@ def run_comprehensive_test():
     print("=" * 60)
 
     store = CPUStore()
+    client = HolonClient(local_store=store)
     data = generate_test_data()
 
     # Insert all data
     start = time.time()
     ids = []
     for blob in data:
-        id_ = store.insert(json.dumps(blob))
+        id_ = client.insert_json(blob)
         ids.append(id_)
     insert_time = time.time() - start
     print(
@@ -63,18 +64,18 @@ def run_comprehensive_test():
     )
     # Test 1: Fuzzy search
     print("\n📊 Test 1: Fuzzy Search")
-    probe = json.dumps({"user": "alice", "action": "login"})
-    results = store.query(probe, top_k=5)
+    probe = {"user": "alice", "action": "login"}
+    results = client.search_json(probe, top_k=5)
     print(f"  Query: alice login → {len(results)} results")
     for res in results[:3]:
-        print(f"    {res[2]['user']} {res[2]['action']} (score: {res[1]:.3f})")
+        print(f"    {res['data']['user']} {res['data']['action']} (score: {res['score']:.3f})")
 
     # Test 2: Wildcards
     print("\n🎭 Test 2: Wildcards")
-    probe_wild = json.dumps({"user": "bob", "action": {"$any": True}})
-    results_wild = store.query(probe_wild, top_k=5)
+    probe_wild = {"user": "bob", "action": {"$any": True}}
+    results_wild = client.search_json(probe_wild, top_k=5)
     print(f"  Query: bob with any action → {len(results_wild)} results")
-    actions_found = set(res[2]["action"] for res in results_wild)
+    actions_found = set(res["data"]["action"] for res in results_wild)
     print(f"    Actions found: {actions_found}")
 
     # Test 3: Guards
@@ -102,34 +103,32 @@ def run_comprehensive_test():
         return True
 
     guard_pattern = {"tags": ["tag_0", {"$any": True}, "cat_0"]}
-    results_guard = store.query(probe_guard, top_k=5, guard=guard_pattern)
+    results_guard = client.search_json(probe_guard, top_k=5, guard=guard_pattern)
     print(f"  Query: alice with guard on tags → {len(results_guard)} results")
 
     # Test 4: Negations
     print("\n🚫 Test 4: Negations")
-    probe_neg = json.dumps({"user": "charlie"})
+    probe_neg = {"user": "charlie"}
     negations = {"status": {"$not": "failed"}}
-    results_neg = store.query(probe_neg, top_k=5, negations=negations)
+    results_neg = client.search_json(probe_neg, top_k=5, negations=negations)
     print(f"  Query: charlie excluding failed → {len(results_neg)} results")
-    statuses = [res[2]["status"] for res in results_neg]
+    statuses = [res["data"]["status"] for res in results_neg]
     print(f"    Statuses: {set(statuses)} (no 'failed')")
 
     # Test 5: Disjunctions
     print("\n🔀 Test 5: Disjunctions ($or)")
-    probe_or = json.dumps({"$or": [{"user": "diana"}, {"priority": "high"}]})
-    results_or = store.query(probe_or, top_k=10)
+    probe_or = {"$or": [{"user": "diana"}, {"priority": "high"}]}
+    results_or = client.search_json(probe_or, top_k=10)
     print(f"  Query: diana OR high priority → {len(results_or)} results")
-    users_priorities = [(res[2]["user"], res[2]["priority"]) for res in results_or[:5]]
+    users_priorities = [(res["data"]["user"], res["data"]["priority"]) for res in results_or[:5]]
     print(f"    Samples: {users_priorities}")
 
     # Test 6: Combined (guard + negation + wildcard)
     print("\n⚡ Test 6: Combined Features")
-    probe_combined = json.dumps(
-        {"action": {"$any": True}, "meta": {"nested": {"flag": True}}}
-    )
+    probe_combined = {"action": {"$any": True}, "meta": {"nested": {"flag": True}}}
     guard_combined = {"priority": "medium"}
     negations_combined = {"status": {"$not": "banned"}}
-    results_combined = store.query(
+    results_combined = client.search_json(
         probe_combined, top_k=5, guard=guard_combined, negations=negations_combined
     )
     print(

@@ -5,12 +5,13 @@ Simple RPM Statistical Validation - Clean version
 
 import json
 import time
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class SimpleRPMValidator:
     def __init__(self):
         self.store = CPUStore(dimensions=16000)
+        self.client = HolonClient(local_store=self.store)
 
     def run_validation(self):
         print("🧠 RPM Statistical Validation")
@@ -28,7 +29,7 @@ class SimpleRPMValidator:
         # Ingest training data
         print(f"Training with {len(training_data)} complete matrices...")
         for matrix in training_data:
-            self.store.insert(json.dumps(matrix), data_type="json")
+            self.client.insert_json(matrix)
 
         # Generate test data (incomplete matrices)
         test_data = []
@@ -158,18 +159,17 @@ class SimpleRPMValidator:
         }
 
         # Find similar complete matrices
-        results = self.store.query(
-            json.dumps(probe),
+        results = self.client.search_json(
+            probe,
             negations={"missing-position": {"$any": True}},
-            top_k=3,
-            data_type="json"
+            top_k=3
         )
 
         if not results:
             return {"shapes": [], "count": 0, "color": "unknown"}
 
         # Use top result
-        top_matrix = results[0][2]
+        top_matrix = results[0]["data"]
         predicted = top_matrix["panels"].get(missing_pos, {})
         return {
             "shapes": predicted.get("shapes", []),

@@ -73,7 +73,7 @@ As a dict for Holon ingestion (recommended):
 
 ### Deliverables
 Please provide:
-- Imports & Holon setup (e.g. CPUStore with suggested dimensionality 8192–16384?)
+- Imports & Holon setup (e.g. HolonClient with CPUStore, suggested dimensionality 8192–16384)
 - Encoding strategy explanation (how positions, symbols, cells, constraints are turned into HVs)
 - Code to ingest the puzzle (from dict/list → Holon memory)
 - Iterative solving loop with similarity-based decision making

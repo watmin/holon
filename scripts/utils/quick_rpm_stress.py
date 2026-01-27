@@ -11,7 +11,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from statistics import mean, stdev
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
+import edn_format
 
 
 def generate_rpm_matrix(matrix_id, rule_type, missing_position=None):
@@ -113,7 +114,7 @@ def compute_expected_missing_panel(matrix_data, missing_position):
     return {"shapes": set(), "count": 0}
 
 
-def stress_worker(store, matrices, worker_id, num_queries=50):
+def stress_worker(client, matrices, worker_id, num_queries=50):
     """Concurrent geometric completion worker."""
     correct = 0
     total = 0
@@ -139,8 +140,9 @@ def stress_worker(store, matrices, worker_id, num_queries=50):
         }
 
         start_time = time.time()
-        results = store.query(
-            edn_to_json(probe_structure),
+        results = client.search(
+            edn_format.dumps(probe_structure),
+            data_type="edn",
             negations={"missing-position": {"$any": True}},
             top_k=3,
         )
@@ -148,8 +150,8 @@ def stress_worker(store, matrices, worker_id, num_queries=50):
         query_times.append(query_time)
 
         found_correct = False
-        for result in results:
-            data = result[2]
+        for result_data in results:
+            data = result_data["data"]
             actual = data.get("panels", {}).get(missing_pos, {})
 
             if (
@@ -175,6 +177,7 @@ def main():
     # Initialize store
     print("🚀 Initializing Holon CPUStore...")
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Generate test dataset
     print("🎨 Generating 2,000 RPM matrices...")
@@ -209,7 +212,7 @@ def main():
     print("📥 Ingesting matrices...")
     start_time = time.time()
     for matrix in matrices:
-        store.insert(edn_to_json(matrix))
+        client.insert(edn_format.dumps(matrix), data_type="edn")
     ingest_time = time.time() - start_time
     print(f"✅ Ingested {len(matrices)} matrices in {ingest_time:.1f}s")
     # Run concurrent stress test
@@ -221,7 +224,7 @@ def main():
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = []
         for worker_id in range(8):
-            future = executor.submit(stress_worker, store, matrices, worker_id, 50)
+            future = executor.submit(stress_worker, client, matrices, worker_id, 50)
             futures.append(future)
 
         results = []

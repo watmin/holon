@@ -10,10 +10,12 @@ binding (geometric association) and bundling (superposition) to encode matrices 
 vector structures, then use similarity queries to find missing panels.
 """
 
+import json
 import random
 import uuid
+import edn_format
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=None):
@@ -220,21 +222,21 @@ def edn_to_json(edn_data):
     return json.dumps(convert_sets(edn_data))
 
 
-def ingest_matrices(store, matrices):
-    """Ingest RPM matrices into Holon store."""
+def ingest_matrices(client, matrices):
+    """Ingest RPM matrices into Holon store via client."""
     print(f"📥 Ingesting {len(matrices)} RPM matrices into Holon memory...")
 
     for i, matrix in enumerate(matrices):
-        # Convert to JSON for Holon ingestion (sets become lists)
-        matrix_json = edn_to_json(matrix)
-        store.insert(matrix_json, data_type="json")
+        # Convert EDN data to EDN string for ingestion
+        edn_string = edn_format.dumps(matrix)
+        client.insert(edn_string, data_type="edn")
         if (i + 1) % 5 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(matrices)} matrices")
 
     print("✅ All matrices ingested successfully!")
 
 
-def query_matrices(store, query, description, top_k=5, guard=None, negations=None):
+def query_matrices(client, query, description, top_k=5, guard=None, negations=None):
     """Query matrices and display results."""
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
@@ -244,13 +246,19 @@ def query_matrices(store, query, description, top_k=5, guard=None, negations=Non
         print(f"Negations: {negations}")
 
     try:
-        results = store.query(
-            query,
+        # Convert query string to dict if needed
+        if isinstance(query, str):
+            import json
+            query_dict = json.loads(query)
+        else:
+            query_dict = query
+
+        results = client.search_json(
+            query_dict,
             guard=guard,
             negations=negations,
             top_k=top_k,
             threshold=0.0,
-            data_type="json",
         )
 
         if not results:
@@ -261,8 +269,9 @@ def query_matrices(store, query, description, top_k=5, guard=None, negations=Non
             f"  ✅ Found {len(results)} matching matrices (showing top {min(top_k, len(results))}):"
         )
 
-        for i, (matrix_id, score, matrix_data) in enumerate(results):
-            matrix = matrix_data  # Already parsed JSON
+        for i, result in enumerate(results):
+            matrix = result["data"]
+            score = result["score"]
             print(f"\n  {i+1}. [{score:.3f}] Matrix: {matrix['matrix-id']}")
             print(f"     Rule: {matrix['rule']} | Attributes: {matrix['attributes']}")
 
@@ -467,15 +476,15 @@ def validate_union_matrix_fit(incomplete_matrix, complete_matrix, missing_pos):
     return len(actual_shapes) > 0
 
 
-def demonstrate_missing_panel_completion(store):
+def demonstrate_missing_panel_completion(client):
     """Demonstrate finding missing panels using geometric similarity - WITH VERIFICATION."""
     print("\n" + "=" * 60)
     print("🎯 GEOMETRIC TRACTABILITY: Missing Panel Completion")
     print("=" * 60)
 
     # Get matrices with missing panels
-    incomplete_results = store.query(
-        '{"missing-position": "row3-col3"}', top_k=3, data_type="json"
+    incomplete_results = client.search_json(
+        {"missing-position": "row3-col3"}, top_k=3
     )
 
     if not incomplete_results:
@@ -485,8 +494,8 @@ def demonstrate_missing_panel_completion(store):
     print("🔍 ANALYZING MISSING PANEL COMPLETION:")
     print("-" * 50)
 
-    for i, (matrix_id, score, matrix_data) in enumerate(incomplete_results):
-        matrix = matrix_data
+    for i, result in enumerate(incomplete_results):
+        matrix = result["data"]
         missing_pos = matrix.get("missing-position", "")
         rule = matrix.get("rule", "")
 
@@ -531,18 +540,20 @@ def demonstrate_missing_panel_completion(store):
         }
 
         # Find complete matrices with this rule
-        complete_results = store.query(
-            edn_to_json(probe_structure),
+        edn_probe = edn_format.dumps(probe_structure)
+        complete_results = client.search(
+            edn_probe,
+            data_type="edn",
             negations={"missing-position": {"$any": True}},
             top_k=3,
-            data_type="json",
         )
 
         print("\n🔮 Geometric similarity search results:")
         found_correct = False
 
-        for j, (comp_id, comp_score, comp_data) in enumerate(complete_results):
-            comp_matrix = comp_data
+        for j, comp_result in enumerate(complete_results):
+            comp_matrix = comp_result["data"]
+            comp_score = comp_result["score"]
             actual_missing = comp_matrix.get("panels", {}).get(missing_pos, {})
 
             # Check if this complete matrix has the EXPECTED missing panel
@@ -588,10 +599,11 @@ def main():
     print("🧠 Geometric VSA/HDC Solution for Raven's Progressive Matrices")
     print("=" * 70)
 
-    # Initialize Holon store with high dimensions for complex structures
-    print("🚀 Initializing Holon CPUStore with 16,000 dimensions...")
+    # Initialize Holon store and client with high dimensions for complex structures
+    print("🚀 Initializing Holon CPUStore and Client with 16,000 dimensions...")
     store = CPUStore(dimensions=16000)
-    print("✅ Store initialized - ready for geometric encoding!")
+    client = HolonClient(local_store=store)
+    print("✅ Store and client initialized - ready for geometric encoding!")
 
     # Create and ingest synthetic RPM matrices
     matrices = create_synthetic_matrices()
@@ -609,7 +621,7 @@ def main():
     for pos, panel in list(sample_matrix["panels"].items())[:2]:
         print(f"    {pos}: {panel}")
 
-    ingest_matrices(store, matrices)
+    ingest_matrices(client, matrices)
 
     # Demonstrate various query types
     print("\n" + "=" * 50)
@@ -618,49 +630,49 @@ def main():
 
     # 1. Find matrices with specific rules
     query_matrices(
-        store,
-        '{"rule": "progression"}',
+        client,
+        {"rule": "progression"},
         "1. RULE FILTERING: Matrices using progression rules",
     )
 
     # 2. Find matrices with negation (NOT xor rule)
     query_matrices(
-        store,
-        '{"rule": "progression"}',
+        client,
+        {"rule": "progression"},
         "2. NEGATION: Progression matrices NOT using xor",
         negations={"rule": {"$not": "xor"}},
     )
 
     # 3. Guard query (matrices with specific attribute sets)
     query_matrices(
-        store,
-        '{"attributes": ["shape", "count", "color"]}',
+        client,
+        {"attributes": ["shape", "count", "color"]},
         "3. GUARDS: Matrices with all three attributes",
     )
 
     # 4. Wildcard query (any matrix with shape attribute)
     query_matrices(
-        store,
-        '{"attributes": {"$any": "shape"}}',
+        client,
+        {"attributes": {"$any": "shape"}},
         "4. WILDCARDS: Matrices that include shape attribute",
     )
 
     # 5. Fuzzy similarity query (matrices similar to union rule)
     query_matrices(
-        store,
-        '{"rule": "union"}',
+        client,
+        {"rule": "union"},
         "5. FUZZY SIMILARITY: Matrices similar to union rule",
     )
 
     # 6. Complex query with structured guard
     query_matrices(
-        store,
-        '{"panels": {"row1-col1": {"count": 1}}}',
+        client,
+        {"panels": {"row1-col1": {"count": 1}}},
         "6. STRUCTURAL GUARDS: Matrices where top-left has count=1",
     )
 
     # Demonstrate geometric tractability
-    demonstrate_missing_panel_completion(store)
+    demonstrate_missing_panel_completion(client)
 
     print("\n" + "=" * 70)
     print("🎉 RPM Geometric Solution Demo Complete!")

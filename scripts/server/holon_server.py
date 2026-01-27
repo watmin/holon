@@ -131,9 +131,11 @@ class EncodeResponse(BaseModel):
     encoding_type: str = Field(..., description="Type of encoding performed")
 
 
-@app.get("/health", response_model=HealthResponse)
-async def health_check():
-    """Health check endpoint."""
+
+
+@app.get("/api/v1/health")
+async def health_v1():
+    """Health check with v1 API structure."""
     return HealthResponse(
         status="healthy",
         backend=store.backend,
@@ -141,117 +143,48 @@ async def health_check():
     )
 
 
-@app.post("/insert", response_model=InsertResponse)
-async def insert_item(request: InsertRequest, req: Request):
-    """Insert a single data item."""
+@app.post("/api/v1/items")
+async def create_item_v1(request: InsertRequest):
+    """Create a single item (v1 API)."""
     try:
         data_id = store.insert(request.data, request.data_type)
         logger.info(f"Inserted item {data_id}")
-        return InsertResponse(id=data_id)
+        return {"id": data_id, "created": True}
     except Exception as e:
         logger.error(f"Insert failed: {e}")
         raise HTTPException(status_code=400, detail=f"Insert failed: {str(e)}")
 
 
-@app.post("/batch_insert", response_model=BatchInsertResponse)
-async def batch_insert_items(request: BatchInsertRequest, req: Request):
-    """Insert multiple data items with optimized bulk indexing."""
+@app.post("/api/v1/items/batch")
+async def create_items_batch_v1(request: BatchInsertRequest):
+    """Create multiple items (v1 API)."""
     try:
         ids = store.batch_insert(request.items, request.data_type)
         logger.info(f"Batch inserted {len(ids)} items")
-        return BatchInsertResponse(ids=ids)
+        return {"ids": ids, "created": len(ids)}
     except Exception as e:
         logger.error(f"Batch insert failed: {e}")
         raise HTTPException(status_code=400, detail=f"Batch insert failed: {str(e)}")
 
 
-@app.post("/encode", response_model=EncodeResponse)
-async def encode_data(request: EncodeRequest):
-    """Encode structural data into a vector (original functionality)."""
+@app.get("/api/v1/items/{item_id}")
+async def get_item_v1(item_id: str):
+    """Retrieve a specific item by ID (v1 API)."""
     try:
-        # Parse the data
-        parsed = parse_data(request.data, request.data_type)
-        # Encode to vector
-        encoded_vector = store.encoder.encode_data(parsed)
-
-        # Convert to CPU numpy array and then to list
-        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
-        vector_list = cpu_vector.tolist()
-
-        logger.info(f"Encoded structural data to vector of dimension {len(vector_list)}")
-        return EncodeResponse(vector=vector_list, encoding_type=f"structural_{request.data_type}")
-
-    except Exception as e:
-        logger.error(f"Encode failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Encode failed: {str(e)}")
-
-
-@app.post("/encode/mathematical", response_model=EncodeResponse)
-async def encode_mathematical(request: MathematicalEncodeRequest):
-    """Encode mathematical primitives (fundamental VSA/HDC capabilities)."""
-    try:
-        # Validate primitive
-        try:
-            primitive = MathematicalPrimitive(request.primitive)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Unknown mathematical primitive: {request.primitive}")
-
-        # Encode mathematical primitive
-        encoded_vector = store.encoder.encode_mathematical_primitive(primitive, request.value)
-
-        # Convert to list
-        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
-        vector_list = cpu_vector.tolist()
-
-        logger.info(f"Encoded mathematical primitive {request.primitive}({request.value}) to {len(vector_list)}D vector")
-        return EncodeResponse(vector=vector_list, encoding_type=f"mathematical_{request.primitive}")
-
+        data = store.get(item_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return {"id": item_id, "data": data}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Mathematical encode failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Mathematical encode failed: {str(e)}")
+        logger.error(f"Get item failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Get item failed: {str(e)}")
 
 
-@app.post("/encode/compose", response_model=EncodeResponse)
-async def compose_mathematical(request: MathematicalComposeRequest):
-    """Compose mathematical vectors (fundamental VSA/HDC operations)."""
-    try:
-        import numpy as np
-
-        # Convert input vectors to numpy arrays
-        np_vectors = []
-        for vec_list in request.vectors:
-            np_vec = np.array(vec_list, dtype=np.int8)
-            np_vectors.append(np_vec)
-
-        # Perform mathematical operation
-        if request.operation == "bind":
-            result_vector = store.encoder.mathematical_bind(*np_vectors)
-            encoding_type = f"compose_bind_{len(np_vectors)}_vectors"
-        elif request.operation == "bundle":
-            result_vector = store.encoder.mathematical_bundle(np_vectors)
-            encoding_type = f"compose_bundle_{len(np_vectors)}_vectors"
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
-
-        # Convert result to list
-        cpu_result = store.vector_manager.to_cpu(result_vector)
-        result_list = cpu_result.tolist()
-
-        logger.info(f"Composed {len(np_vectors)} vectors with {request.operation}")
-        return EncodeResponse(vector=result_list, encoding_type=encoding_type)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Mathematical composition failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Mathematical composition failed: {str(e)}")
-
-
-@app.post("/query", response_model=QueryResponse)
-async def query_items(request: QueryRequest, req: Request, res: Response):
-    """Query the store with a probe."""
+@app.post("/api/v1/search")
+async def search_items_v1(request: QueryRequest):
+    """Search items using vector similarity (v1 API)."""
     try:
         # Validate top_k
         if request.top_k > MAX_QUERY_RESULTS:
@@ -268,51 +201,97 @@ async def query_items(request: QueryRequest, req: Request, res: Response):
                 status_code=400, detail="threshold must be between 0.0 and 1.0"
             )
 
-        # Process guard if provided
-        guard_data = request.guard
-
         # Execute query
         results = store.query(
             request.probe,
             request.data_type,
             request.top_k,
             request.threshold,
-            guard=guard_data,
+            guard=request.guard,
             negations=request.negations,
             any_marker=request.any_marker,
         )
 
-        # Format response - convert EDN types to JSON-compatible
-        def convert_for_json(obj):
-            """Convert EDN types to JSON-compatible Python types."""
-            if isinstance(obj, dict):
-                return {
-                    convert_for_json(k): convert_for_json(v) for k, v in obj.items()
-                }
-            elif isinstance(obj, list):
-                return [convert_for_json(item) for item in obj]
-            elif isinstance(obj, tuple):
-                return [convert_for_json(item) for item in obj]
-            elif isinstance(obj, frozenset):
-                return list(obj)
-            elif hasattr(obj, "name"):  # EDN Keyword/Symbol
-                return obj.name if hasattr(obj, "name") else str(obj)
-            else:
-                return obj
-
+        # Format response
         formatted_results = [
-            {"id": data_id, "score": score, "data": convert_for_json(data)}
+            {"id": data_id, "score": score, "data": data}
             for data_id, score, data in results
         ]
 
-        logger.info(f"Query returned {len(formatted_results)} results")
-        return QueryResponse(results=formatted_results)
+        return {"results": formatted_results, "count": len(formatted_results)}
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Query failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Query failed: {str(e)}")
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Search failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/encode")
+async def encode_data_v1(request: EncodeRequest):
+    """Encode structured data to vector (v1 API)."""
+    try:
+        parsed = parse_data(request.data, request.data_type)
+        encoded_vector = store.encoder.encode_data(parsed)
+        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        vector_list = cpu_vector.tolist()
+
+        return {"vector": vector_list, "encoding_type": f"structural_{request.data_type}"}
+    except Exception as e:
+        logger.error(f"Vector encoding failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Vector encoding failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/encode/mathematical")
+async def encode_mathematical_v1(request: MathematicalEncodeRequest):
+    """Encode mathematical primitives (v1 API)."""
+    try:
+        try:
+            primitive = MathematicalPrimitive(request.primitive)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown mathematical primitive: {request.primitive}")
+
+        encoded_vector = store.encoder.encode_mathematical_primitive(primitive, request.value)
+        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        vector_list = cpu_vector.tolist()
+
+        return {"vector": vector_list, "encoding_type": f"mathematical_{request.primitive}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Mathematical encoding failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Mathematical encoding failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/compose")
+async def compose_vectors_v1(request: MathematicalComposeRequest):
+    """Compose vectors using mathematical operations (v1 API)."""
+    try:
+        import numpy as np
+
+        np_vectors = []
+        for vec_list in request.vectors:
+            np_vec = np.array(vec_list, dtype=np.int8)
+            np_vectors.append(np_vec)
+
+        if request.operation == "bind":
+            result_vector = store.encoder.mathematical_bind(*np_vectors)
+            encoding_type = f"compose_bind_{len(np_vectors)}_vectors"
+        elif request.operation == "bundle":
+            result_vector = store.encoder.mathematical_bundle(np_vectors)
+            encoding_type = f"compose_bundle_{len(np_vectors)}_vectors"
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
+
+        cpu_result = store.vector_manager.to_cpu(result_vector)
+        result_list = cpu_result.tolist()
+
+        return {"vector": result_list, "encoding_type": encoding_type}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Vector composition failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Vector composition failed: {str(e)}")
 
 
 @app.on_event("startup")

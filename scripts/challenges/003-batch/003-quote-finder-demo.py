@@ -19,7 +19,7 @@ except ImportError:
     HAS_PYPDF = False
     print("Warning: pypdf not available, will use text file only")
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 # Configure logging
@@ -32,6 +32,7 @@ class QuoteFinder:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.quotes_data = []  # Store full text for demo (not in actual DB)
         self.id_to_quote = {}  # Map vector IDs to quote data
 
@@ -110,13 +111,13 @@ class QuoteFinder:
         units_data = []
         for quote in quotes:
             unit_data = self.create_unit_data(quote)
-            units_data.append(json.dumps(unit_data))
+            units_data.append(unit_data)
 
             # Keep full text for demo purposes (not stored in DB)
             self.quotes_data.append(quote)
 
         # Batch insert for efficiency
-        ids = self.store.batch_insert(units_data, data_type="json")
+        ids = self.client.insert_batch_json(units_data)
 
         # Create mapping from vector IDs to quote data
         for vector_id, quote in zip(ids, quotes):
@@ -132,12 +133,8 @@ class QuoteFinder:
         # Create the same encoding structure as stored units
         encode_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
-        # Use the encoder directly (simulating the API)
-        vector = self.store.encoder.encode_data(encode_data)
-
-        # Convert to list for API-like response
-        cpu_vector = self.store.vector_manager.to_cpu(vector)
-        return cpu_vector.tolist()
+        # Use the client to encode (simulating the API)
+        return self.client.encode_vectors_json(encode_data)
 
     def search_quotes_hybrid(
         self,
@@ -162,9 +159,8 @@ class QuoteFinder:
             guard = {"metadata": {"chapter": chapter_filter}}
 
         # Phase 1: VSA/HDC search for exact/high-similarity matches
-        vsa_results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        vsa_results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=vsa_threshold,  # Higher threshold = more selective
             guard=guard,
@@ -174,7 +170,10 @@ class QuoteFinder:
         hybrid_results = []
         seen_quotes = set()
 
-        for data_id, vsa_score, data in vsa_results:
+        for result_data in vsa_results:
+            data_id = result_data["id"]
+            vsa_score = result_data["score"]
+            data = result_data["data"]
             original_quote = self.id_to_quote.get(data_id)
             if original_quote:
                 result = {
@@ -237,9 +236,8 @@ class QuoteFinder:
             guard = {"metadata": {"chapter": chapter_filter}}
 
         # Query the store
-        results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=threshold,
             guard=guard,
@@ -288,16 +286,18 @@ class QuoteFinder:
         if chapter_filter:
             guard = {"metadata": {"chapter": chapter_filter}}
 
-        results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=threshold,
             guard=guard,
         )
 
         enriched_results = []
-        for data_id, score, data in results:
+        for result_data in results:
+            data_id = result_data["id"]
+            score = result_data["score"]
+            data = result_data["data"]
             original_quote = self.id_to_quote.get(data_id)
             enriched_results.append(
                 {

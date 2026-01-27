@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 # Configure logging
@@ -23,6 +23,7 @@ class ParagraphQuoteFinder:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.paragraphs = []  # Store paragraph data for coordinate lookup
 
     def load_processed_paragraphs(self, json_file: str) -> List[Dict[str, Any]]:
@@ -67,13 +68,13 @@ class ParagraphQuoteFinder:
         units_data = []
         for paragraph in paragraphs:
             unit_data = self.create_paragraph_unit(paragraph)
-            units_data.append(json.dumps(unit_data))
+            units_data.append(unit_data)
 
             # Keep paragraph data for coordinate lookup
             self.paragraphs.append(paragraph)
 
         # Batch insert for efficiency
-        ids = self.store.batch_insert(units_data, data_type="json")
+        ids = self.client.insert_batch_json(units_data)
         print(f"✅ Successfully ingested {len(ids)} paragraph units")
         return ids
 
@@ -135,9 +136,8 @@ class ParagraphQuoteFinder:
         probe_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
         # Query the store
-        results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=threshold,
         )
@@ -146,7 +146,10 @@ class ParagraphQuoteFinder:
 
         # Enrich results with paragraph data and coordinate information
         enriched_results = []
-        for data_id, score, data in results:
+        for result_data in results:
+            data_id = result_data["id"]
+            score = result_data["score"]
+            data = result_data["data"]
             # Find the corresponding paragraph
             paragraph = None
             for p in self.paragraphs:

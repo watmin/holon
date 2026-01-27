@@ -72,11 +72,18 @@ Implement hybrid indexing strategy:
 
 ## Configuration
 
+**Note**: Users should use `HolonClient` for application code. CPUStore direct access is for advanced users and internal implementation.
+
 ```python
-# Auto-selection (recommended)
+# For applications (recommended)
+from holon import CPUStore, HolonClient
+store = CPUStore(dimensions=16000)
+client = HolonClient(local_store=store)
+
+# Internal/advanced usage - ANN auto-selection
 store = CPUStore(dimensions=16000)  # Uses ANN when >1000 items
 
-# Manual control
+# Manual ANN control (advanced)
 store.ann_index = None  # Force brute force
 store._build_ann_index()  # Force ANN rebuild
 ```

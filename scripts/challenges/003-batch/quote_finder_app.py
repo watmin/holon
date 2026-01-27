@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from pdf_content_indexer import PDFContentIndexer, PDFQuoteLocator
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,7 @@ class QuoteFinderApp:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.indexed_content = []
         self.locator = None
 
@@ -47,7 +48,7 @@ class QuoteFinderApp:
 
             for chunk in chunks:
                 unit_data = indexer.create_chunk_unit(chunk)
-                chunk_id = self.store.insert(json.dumps(unit_data), "json")
+                chunk_id = self.client.insert_json(unit_data)
                 chunk_ids.append(chunk_id)
 
                 # Keep track of content for location lookup
@@ -144,13 +145,16 @@ class QuoteFinderApp:
         probe_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
         # Search for similar chunks
-        results = self.store.query(
-            probe=json.dumps(probe_data), data_type="json", top_k=top_k, threshold=0.0
+        results = self.client.search_json(
+            probe_data, top_k=top_k, threshold=0.0
         )
 
         # Convert to location format
         locations = []
-        for vector_id, score, stored_data in results:
+        for result_data in results:
+            vector_id = result_data["id"]
+            score = result_data["score"]
+            stored_data = result_data["data"]
             # Find the corresponding chunk
             chunk = None
             for c in self.indexed_content:

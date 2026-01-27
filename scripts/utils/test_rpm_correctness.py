@@ -13,7 +13,8 @@ not just getting lucky with similarity scores. We test:
 
 import json
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
+import edn_format
 
 
 # Copy functions from our RPM solution (to avoid import issues)
@@ -197,7 +198,7 @@ def compute_expected_missing_panel(matrix_data, missing_position):
     return {"shapes": set(), "count": 0, "color": "unknown", "rule": "unknown"}
 
 
-def test_rule_correctness(store, rule_type, test_cases=5):
+def test_rule_correctness(client, rule_type, test_cases=5):
     """Test that our system correctly completes panels for a specific rule."""
     print(f"\n🧪 Testing {rule_type.upper()} Rule Correctness")
 
@@ -207,8 +208,8 @@ def test_rule_correctness(store, rule_type, test_cases=5):
         complete_matrix = generate_rpm_matrix(
             f"{rule_type}-complete-{i}", rule_type, {"shape", "count", "color"}
         )
-        matrix_json = edn_to_json(complete_matrix)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(complete_matrix)
+        client.insert(matrix_json, data_type="edn")
 
     correct_predictions = 0
     total_predictions = 0
@@ -225,8 +226,8 @@ def test_rule_correctness(store, rule_type, test_cases=5):
         expected_panel = compute_expected_missing_panel(matrix, missing_pos)
 
         # Insert the incomplete matrix
-        matrix_json = edn_to_json(matrix)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(matrix)
+        client.insert(matrix_json, data_type="edn")
 
         # Query for geometrically similar complete matrices
         probe_structure = {
@@ -239,16 +240,16 @@ def test_rule_correctness(store, rule_type, test_cases=5):
         }
 
         # Find complete matrices with this rule
-        results = store.query(
-            edn_to_json(probe_structure),
+        results = client.search(
+            edn_format.dumps(probe_structure),
             negations={"missing-position": {"$any": True}},
             top_k=5,
         )
 
         # Check if any of the top results have the correct missing panel
         found_correct = False
-        for result in results:
-            data = result[2]  # (id, score, data)
+        for result_data in results:
+            data = result_data["data"]  # (id, score, data)
             actual_missing = data.get("panels", {}).get(missing_pos, {})
 
             expected_shapes = set(expected_panel["shapes"])
@@ -280,7 +281,7 @@ def test_rule_correctness(store, rule_type, test_cases=5):
     return accuracy >= 0.8  # Require 80% accuracy to pass
 
 
-def test_rule_discrimination(store):
+def test_rule_discrimination(client):
     """Test that different rules produce different results."""
     print("\n🔍 Testing Rule Discrimination")
 
@@ -292,8 +293,8 @@ def test_rule_discrimination(store):
         matrix = generate_rpm_matrix(
             f"discrim-{rule}", rule, {"shape", "count", "color"}, "row2-col2"
         )
-        matrix_json = edn_to_json(matrix)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(matrix)
+        client.insert(matrix_json, data_type="edn")
 
         # Query with partial structure
         probe = {
@@ -303,7 +304,7 @@ def test_rule_discrimination(store):
             }
         }
 
-        results = store.query(edn_to_json(probe), top_k=3)
+        results = client.search(edn_format.dumps(probe), top_k=3)
 
         # Count how many results match the original rule
         rule_matches = sum(1 for _, _, data in results if data.get("rule") == rule)
@@ -322,7 +323,7 @@ def test_rule_discrimination(store):
     return discrimination_score >= 0.6  # Require reasonable discrimination
 
 
-def test_wrong_rule_failure(store):
+def test_wrong_rule_failure(client):
     """Test that wrong rules don't work (negative test)."""
     print("\n❌ Testing Wrong Rule Failure")
 
@@ -330,8 +331,8 @@ def test_wrong_rule_failure(store):
     matrix = generate_rpm_matrix(
         "wrong-rule-test", "progression", {"shape", "count", "color"}, "row3-col3"
     )
-    matrix_json = edn_to_json(matrix)
-    store.insert(matrix_json)
+    matrix_json = edn_format.dumps(matrix)
+    client.insert(matrix_json, data_type="edn")
 
     # Compute correct answer for progression
     expected_panel = compute_expected_missing_panel(matrix, "row3-col3")
@@ -346,16 +347,17 @@ def test_wrong_rule_failure(store):
         "rule": "xor",  # Wrong rule!
     }
 
-    results = store.query(
-        edn_to_json(probe_structure),
+    results = client.search(
+        edn_format.dumps(probe_structure),
+        data_type="edn",
         negations={"missing-position": {"$any": True}},
         top_k=5,
     )
 
     # Check if any results have the progression-expected panel
     wrong_rule_success = False
-    for result in results:
-        data = result[2]
+    for result_data in results:
+        data = result_data["data"]
         actual_missing = data.get("panels", {}).get("row3-col3", {})
 
         expected_shapes = set(expected_panel["shapes"])
@@ -379,7 +381,7 @@ def test_wrong_rule_failure(store):
         return False
 
 
-def test_statistical_significance(store):
+def test_statistical_significance(client):
     """Run statistical test over many random matrices."""
     print("\n📈 Testing Statistical Significance")
 
@@ -409,8 +411,8 @@ def test_statistical_significance(store):
         matrix = generate_rpm_matrix(
             f"stat-{i}", rule, {"shape", "count", "color"}, missing_pos
         )
-        matrix_json = edn_to_json(matrix)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(matrix)
+        client.insert(matrix_json, data_type="edn")
 
         # Test completion
         expected_panel = compute_expected_missing_panel(matrix, missing_pos)
@@ -424,15 +426,15 @@ def test_statistical_significance(store):
             "rule": rule,
         }
 
-        results = store.query(
-            edn_to_json(probe_structure),
+        results = client.search(
+            edn_format.dumps(probe_structure),
             negations={"missing-position": {"$any": True}},
             top_k=3,
         )
 
         # Check correctness
-        for result in results:
-            data = result[2]
+        for result_data in results:
+            data = result_data["data"]
             actual_missing = data.get("panels", {}).get(missing_pos, {})
 
             expected_shapes = set(expected_panel["shapes"])
@@ -467,6 +469,7 @@ def main():
 
     # Initialize store
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
     print("✅ Initialized Holon CPUStore")
 
     # Run all tests
@@ -475,15 +478,15 @@ def main():
             "Individual Rule Correctness",
             lambda: all(
                 [
-                    test_rule_correctness(store, "progression", 5),
-                    test_rule_correctness(store, "xor", 5),
-                    test_rule_correctness(store, "union", 5),
+                    test_rule_correctness(client, "progression", 5),
+                    test_rule_correctness(client, "xor", 5),
+                    test_rule_correctness(client, "union", 5),
                 ]
             ),
         ),
-        ("Rule Discrimination", lambda: test_rule_discrimination(store)),
-        ("Wrong Rule Failure", lambda: test_wrong_rule_failure(store)),
-        ("Statistical Significance", lambda: test_statistical_significance(store)),
+        ("Rule Discrimination", lambda: test_rule_discrimination(client)),
+        ("Wrong Rule Failure", lambda: test_wrong_rule_failure(client)),
+        ("Statistical Significance", lambda: test_statistical_significance(client)),
     ]
 
     results = []

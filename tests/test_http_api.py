@@ -16,7 +16,9 @@ class TestHTTPAPI:
 
     def test_insert_json(self):
         data = {"user": "alice", "action": "login"}
-        response = client.post("/insert", json={"data": json.dumps(data)})
+        response = client.post(
+            "/api/v1/items", json={"data": json.dumps(data), "data_type": "json"}
+        )
         assert response.status_code == 200
         result = response.json()
         assert "id" in result
@@ -24,7 +26,7 @@ class TestHTTPAPI:
 
     def test_insert_edn(self):
         data = '{:user "bob" :action "logout"}'
-        response = client.post("/insert", json={"data": data, "data_type": "edn"})
+        response = client.post("/api/v1/items", json={"data": data, "data_type": "edn"})
         assert response.status_code == 200
         result = response.json()
         assert "id" in result
@@ -33,12 +35,19 @@ class TestHTTPAPI:
         # Insert some data first
         data1 = {"user": "alice", "status": "success"}
         data2 = {"user": "bob", "status": "failed"}
-        client.post("/insert", json={"data": json.dumps(data1)})
-        client.post("/insert", json={"data": json.dumps(data2)})
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data1), "data_type": "json"}
+        )
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data2), "data_type": "json"}
+        )
 
         # Query
         probe = {"user": "alice"}
-        response = client.post("/query", json={"probe": json.dumps(probe), "top_k": 10})
+        response = client.post(
+            "/api/v1/search",
+            json={"probe": json.dumps(probe), "data_type": "json", "top_k": 10},
+        )
         assert response.status_code == 200
         result = response.json()
         assert "results" in result
@@ -48,16 +57,21 @@ class TestHTTPAPI:
         # Insert data
         data1 = {"user": "alice", "status": "success"}
         data2 = {"user": "alice", "status": "failed"}
-        client.post("/insert", json={"data": json.dumps(data1)})
-        client.post("/insert", json={"data": json.dumps(data2)})
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data1), "data_type": "json"}
+        )
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data2), "data_type": "json"}
+        )
 
         # Query with guard
         probe = {"user": "alice"}
         guard = {"status": "success"}  # Exact match for success
         response = client.post(
-            "/query",
+            "/api/v1/search",
             json={
                 "probe": json.dumps(probe),
+                "data_type": "json",
                 "top_k": 10,
                 "guard": guard,  # Send as dict, not JSON string
             },
@@ -73,15 +87,24 @@ class TestHTTPAPI:
         # Insert data
         data1 = {"user": "alice", "status": "success"}
         data2 = {"user": "alice", "status": "failed"}
-        client.post("/insert", json={"data": json.dumps(data1)})
-        client.post("/insert", json={"data": json.dumps(data2)})
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data1), "data_type": "json"}
+        )
+        client.post(
+            "/api/v1/items", json={"data": json.dumps(data2), "data_type": "json"}
+        )
 
         # Query with negations
         probe = {"user": "alice"}
-        negations = {"status": "failed"}
+        negations = {"status": {"$not": "failed"}}
         response = client.post(
-            "/query",
-            json={"probe": json.dumps(probe), "top_k": 10, "negations": negations},
+            "/api/v1/search",
+            json={
+                "probe": json.dumps(probe),
+                "data_type": "json",
+                "top_k": 10,
+                "negations": negations,
+            },
         )
         assert response.status_code == 200
         result = response.json()
@@ -94,9 +117,10 @@ class TestHTTPAPI:
         probe = {"user": "alice"}
         # Send invalid type for guard (should be dict or None)
         response = client.post(
-            "/query",
+            "/api/v1/search",
             json={
                 "probe": json.dumps(probe),
+                "data_type": "json",
                 "guard": "invalid json",  # Pydantic will reject this
             },
         )
@@ -104,7 +128,7 @@ class TestHTTPAPI:
         assert response.status_code == 422
 
     def test_health_endpoint(self):
-        response = client.get("/health")
+        response = client.get("/api/v1/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
@@ -112,7 +136,7 @@ class TestHTTPAPI:
         assert "items_count" in data
 
     def test_encode_endpoint(self):
-        """Test the new /encode endpoint for vector bootstrapping"""
+        """Test the new /api/v1/vectors/encode endpoint for vector bootstrapping"""
         # Test encoding JSON data
         data = {
             "words": {
@@ -122,7 +146,10 @@ class TestHTTPAPI:
             "metadata": {"type": "test_data"},
         }
 
-        response = client.post("/encode", json={"data": json.dumps(data)})
+        response = client.post(
+            "/api/v1/vectors/encode",
+            json={"data": json.dumps(data), "data_type": "json"},
+        )
         assert response.status_code == 200
         result = response.json()
         assert "vector" in result
@@ -134,17 +161,22 @@ class TestHTTPAPI:
         assert all(val in [-1, 0, 1] for val in vector[:10])  # Check first 10 values
 
     def test_encode_endpoint_edn(self):
-        """Test the /encode endpoint with EDN data"""
+        """Test the /api/v1/vectors/encode endpoint with EDN data"""
         edn_data = '{:words {:_encode_mode "chained" :sequence ["edn" "test"]} :type "edn_test"}'
 
-        response = client.post("/encode", json={"data": edn_data, "data_type": "edn"})
+        response = client.post(
+            "/api/v1/vectors/encode", json={"data": edn_data, "data_type": "edn"}
+        )
         assert response.status_code == 200
         result = response.json()
         assert "vector" in result
         assert len(result["vector"]) == 16000
 
     def test_encode_invalid_data(self):
-        """Test /encode endpoint with invalid data"""
-        response = client.post("/encode", json={"data": "invalid json{"})
+        """Test /api/v1/vectors/encode endpoint with invalid data"""
+        response = client.post(
+            "/api/v1/vectors/encode",
+            json={"data": "invalid json{", "data_type": "json"},
+        )
         assert response.status_code == 400
-        assert "Encode failed" in response.json()["detail"]
+        assert "Vector encoding failed" in response.json()["detail"]

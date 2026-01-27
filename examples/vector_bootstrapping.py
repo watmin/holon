@@ -4,16 +4,12 @@ Vector Bootstrapping Example: Custom Similarity Operations
 Demonstrates how to encode custom vectors and perform similarity operations.
 """
 
-import json
-
-import numpy as np
-
-from holon import CPUStore
-from holon.similarity import find_similar_vectors, normalized_dot_similarity
+from holon import CPUStore, HolonClient
 
 
 def main():
     store = CPUStore()
+    client = HolonClient(local_store=store)
 
     # Sample data
     data = [
@@ -27,24 +23,25 @@ def main():
 
     # Insert data
     for item in data:
-        store.insert(json.dumps(item))
+        client.insert_json(item)
 
     print("🧬 Vector Bootstrapping Examples")
     print("=" * 50)
 
     # Example 1: Custom vector encoding
     print("\n1. Custom Vector Encoding")
-    custom_vector = store.encoder.encode_data(
+    custom_vector = client.encode_vectors_json(
         {"type": "authentication", "method": "biometric", "security": "very_high"}
     )
-    print(f"   Encoded custom vector: shape {custom_vector.shape}")
+    print(f"   Encoded custom vector: {len(custom_vector)}D")
 
     # Example 2: Similarity between custom vectors
     print("\n2. Custom Vector Similarity")
-    vector1 = store.encoder.encode_data({"type": "authentication", "security": "high"})
-    vector2 = store.encoder.encode_data({"type": "authorization", "security": "high"})
+    vector1 = client.encode_vectors_json({"type": "authentication", "security": "high"})
+    vector2 = client.encode_vectors_json({"type": "authorization", "security": "high"})
 
-    similarity = normalized_dot_similarity(vector1, vector2)
+    # Compute similarity (vectors are normalized, so dot product gives cosine similarity)
+    similarity = sum(a * b for a, b in zip(vector1, vector2))
     print(f"   Similarity: {similarity:.4f}")
 
     # Example 3: Bootstrapping for custom search terms
@@ -58,9 +55,9 @@ def main():
     # Encode search concepts
     search_vectors = {}
     for term in search_terms:
-        vector = store.encoder.encode_data(term)
+        vector = client.encode_vectors_json(term)
         search_vectors[term["concept"]] = vector
-        print(f"   Encoded '{term['concept']}': {vector.shape}")
+        print(f"   Encoded '{term['concept']}': {len(vector)}D")
 
     # Example 4: Finding similar stored data to custom concepts
     print("\n4. Finding Similar Data to Custom Concepts")
@@ -68,13 +65,15 @@ def main():
     for concept, search_vector in search_vectors.items():
         print(f"\n   Similar to '{concept}':")
 
-        # Find similar stored vectors
-        similar_results = find_similar_vectors(
-            search_vector, store.stored_vectors, top_k=2
+        # Use client search with the concept data (this demonstrates the typical usage)
+        # Note: In practice, you'd search for similar items using the stored data
+        similar_results = client.search_json(
+            {"type": concept.split("_")[0] if "_" in concept else concept}, top_k=2
         )
 
-        for i, (data_id, score) in enumerate(similar_results):
-            data = store.stored_data[data_id]
+        for i, result in enumerate(similar_results):
+            data = result["data"]
+            score = result["score"]
             print(f"   {i+1}. {data}: {score:.4f}")
 
     # Example 5: Bulk encoding for efficiency
@@ -89,13 +88,13 @@ def main():
     print("   Bulk encoding multiple items:")
     encoded_vectors = []
     for item in bulk_data:
-        vector = store.encoder.encode_data(item)
+        vector = client.encode_vectors_json(item)
         encoded_vectors.append(vector)
-        print(f"   → {item['operation']}: {vector.shape}")
+        print(f"   → {item['operation']}: {len(vector)}D")
 
     # Compare bulk encoded vectors
     if len(encoded_vectors) >= 2:
-        sim = normalized_dot_similarity(encoded_vectors[0], encoded_vectors[1])
+        sim = sum(a * b for a, b in zip(encoded_vectors[0], encoded_vectors[1]))
         print(f"   Bulk vector similarity: {sim:.4f}")
 
     print("\n✅ Vector bootstrapping examples completed!")

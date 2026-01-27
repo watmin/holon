@@ -58,13 +58,13 @@ Implement dual format support with:
 
 ```python
 # JSON
-store.insert('{"name": "Alice", "role": "developer"}', 'json')
+client.insert_json({"name": "Alice", "role": "developer"})
 
 # EDN
-store.insert('{:name "Alice" :role :developer :skills #{:clojure :python}}', 'edn')
+client.insert('{:name "Alice" :role :developer :skills #{:clojure :python}}', data_type="edn")
 
 # Query (format must match)
-results = store.query('{:role :developer}', 'edn')
+results = client.search('{:role :developer}', data_type="edn")
 ```
 
 ## References

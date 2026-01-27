@@ -5,8 +5,9 @@ Simple Extended RPM Validation - Focus on Key Conviction Tests
 
 import json
 import random
+import edn_format
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=None):
@@ -128,11 +129,12 @@ def test_novel_problems():
     print("🧪 TESTING NOVEL PROBLEM GENERALIZATION")
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Train on very small set
     for rule in ["progression", "xor"]:
         matrix = generate_rpm_matrix(f"train-{rule}", rule)
-        store.insert(edn_to_json(matrix))
+        client.insert(edn_format.dumps(matrix), data_type="edn")
     print("   Trained on 2 complete matrices")
 
     # Test on 20 novel problems with different random seed
@@ -145,13 +147,14 @@ def test_novel_problems():
         expected = compute_expected_missing_panel(matrix, "row3-col3")
 
         probe = {"panels": matrix["panels"], "rule": rule}
-        results = store.query(
-            edn_to_json(probe), negations={"missing-position": {"$any": True}}, top_k=3
+        probe_edn = edn_format.dumps(probe)
+        results = client.search(
+            probe_edn, data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
         )
 
         found_correct = False
-        for result in results:
-            data = result[2]
+        for result_data in results:
+            data = result_data["data"]
             actual = data.get("panels", {}).get("row3-col3", {})
 
             if (
@@ -189,6 +192,7 @@ def test_cross_validation():
 
     for fold in range(5):
         store = CPUStore(dimensions=16000)
+        client = HolonClient(local_store=store)
 
         # Split data
         test_start = fold * fold_size
@@ -198,7 +202,7 @@ def test_cross_validation():
 
         # Train
         for matrix in train_set:
-            store.insert(edn_to_json(matrix))
+            client.insert(edn_format.dumps(matrix), data_type="edn")
 
         # Test
         correct = 0
@@ -211,14 +215,16 @@ def test_cross_validation():
             expected = compute_expected_missing_panel(incomplete, "row3-col3")
 
             probe = {"panels": incomplete["panels"], "rule": incomplete["rule"]}
-            results = store.query(
-                edn_to_json(probe),
+            probe_edn = edn_format.dumps(probe)
+            results = client.search(
+                probe_edn,
+                data_type="edn",
                 negations={"missing-position": {"$any": True}},
                 top_k=3,
             )
 
-            for result in results:
-                data = result[2]
+            for result_data in results:
+                data = result_data["data"]
                 actual = data.get("panels", {}).get("row3-col3", {})
 
                 if (
@@ -247,12 +253,13 @@ def test_ablation():
 
     def test_config(complete_refs=True, vector_ops=True):
         store = CPUStore(dimensions=16000) if vector_ops else None
+        client = HolonClient(local_store=store) if vector_ops else None
 
         if complete_refs and vector_ops:
             # Add reference matrices
             for rule in ["progression", "xor"]:
                 matrix = generate_rpm_matrix(f"ref-{rule}", rule)
-                store.insert(edn_to_json(matrix))
+                client.insert(edn_format.dumps(matrix), data_type="edn")
 
         correct = 0
         for i in range(10):
@@ -264,14 +271,16 @@ def test_ablation():
 
             if vector_ops:
                 probe = {"panels": matrix["panels"], "rule": rule}
-                results = store.query(
-                    edn_to_json(probe),
+                probe_edn = edn_format.dumps(probe)
+                results = client.search(
+                    probe_edn,
+                    data_type="edn",
                     negations={"missing-position": {"$any": True}},
                     top_k=3,
                 )
 
-                for result in results:
-                    data = result[2]
+                for result_data in results:
+                    data = result_data["data"]
                     actual = data.get("panels", {}).get("row3-col3", {})
 
                     if (

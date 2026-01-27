@@ -8,12 +8,13 @@ rules are queries that match patterns, and forward chaining adds derived facts.
 
 import json
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class ReteDemo:
     def __init__(self):
         self.store = CPUStore()
+        self.client = HolonClient(local_store=self.store)
         self.rules = []
         self.fact_counter = 0
         self.input_facts = []  # For replayability
@@ -23,7 +24,7 @@ class ReteDemo:
         fact_id = f"fact_{self.fact_counter}"
         self.fact_counter += 1
         fact_with_meta = {"id": fact_id, "is_input": is_input, **fact}
-        self.store.insert(json.dumps(fact_with_meta))
+        stored_id = self.client.insert_json(fact_with_meta)
         if is_input:
             self.input_facts.append(fact_with_meta)
         print(f"➕ Added {'input' if is_input else 'derived'} fact: {fact_with_meta}")
@@ -44,14 +45,13 @@ class ReteDemo:
 
             for rule in self.rules:
                 # Query for matching facts
-                probe = json.dumps(rule["conditions"])
-                results = self.store.query(probe, top_k=10)
+                results = self.client.search_json(rule["conditions"], top_k=10)
 
                 if results:
                     print(f"🎯 Rule '{rule['name']}' fired ({len(results)} matches)")
                     # Fire actions
                     for result in results:
-                        new_fact = rule["action"](result[2])
+                        new_fact = rule["action"](result["data"])
                         if new_fact:
                             self.add_fact(new_fact, is_input=False)
                             fired = True
@@ -65,9 +65,13 @@ class ReteDemo:
     def replay(self):
         """Replay: Reset to input facts, rerun rules."""
         print("\n🔄 Replaying from input facts...")
+        # Save original input facts before resetting
+        original_input_facts = [fact.copy() for fact in self.input_facts]
         self.store = CPUStore()  # Reset store
+        self.client = HolonClient(local_store=self.store)  # Reset client too
         self.fact_counter = 0
-        for fact in self.input_facts:
+        self.input_facts = []  # Clear the list
+        for fact in original_input_facts:
             self.add_fact(fact, is_input=True)
         self.run_forward_chaining()
 
@@ -77,8 +81,8 @@ class ReteDemo:
         guard = {"is_input": False}
         if "finding" in query:
             guard["finding"] = query["finding"]
-        results = self.store.query(json.dumps(query), guard=guard, top_k=10)
-        return [r[2] for r in results]
+        results = self.client.search_json(query, guard=guard, top_k=10)
+        return [r["data"] for r in results]
 
 
 def main():
@@ -99,8 +103,8 @@ def main():
         # If someone has children and is parent of someone who has children
         if fact.get("has_children") and "person" in fact:
             # Check if this person is parent of someone with children
-            grandparents = demo.store.query(
-                json.dumps({"parent_of": fact["person"], "has_children": True}), top_k=5
+            grandparents = demo.client.search_json(
+                {"parent_of": fact["person"], "has_children": True}, top_k=5
             )
             if grandparents:
                 return {

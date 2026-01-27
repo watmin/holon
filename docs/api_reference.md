@@ -2,13 +2,42 @@
 
 See the main [README](../README.md) for overview and quick start.
 
-## HTTP API
+## Unified Client Interface
+
+**Recommended**: Use `HolonClient` for a consistent interface whether working locally or remotely:
+
+```python
+from holon import CPUStore, HolonClient
+
+# Local usage
+store = CPUStore()
+client = HolonClient(local_store=store)
+
+# Remote usage
+client = HolonClient(remote_url="http://localhost:8000")
+
+# Same interface either way!
+client.insert_json({"type": "task", "title": "Review code"})
+results = client.search_json({"type": "task"})
+```
+
+The client abstracts all vector operations - you work with data, not vectors.
+
+## HTTP API (v1)
 
 Holon provides a RESTful HTTP API for VSA/HDC neural memory operations with advanced querying capabilities.
 
-### Endpoints
+### Core Philosophy
 
-#### GET /health
+Holon follows a "kernel + userland" philosophy like Clojure:
+- **Kernel**: Minimal, composable primitives for VSA/HDC operations
+- **Userland**: Domain-specific tools built on top (task managers, quote finders, etc.)
+
+## V1 API (Recommended)
+
+### Health & Status
+
+#### GET /api/v1/health
 Health check with backend and item count information.
 
 **Response**:
@@ -20,8 +49,10 @@ Health check with backend and item count information.
 }
 ```
 
-#### POST /encode
-Encode data into a vector without storing it. Useful for vector bootstrapping and analysis.
+### Item Management (Generic Data Storage)
+
+#### POST /api/v1/items
+Create a single item.
 
 **Request**:
 ```json
@@ -34,30 +65,13 @@ Encode data into a vector without storing it. Useful for vector bootstrapping an
 **Response**:
 ```json
 {
-  "vector": [0.1, -0.2, 0.8, ...]
+  "id": "uuid-string",
+  "created": true
 }
 ```
 
-#### POST /insert
-Insert a single data item.
-
-**Request**:
-```json
-{
-  "data": "{\"user\": \"alice\", \"action\": \"login\"}",
-  "data_type": "json"
-}
-```
-
-**Response**:
-```json
-{
-  "id": "uuid-string"
-}
-```
-
-#### POST /batch_insert
-Insert multiple data items efficiently with optimized bulk indexing. Defers ANN index rebuilds for better performance.
+#### POST /api/v1/items/batch
+Create multiple items efficiently.
 
 **Request**:
 ```json
@@ -73,11 +87,25 @@ Insert multiple data items efficiently with optimized bulk indexing. Defers ANN 
 **Response**:
 ```json
 {
-  "ids": ["uuid1", "uuid2"]
+  "ids": ["uuid1", "uuid2"],
+  "created": 2
 }
 ```
 
-#### POST /query
+#### GET /api/v1/items/{id}
+Retrieve a specific item by ID.
+
+**Response**:
+```json
+{
+  "id": "uuid-string",
+  "data": {"user": "alice", "action": "login"}
+}
+```
+
+### Search & Similarity
+
+#### POST /api/v1/search
 Advanced neural similarity search with guards, negations, and compound conditions.
 
 **Request**:
@@ -107,30 +135,92 @@ Advanced neural similarity search with guards, negations, and compound condition
       "score": 0.85,
       "data": {"user": "alice", "action": "login"}
     }
-  ]
+  ],
+  "count": 1
 }
 ```
 
+### Vector Operations (VSA/HDC Primitives)
+
+#### POST /api/v1/vectors/encode
+Encode structured data into a vector for similarity operations.
+
+**Request**:
+```json
+{
+  "data": "{\"user\": \"alice\", \"action\": \"login\"}",
+  "data_type": "json"
+}
+```
+
+**Response**:
+```json
+{
+  "vector": [0.1, -0.2, 0.8, ...],
+  "encoding_type": "structural_json"
+}
+```
+
+#### POST /api/v1/vectors/encode/mathematical
+Encode mathematical primitives (fundamental VSA/HDC operations).
+
+**Request**:
+```json
+{
+  "primitive": "addition",
+  "value": 5
+}
+```
+
+**Response**:
+```json
+{
+  "vector": [0.1, -0.2, 0.8, ...],
+  "encoding_type": "mathematical_addition"
+}
+```
+
+#### POST /api/v1/vectors/compose
+Compose vectors using mathematical operations (bind/bundle).
+
+**Request**:
+```json
+{
+  "operation": "bind",
+  "vectors": [[0.1, -0.2, 0.8, ...], [0.3, 0.5, -0.1, ...]]
+}
+```
+
+**Response**:
+```json
+{
+  "vector": [0.4, 0.3, 0.7, ...],
+  "encoding_type": "compose_bind_2_vectors"
+}
+```
+
+
 ## Python API
 
-### CPUStore Class
+### HolonClient Class
 
 ```python
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
-# Initialize with auto GPU/CPU selection
+# Initialize store and client
 store = CPUStore(dimensions=16000, backend='auto')  # 'cpu', 'gpu', or 'auto'
+client = HolonClient(local_store=store)
 
 # Insert operations
-single_id = store.insert('{"user": "alice", "action": "login"}', data_type='json')
-batch_ids = store.batch_insert([
-    '{"user": "bob", "action": "logout"}',
-    '{"user": "charlie", "action": "edit"}'
-], data_type='json')
+single_id = client.insert_json({"user": "alice", "action": "login"})
+batch_ids = client.insert_batch_json([
+    {"user": "bob", "action": "logout"},
+    {"user": "charlie", "action": "edit"}
+])
 
 # Advanced queries with complex guards
-results = store.query(
-    '{"user": "alice"}',  # Similarity probe
+results = client.search_json(
+    {"user": "alice"},  # Similarity probe
     top_k=10,
     threshold=0.0,
     guard={
@@ -139,25 +229,25 @@ results = store.query(
             {"priority": "high", "department": "engineering"}
         ]
     },
-    negations={"action": {"$not": "logout"}},
-    any_marker="$any"
+    negations={"action": {"$not": "logout"}}
 )
 
-# Returns: List[Tuple[id, score, data_dict]]
+# Returns: List[Dict[id, score, data]]
 
 # Vector encoding (bootstrapping)
-vector = store.encoder.encode_data({"user": "alice"})
+vector = client.encode_vectors_json({"user": "alice"})
 
 # Data retrieval
-data = store.get(single_id)
-success = store.delete(single_id)
+data = client.get(single_id)
+success = client.delete(single_id)
 
 # Bulk operations
-store.start_bulk_insert()  # Defer ANN rebuilds
-for item in large_dataset:
-    store.insert(item)
-store.end_bulk_insert()  # Rebuild ANN index once
+client.insert_batch_json(large_dataset)  # Efficient batch insertion
 ```
+
+### CPUStore Class (Advanced Usage)
+
+For advanced users, testing, and direct vector operations, you can use CPUStore directly. This provides lower-level access to VSA/HDC primitives:
 
 ### Advanced Query Features
 
@@ -166,10 +256,10 @@ Guards support sophisticated compound conditions with `$or` logic:
 
 ```python
 # Simple guards
-store.query('{"role": "developer"}', guard={"status": "active"})
+client.search_json({"role": "developer"}, guard={"status": "active"})
 
 # Compound OR conditions
-store.query('{}', guard={
+client.search_json({}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},
         {"project": "urgent", "category": "side"}
@@ -177,7 +267,7 @@ store.query('{}', guard={
 })
 
 # Nested OR logic
-store.query('{"project": "work"}', guard={
+client.search_json({"project": "work"}, guard={
     "status": "active",
     "tags": {
         "$or": [
@@ -188,8 +278,8 @@ store.query('{"project": "work"}', guard={
 })
 
 # Combined with negations
-store.query(
-    '{"project": "side"}',
+client.search_json(
+    {"project": "side"},
     guard={
         "$or": [
             {"priority": "high"},
@@ -215,10 +305,10 @@ negations={"user.preferences": {"$not": {"theme": "dark"}}}
 #### Wildcard Patterns
 ```python
 # Wildcard in probe (doesn't match anything)
-store.query('{"role": {"$any": true}}')  # Matches any role value
+client.search_json({"role": {"$any": true}})  # Matches any role value
 
 # Wildcard in guard
-store.query('{"tags": ["urgent"]}', guard={"role": {"$any": True}})
+client.search_json({"tags": ["urgent"]}, guard={"role": {"$any": True}})
 ```
 
 ### Backend Options
@@ -263,15 +353,22 @@ store.insert('{:skills #{"clojure" "python"}}', data_type='edn')
 
 ### Vector Bootstrapping
 
-Use the `/encode` endpoint or `encoder.encode_data()` to create vectors for custom similarity operations:
+Use the `/api/v1/vectors/encode` endpoint or `encoder.encode_data()` to create vectors for custom similarity operations:
 
 ```python
-# Encode custom vectors for similarity
-vector1 = store.encoder.encode_data({"type": "login"})
-vector2 = store.encoder.encode_data({"type": "authentication"})
+# HTTP API
+POST /api/v1/vectors/encode
+{
+  "data": "{\"type\": \"login\"}",
+  "data_type": "json"
+}
 
-# Use for custom similarity calculations
-similarity = store.vector_manager.similarity(vector1, vector2)
+# Python API
+vector1 = client.encode_vectors_json({"type": "login"})
+vector2 = client.encode_vectors_json({"type": "authentication"})
+
+# Use for custom similarity calculations (advanced)
+# Note: Client interface abstracts vector operations for typical use cases
 ```
 
 ## Error Handling

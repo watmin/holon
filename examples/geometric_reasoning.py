@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Geometric Reasoning Example: RPM-Style Pattern Completion
-Demonstrates abstract reasoning capabilities with vector similarity.
+Demonstrates abstract reasoning capabilities with vector similarity using HolonClient.
 """
 
 import json
 import random
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def create_progression_matrix(missing_position=None):
@@ -72,6 +72,7 @@ def create_xor_matrix(missing_position=None):
 
 def main():
     store = CPUStore()
+    client = HolonClient(local_store=store)
 
     print("🧠 Geometric Reasoning Examples")
     print("=" * 50)
@@ -89,7 +90,7 @@ def main():
             "rule": "count = row + col - 1",
             "instance": i,
         }
-        store.insert(json.dumps(matrix_data))
+        client.insert_json(matrix_data)
 
     # Query with incomplete matrix (missing bottom-right)
     print("   Testing pattern completion...")
@@ -100,22 +101,23 @@ def main():
         "rule": "unknown",
     }
 
-    results = store.query(json.dumps(probe_data), top_k=3)
+    results = client.search_json(probe_data, top_k=3)
     print(f"   Found {len(results)} similar complete matrices")
 
-    for i, (id_, score, data) in enumerate(results):
+    for i, result in enumerate(results):
+        data = result["data"]
         matrix = data["matrix"]
         if "row3-col3" in matrix:
             completed_panel = matrix["row3-col3"]
-            print(f"      Similarity: {score:.4f}")
+            print(f"      Similarity: {result['score']:.4f}")
             print(f"      Predicted: {completed_panel['count']} shapes")
             break
 
     # Example 2: Learning XOR patterns
     print("\n2. Learning XOR Bit Patterns")
 
-    # Clear and store XOR matrices
-    store.clear()
+    # Note: In a real application, you'd use separate stores or add clear functionality
+    # For demo purposes, we'll continue with the same store (mixing progression and XOR matrices)
     print("   Storing reference XOR matrices...")
 
     for i in range(5):
@@ -126,21 +128,22 @@ def main():
             "rule": "bitwise_xor",
             "instance": i,
         }
-        store.insert(json.dumps(matrix_data))
+        client.insert_json(matrix_data)
 
     # Test XOR pattern completion
     print("   Testing XOR pattern completion...")
     incomplete_xor = create_xor_matrix("row2-col2")  # Missing center
     probe_xor = {"type": "xor_matrix", "matrix": incomplete_xor, "rule": "unknown"}
 
-    results = store.query(json.dumps(probe_xor), top_k=3)
+    results = client.search_json(probe_xor, top_k=3)
     print(f"   Found {len(results)} similar complete XOR matrices")
 
-    for i, (id_, score, data) in enumerate(results):
+    for i, result in enumerate(results):
+        data = result["data"]
         matrix = data["matrix"]
         if "row2-col2" in matrix:
             completed_panel = matrix["row2-col2"]
-            print(f"      Similarity: {score:.4f}")
+            print(f"      Similarity: {result['score']:.4f}")
             print(
                 f"      Predicted: {completed_panel['shapes']} (XOR value: {completed_panel['xor_value']})"
             )
@@ -156,7 +159,7 @@ def main():
         "matrix": progression_matrix,
         "rule": "count_progression",
     }
-    store.insert(json.dumps(progression_data))
+    client.insert_json(progression_data)
 
     # Query and see if we can distinguish rule types
     print("   Testing rule discrimination...")
@@ -167,11 +170,13 @@ def main():
         "matrix": create_progression_matrix("row3-col3"),
     }
 
-    results = store.query(json.dumps(prog_probe), top_k=5)
+    results = client.search_json(prog_probe, top_k=5)
     progression_count = sum(
-        1 for _, _, data in results if data.get("rule") == "count_progression"
+        1 for result in results if result["data"].get("rule") == "count_progression"
     )
-    xor_count = sum(1 for _, _, data in results if data.get("rule") == "bitwise_xor")
+    xor_count = sum(
+        1 for result in results if result["data"].get("rule") == "bitwise_xor"
+    )
 
     print(f"   Progression matches: {progression_count}")
     print(f"   XOR matches: {xor_count}")
@@ -191,12 +196,13 @@ def main():
         "description": "modified_progression",
     }
 
-    results = store.query(json.dumps(novel_probe), top_k=3)
+    results = client.search_json(novel_probe, top_k=3)
     print(f"   Novel pattern matches {len(results)} learned patterns")
 
-    for i, (id_, score, data) in enumerate(results):
+    for i, result in enumerate(results):
+        data = result["data"]
         rule_type = data.get("rule", "unknown")
-        print(f"   {i+1}. {rule_type} pattern: {score:.4f}")
+        print(f"   {i+1}. {rule_type} pattern: {result['score']:.4f}")
 
     print("\n✅ Geometric reasoning examples completed!")
     print("\n📊 Key Insights:")

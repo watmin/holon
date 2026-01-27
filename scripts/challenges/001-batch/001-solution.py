@@ -11,7 +11,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def create_sample_tasks():
@@ -344,21 +344,20 @@ def create_sample_tasks():
     return tasks
 
 
-def ingest_tasks(store, tasks):
-    """Ingest tasks into the Holon store."""
+def ingest_tasks(client, tasks):
+    """Ingest tasks into the Holon store via client."""
     print(f"📥 Ingesting {len(tasks)} tasks into Holon memory...")
 
     for i, task in enumerate(tasks):
-        # Convert to JSON string for Holon ingestion
-        task_json = json.dumps(task)
-        store.insert(task_json)
+        # Use client convenience method for JSON
+        client.insert_json(task)
         if (i + 1) % 10 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(tasks)} tasks")
 
     print("✅ All tasks ingested successfully!")
 
 
-def query_tasks(store, query, description, top_k=10, guard=None, negations=None, threshold=0.0):
+def query_tasks(client, query, description, top_k=10, guard=None, negations=None, threshold=0.0):
     """Query tasks and display results."""
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
@@ -370,8 +369,15 @@ def query_tasks(store, query, description, top_k=10, guard=None, negations=None,
         print(f"Threshold: {threshold}")
 
     try:
-        results = store.query(
-            query, guard=guard, negations=negations, top_k=top_k, threshold=threshold
+        # Parse query if it's a JSON string, otherwise use as dict
+        if isinstance(query, str):
+            import json
+            query_dict = json.loads(query)
+        else:
+            query_dict = query
+
+        results = client.search_json(
+            query_dict, guard=guard, negations=negations, top_k=top_k, threshold=threshold
         )
 
         if not results:
@@ -382,8 +388,9 @@ def query_tasks(store, query, description, top_k=10, guard=None, negations=None,
             f"  ✅ Found {len(results)} matching tasks (showing top {min(top_k, len(results))}):"
         )
 
-        for i, (task_id, score, task_data) in enumerate(results):
-            task = task_data  # Already parsed JSON
+        for i, result in enumerate(results):
+            task = result["data"]
+            score = result["score"]
             print(f"\n  {i+1}. [{score:.3f}] {task['title']}")
             print(
                 f"     Project: {task['project']} | Priority: {task['priority']} | "
@@ -405,14 +412,15 @@ def main():
     print("🧠 Personal Task Memory System Demo")
     print("=" * 50)
 
-    # Initialize Holon store
-    print("🚀 Initializing Holon CPUStore...")
+    # Initialize Holon store and client
+    print("🚀 Initializing Holon CPUStore and Client...")
     store = CPUStore(dimensions=16000)
-    print("✅ Store initialized with 16,000 dimensions")
+    client = HolonClient(local_store=store)
+    print("✅ Store and client initialized with 16,000 dimensions")
 
     # Create and ingest sample tasks
     tasks = create_sample_tasks()
-    ingest_tasks(store, tasks)
+    ingest_tasks(client, tasks)
 
     # Demonstrate various query types
     print("\n" + "=" * 50)
@@ -421,59 +429,59 @@ def main():
 
     # 1. Fuzzy similarity query - find tasks with similar titles
     query_tasks(
-        store,
-        '{"title": "prepare presentation", "project": "work", "priority": "high"}',
+        client,
+        {"title": "prepare presentation", "project": "work", "priority": "high"},
         "1. FUZZY SIMILARITY: Tasks similar to preparing presentations",
         top_k=5  # Focus on top 5 most relevant
     )
 
     # 2. Guard query (high priority tasks)
-    query_tasks(store, '{"priority": "high"}', "2. GUARDS: All high-priority tasks")
+    query_tasks(client, {"priority": "high"}, "2. GUARDS: All high-priority tasks")
 
     # 3. Negation query (tasks NOT in work project)
     query_tasks(
-        store,
-        '{"project": "work"}',
+        client,
+        {"project": "work"},
         "3. NEGATIONS: Tasks NOT in work project",
         negations={"project": {"$not": "work"}},
     )
 
     # 4. Wildcard query (any priority level)
     query_tasks(
-        store, '{"priority": {"$any": true}}', "4. WILDCARDS: Tasks with any priority"
+        client, {"priority": {"$any": True}}, "4. WILDCARDS: Tasks with any priority"
     )
 
     # 5. Disjunction query (work OR personal projects)
     query_tasks(
-        store,
-        '{"$or": [{"project": "work"}, {"project": "personal"}]}',
+        client,
+        {"$or": [{"project": "work"}, {"project": "personal"}]},
         "5. DISJUNCTIONS: Tasks in work OR personal projects",
     )
 
     # 6. Combined query with guard (urgent tasks NOT done)
     query_tasks(
-        store,
-        '{"tags": ["urgent"]}',
+        client,
+        {"tags": ["urgent"]},
         "6. COMBINED: Urgent tasks that are NOT done",
         negations={"status": {"$not": "done"}},
     )
 
     # 7. Context-based query (computer tasks)
     query_tasks(
-        store,
-        '{"context": ["computer"]}',
+        client,
+        {"context": ["computer"]},
         "7. CONTEXT FILTERING: Tasks that can be done on computer",
     )
 
     # 8. Status-based query (active tasks)
     query_tasks(
-        store, '{"status": "todo"}', "8. STATUS FILTERING: Tasks that are still todo"
+        client, {"status": "todo"}, "8. STATUS FILTERING: Tasks that are still todo"
     )
 
     # 9. Complex query: Medium/high priority side projects NOT waiting
     query_tasks(
-        store,
-        '{"project": "side"}',
+        client,
+        {"project": "side"},
         "9. COMPLEX: Side projects NOT in waiting status",
         guard={"$or": [{"priority": "medium"}, {"priority": "high"}]},
         negations={"status": {"$not": "waiting"}},
@@ -481,7 +489,7 @@ def main():
 
     # 10. Tag-based similarity (learning-related tasks)
     query_tasks(
-        store, '{"tags": ["learning"], "project": "side"}',
+        client, {"tags": ["learning"], "project": "side"},
         "10. TAG SIMILARITY: Side project learning tasks",
         top_k=3
     )

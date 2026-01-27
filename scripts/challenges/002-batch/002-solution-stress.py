@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Tuple
 
 from edn_format import Keyword
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_large_graph_dataset(num_graphs: int = 500) -> List[Dict]:
@@ -332,7 +332,7 @@ def format_map(m):
     return "{" + ", ".join(pairs) + "}"
 
 
-def ingest_graphs_efficiently(store, graphs, batch_size=50):
+def ingest_graphs_efficiently(client, graphs, batch_size=50):
     """Ingest graphs in batches for better performance."""
     print(f"📥 Ingesting {len(graphs)} graphs in batches of {batch_size}...")
 
@@ -343,7 +343,7 @@ def ingest_graphs_efficiently(store, graphs, batch_size=50):
 
         for graph in batch:
             graph_edn = convert_graph_to_edn(graph)
-            store.insert(graph_edn, data_type="edn")
+            client.insert(graph_edn, data_type="edn")
 
         batch_time = time.time() - batch_start
         progress = min(i + batch_size, len(graphs))
@@ -359,7 +359,7 @@ def ingest_graphs_efficiently(store, graphs, batch_size=50):
     )
 
 
-def run_stress_tests(store, graphs):
+def run_stress_tests(client, graphs):
     """Run comprehensive stress tests on the graph matching system."""
 
     print("\n" + "=" * 80)
@@ -370,28 +370,28 @@ def run_stress_tests(store, graphs):
 
     # Test 1: Large-scale similarity queries
     print("\n🔍 TEST 1: LARGE-SCALE SIMILARITY QUERIES")
-    test_results["similarity"] = test_similarity_queries(store, graphs)
+    test_results["similarity"] = test_similarity_queries(client, graphs)
 
     # Test 2: Subgraph matching at scale
     print("\n🔍 TEST 2: SUBGRAPH MATCHING AT SCALE")
-    test_results["subgraph"] = test_subgraph_matching(store, graphs)
+    test_results["subgraph"] = test_subgraph_matching(client, graphs)
 
     # Test 3: Structural family clustering
     print("\n🔍 TEST 3: STRUCTURAL FAMILY CLUSTERING")
-    test_results["clustering"] = test_family_clustering(store, graphs)
+    test_results["clustering"] = test_family_clustering(client, graphs)
 
     # Test 4: Query performance scaling
     print("\n🔍 TEST 4: QUERY PERFORMANCE SCALING")
-    test_results["performance"] = test_query_performance(store, graphs)
+    test_results["performance"] = test_query_performance(client, graphs)
 
     # Test 5: Approximate vs exact matching
     print("\n🔍 TEST 5: APPROXIMATE MATCHING ACCURACY")
-    test_results["accuracy"] = test_approximate_accuracy(store, graphs)
+    test_results["accuracy"] = test_approximate_accuracy(client, graphs)
 
     return test_results
 
 
-def test_similarity_queries(store, graphs):
+def test_similarity_queries(client, graphs):
     """Test finding similar graphs across the large dataset."""
     results = {"queries": 0, "total_time": 0, "matches_found": 0}
 
@@ -408,7 +408,7 @@ def test_similarity_queries(store, graphs):
         start_time = time.time()
 
         # Find graphs similar to this type
-        query_results = store.query(
+        query_results = client.search(
             f'{{:name "{query_name}"}}', data_type="edn", top_k=20, threshold=0.0
         )
 
@@ -428,7 +428,7 @@ def test_similarity_queries(store, graphs):
     return results
 
 
-def test_subgraph_matching(store, graphs):
+def test_subgraph_matching(client, graphs):
     """Test finding graphs containing specific subgraph patterns."""
     results = {"queries": 0, "total_time": 0, "matches_found": 0}
 
@@ -448,7 +448,7 @@ def test_subgraph_matching(store, graphs):
     for pattern, description in patterns:
         start_time = time.time()
 
-        query_results = store.query(pattern, data_type="edn", top_k=50, threshold=0.0)
+        query_results = client.search(pattern, data_type="edn", top_k=50, threshold=0.0)
 
         query_time = time.time() - start_time
         results["queries"] += 1
@@ -466,7 +466,7 @@ def test_subgraph_matching(store, graphs):
     return results
 
 
-def test_family_clustering(store, graphs):
+def test_family_clustering(client, graphs):
     """Test that graphs naturally cluster by structural family."""
     results = {"families_tested": 0, "clusters_found": 0, "purity_score": 0.0}
 
@@ -482,7 +482,7 @@ def test_family_clustering(store, graphs):
         representative = family_graphs[0]
 
         # Query for similar graphs
-        query_results = store.query(
+        query_results = client.search(
             f'{{:name "{representative["name"]}"}}',
             data_type="edn",
             top_k=30,
@@ -491,7 +491,8 @@ def test_family_clustering(store, graphs):
 
         # Check how many results are from the same family
         same_family_count = 0
-        for _, _, result_graph in query_results:
+        for result_data in query_results:
+            result_graph = result_data["data"]
             result_family = result_graph.get(Keyword("description"), "")
             if family.lower() in str(result_family).lower():
                 same_family_count += 1
@@ -515,7 +516,7 @@ def test_family_clustering(store, graphs):
     return results
 
 
-def test_query_performance(store, graphs):
+def test_query_performance(client, graphs):
     """Test query performance scaling."""
     results = {"dataset_sizes": [], "query_times": []}
 
@@ -530,7 +531,7 @@ def test_query_performance(store, graphs):
         test_graph = graphs[size // 2]  # Middle of current dataset
 
         start_time = time.time()
-        store.query(
+        client.search(
             f'{{:name "{test_graph["name"]}"}}',
             data_type="edn",
             top_k=10,
@@ -546,7 +547,7 @@ def test_query_performance(store, graphs):
     return results
 
 
-def test_approximate_accuracy(store, graphs):
+def test_approximate_accuracy(client, graphs):
     """Test how well our approximate matching performs."""
     results = {"exact_matches": 0, "approximate_matches": 0, "false_positives": 0}
 
@@ -569,13 +570,15 @@ def test_approximate_accuracy(store, graphs):
         graph2 = graph2_candidates[0]
 
         # Query graph2's similarity to graph1
-        query_results = store.query(
+        query_results = client.search(
             f'{{:name "{graph1["name"]}"}}', data_type="edn", top_k=20, threshold=0.0
         )
 
         # Check if graph2 appears in results with high similarity
         graph2_found = False
-        for _, score, result in query_results:
+        for result_data in query_results:
+            score = result_data["score"]
+            result = result_data["data"]
             if result.get(Keyword("name")) == graph2["name"] and score > 0.1:
                 graph2_found = True
                 break
@@ -675,9 +678,10 @@ def main():
     NUM_GRAPHS = 500  # Scale up to really stress test the system
     DIMENSIONS = 16000
 
-    # Initialize store
+    # Initialize store and client
     print(f"\n🚀 Initializing Holon CPUStore with {DIMENSIONS} dimensions...")
     store = CPUStore(dimensions=DIMENSIONS)
+    client = HolonClient(local_store=store)
     print("✅ Store ready for large-scale testing")
 
     # Generate large dataset
@@ -697,10 +701,10 @@ def main():
     )
 
     # Ingest graphs efficiently
-    ingest_graphs_efficiently(store, graphs, batch_size=100)
+    ingest_graphs_efficiently(client, graphs, batch_size=100)
 
     # Run comprehensive stress tests
-    test_results = run_stress_tests(store, graphs)
+    test_results = run_stress_tests(client, graphs)
 
     # Print final summary
     print_stress_test_summary(test_results)

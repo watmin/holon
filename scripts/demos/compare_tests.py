@@ -7,7 +7,8 @@ Let's see what's different between our working debug test and failing comprehens
 
 import json
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
+import edn_format
 
 
 # Copy functions from our working debug
@@ -145,6 +146,7 @@ def test_debug_approach():
     print("=" * 50)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Create simple complete matrices (like debug script)
     complete_matrices = [
@@ -155,15 +157,15 @@ def test_debug_approach():
     ]
 
     for matrix in complete_matrices:
-        matrix_json = edn_to_json(matrix)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(matrix)
+        client.insert(matrix_json, data_type="edn")
 
     # Test missing panel completion
     incomplete_matrix = generate_rpm_matrix(
         "debug-incomplete", "xor", {"shape", "count", "color"}, "row3-col3"
     )
-    matrix_json = edn_to_json(incomplete_matrix)
-    store.insert(matrix_json)
+    matrix_json = edn_format.dumps(incomplete_matrix)
+    client.insert(matrix_json, data_type="edn")
 
     expected_panel = compute_expected_missing_panel(incomplete_matrix, "row3-col3")
     print(
@@ -173,16 +175,17 @@ def test_debug_approach():
     # Search for completion
     probe_structure = {"panels": incomplete_matrix["panels"], "rule": "xor"}
 
-    results = store.query(
-        edn_to_json(probe_structure),
+    results = client.search(
+        edn_format.dumps(probe_structure),
+        data_type="edn",
         negations={"missing-position": {"$any": True}},
         top_k=5,
     )
 
     print(f"Found {len(results)} completion candidates:")
     found_correct = False
-    for result in results:
-        data = result[2]
+    for result_data in results:
+        data = result_data["data"]
         actual_missing = data.get("panels", {}).get("row3-col3", {})
         actual_shapes = set(actual_missing.get("shapes", []))
         actual_count = actual_missing.get("count", 0)
@@ -205,6 +208,7 @@ def test_comprehensive_approach():
     print("=" * 50)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Create multiple matrices like comprehensive test
     for i in range(5):
@@ -212,15 +216,15 @@ def test_comprehensive_approach():
         complete = generate_rpm_matrix(
             f"comp-complete-{i}", "xor", {"shape", "count", "color"}
         )
-        matrix_json = edn_to_json(complete)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(complete)
+        client.insert(matrix_json, data_type="edn")
 
         # Add incomplete matrix
         incomplete = generate_rpm_matrix(
             f"comp-incomplete-{i}", "xor", {"shape", "count", "color"}, "row3-col3"
         )
-        matrix_json = edn_to_json(incomplete)
-        store.insert(matrix_json)
+        matrix_json = edn_format.dumps(incomplete)
+        client.insert(matrix_json, data_type="edn")
 
     # Test one completion
     test_matrix = generate_rpm_matrix(
@@ -233,16 +237,17 @@ def test_comprehensive_approach():
 
     probe_structure = {"panels": test_matrix["panels"], "rule": "xor"}
 
-    results = store.query(
-        edn_to_json(probe_structure),
+    results = client.search(
+        edn_format.dumps(probe_structure),
+        data_type="edn",
         negations={"missing-position": {"$any": True}},
         top_k=5,
     )
 
     print(f"Found {len(results)} completion candidates:")
     found_correct = False
-    for result in results:
-        data = result[2]
+    for result_data in results:
+        data = result_data["data"]
         actual_missing = data.get("panels", {}).get("row3-col3", {})
         actual_shapes = set(actual_missing.get("shapes", []))
         actual_count = actual_missing.get("count", 0)

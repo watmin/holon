@@ -20,4 +20,4 @@ Requirements:
 4. Demonstrate geometric tractability: Compute "transformation" via query similarity (e.g., unbind row deltas), select top-3 candidates.
 5. Bonus: Simulate solving an unseen matrix by querying for nearest geometric analog.
 
-Show full code: imports, CPUStore init (high dims e.g. 16000), encoding strategy (how to bind positions/attributes, bundle rows), ingestion, and 3–4 query examples with ranked results (cosine scores as geometric alignment measure).
+Show full code: imports, HolonClient init with CPUStore (high dims e.g. 16000), encoding strategy (how to bind positions/attributes, bundle rows), ingestion, and 3–4 query examples with ranked results (cosine scores as geometric alignment measure).

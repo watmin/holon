@@ -9,14 +9,15 @@ import random
 import uuid
 from typing import Dict, List, Set, Any
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class GeometricGraphEncoder:
     """Optimized VSA/HDC geometric graph encoder using effective encoding strategy"""
 
-    def __init__(self, store, dimensions: int = 16000):
+    def __init__(self, store, client, dimensions: int = 16000):
         self.store = store
+        self.client = client
         self.dimensions = dimensions
         self.node_vectors = {}  # Cache for node atomic vectors
         self.label_vectors = {}  # Cache for edge label vectors
@@ -148,8 +149,8 @@ class GeometricGraphEncoder:
         all_components = edge_vectors + degree_vectors + motif_vectors
 
         if all_components:
-            # Use Holon's bundle for superposition
-            graph_vector = self.store.encoder.bundle(all_components)
+            # Use client's vector composition for superposition
+            graph_vector = self.client.compose_vectors("bundle", [vec.tolist() if hasattr(vec, 'tolist') else vec for vec in all_components])
 
             # Add scale-invariant topological metadata (normalized features)
             degree_values = list(node_degrees.values())
@@ -185,8 +186,8 @@ class GeometricGraphEncoder:
                 topology_type = "complex"  # Other structures
 
             meta_data["topology_type"] = topology_type
-            meta_vector = self.store.encoder.encode_data(meta_data)
-            graph_vector = self.store.encoder.bind(graph_vector, meta_vector)
+            meta_vector = self.client.encode_vectors_json(meta_data)
+            graph_vector = self.client.compose_vectors("bind", [graph_vector, meta_vector])
 
             return graph_vector
         else:
@@ -238,7 +239,7 @@ class GeometricGraphEncoder:
 
         # Get node vectors and bundle them
         node_vectors = [self.get_node_vector(node) for node in nodes]
-        return self.store.encoder.bundle(node_vectors)
+        return self.client.compose_vectors("bundle", node_vectors)
 
     def geometric_similarity(self, vec1, vec2) -> float:
         """Compute geometric similarity using Holon's normalized dot product similarity"""
@@ -251,7 +252,8 @@ class GeometricGraphMatcher:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
-        self.encoder = GeometricGraphEncoder(self.store, dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
+        self.encoder = GeometricGraphEncoder(self.store, self.client, dimensions=dimensions)
         self.graph_cache = {}  # Store original graph data
 
     def ingest_graph(self, graph: Dict[str, Any]):
@@ -289,7 +291,7 @@ class GeometricGraphMatcher:
         }
 
         # Store the graph structure (geometric vectors computed on demand)
-        self.store.insert(json.dumps(graph_data), data_type="json")
+        self.client.insert_json(graph_data)
 
     def find_similar_graphs(self, query_graph: Dict[str, Any], top_k: int = 5, use_topological_similarity: bool = False) -> List[Dict[str, Any]]:
         """Find geometrically similar graphs using advanced VSA/HDC similarity"""
@@ -301,14 +303,14 @@ class GeometricGraphMatcher:
 
         # Query all stored items (this is a simplified approach for the demo)
         # In a production system, you'd want more efficient similarity search
-        all_results = self.store.query(
-            '{"metadata": {"type": "undirected"}}',  # Get all graphs
-            data_type="json",
+        all_results = self.client.search_json(
+            {"metadata": {"type": "undirected"}},  # Get all graphs
             top_k=100,  # Get all stored graphs
             threshold=0.0
         )
 
-        for _, _, stored_data in all_results:
+        for result in all_results:
+            stored_data = result["data"]
             graph_id = stored_data["graph_id"]
             stored_graph = stored_data["graph_structure"]
 

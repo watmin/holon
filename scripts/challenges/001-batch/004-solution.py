@@ -12,7 +12,7 @@ import random
 import uuid
 from typing import Any, Dict, List, Tuple
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class MagicMemoryStore:
@@ -20,6 +20,7 @@ class MagicMemoryStore:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.magic_items = {}  # id -> original data dict
         self.spells = {}  # id -> original data dict
 
@@ -31,7 +32,7 @@ class MagicMemoryStore:
 
         # Convert sets to lists for JSON
         json_spell = self._prepare_for_json(spell)
-        vector_id = self.store.insert(json.dumps(json_spell), "json")
+        vector_id = self.client.insert_json(json_spell)
 
         self.spells[vector_id] = spell
         return vector_id
@@ -43,7 +44,7 @@ class MagicMemoryStore:
         item["type"] = "item"  # Mark as item
 
         json_item = self._prepare_for_json(item)
-        vector_id = self.store.insert(json.dumps(json_item), "json")
+        vector_id = self.client.insert_json(json_item)
 
         self.magic_items[vector_id] = item
         return vector_id
@@ -63,12 +64,12 @@ class MagicMemoryStore:
         self, probe: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
     ) -> List[Tuple[str, float, Dict]]:
         """Find spells/items similar to the probe."""
-        json_probe = json.dumps(self._prepare_for_json(probe))
-        results = self.store.query(json_probe, "json", top_k=top_k, threshold=threshold)
+        json_probe = self._prepare_for_json(probe)
+        results = self.client.search_json(json_probe, top_k=top_k, threshold=threshold)
 
         return [
-            (bug_id, score, self._get_magic_item(bug_id))
-            for bug_id, score, _ in results
+            (result["id"], result["score"], self._get_magic_item(result["id"]))
+            for result in results
         ]
 
     def query_magic(
@@ -79,10 +80,9 @@ class MagicMemoryStore:
         top_k: int = 10,
     ) -> List[Tuple[str, float, Dict]]:
         """Advanced query with guards and negations."""
-        json_probe = json.dumps(self._prepare_for_json(probe or {}))
-        results = self.store.query(
+        json_probe = self._prepare_for_json(probe or {})
+        results = self.client.search_json(
             json_probe,
-            "json",
             guard=guard,
             negations=negations,
             top_k=top_k,
@@ -90,8 +90,8 @@ class MagicMemoryStore:
         )
 
         return [
-            (magic_id, score, self._get_magic_item(magic_id))
-            for magic_id, score, _ in results
+            (result["id"], result["score"], self._get_magic_item(result["id"]))
+            for result in results
         ]
 
     def _get_magic_item(self, vector_id: str) -> Dict[str, Any]:

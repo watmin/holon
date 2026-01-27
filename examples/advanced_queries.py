@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
 Advanced Queries Example: Complex Guards, Negations, and $or Logic
-Demonstrates sophisticated query patterns with compound conditions.
+Demonstrates sophisticated query patterns with compound conditions using HolonClient.
 """
 
-import json
-
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def main():
+    # Initialize store and create unified client
     store = CPUStore()
+    client = HolonClient(local_store=store)
 
     # Create diverse test data
     data = [
@@ -58,8 +58,9 @@ def main():
         },
     ]
 
+    # Insert data using client (convenience method for JSON)
     for item in data:
-        store.insert(json.dumps(item))
+        client.insert_json(item)
 
     print("🔍 Advanced Query Examples")
     print("=" * 50)
@@ -68,8 +69,8 @@ def main():
     print("\n1. Complex OR Conditions in Guards")
     print("   Query: High priority developers OR active managers")
 
-    results = store.query(
-        "{}",
+    results = client.search_json(
+        {},
         guard={
             "$or": [
                 {"priority": "high", "role": "developer"},
@@ -79,7 +80,7 @@ def main():
     )
 
     for result in results:
-        data = result[2]
+        data = result["data"]
         print(
             f"   → {data['user']}: {data['role']} ({data['priority']} priority, {data['status']})"
         )
@@ -88,15 +89,15 @@ def main():
     print("\n2. Nested OR Logic")
     print("   Query: Web project with high priority OR active mobile developers")
 
-    results = store.query(
-        '{"project": "web"}',
+    results = client.search_json(
+        {"project": "web"},
         guard={
             "$or": [{"priority": "high"}, {"project": "mobile", "status": "active"}]
         },
     )
 
     for result in results:
-        data = result[2]
+        data = result["data"]
         print(
             f"   → {data['user']}: {data['project']} project ({data['priority']} priority)"
         )
@@ -105,26 +106,26 @@ def main():
     print("\n3. Guards + Negations")
     print("   Query: Developers who are NOT inactive")
 
-    results = store.query(
-        '{"role": "developer"}',
+    results = client.search_json(
+        {"role": "developer"},
         guard={"status": "active"},
         negations={"user": {"$not": "charlie"}},  # Exclude charlie specifically
     )
 
     for result in results:
-        data = result[2]
+        data = result["data"]
         print(f"   → {data['user']}: {data['role']} ({data['status']})")
 
     # Example 4: Multiple negations
     print("\n4. Multiple Negation Patterns")
     print("   Query: Exclude low priority AND inactive status")
 
-    results = store.query(
-        "{}", negations={"priority": {"$not": "low"}, "status": {"$not": "inactive"}}
+    results = client.search_json(
+        {}, negations={"priority": {"$not": "low"}, "status": {"$not": "inactive"}}
     )
 
     for result in results:
-        data = result[2]
+        data = result["data"]
         print(
             f"   → {data['user']}: {data['role']} ({data['priority']} priority, {data['status']})"
         )
@@ -133,13 +134,13 @@ def main():
     print("\n5. Wildcards in Probes")
     print("   Query: Any priority level, but must be active developers")
 
-    results = store.query(
-        '{"priority": {"$any": true}}',  # Match any priority
+    results = client.search_json(
+        {"priority": {"$any": True}},  # Match any priority
         guard={"role": "developer", "status": "active"},
     )
 
     for result in results:
-        data = result[2]
+        data = result["data"]
         print(f"   → {data['user']}: {data['role']} ({data['priority']} priority)")
 
     print("\n✅ Advanced query examples completed!")

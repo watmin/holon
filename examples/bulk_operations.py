@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Bulk Operations Example: Efficient Large-Scale Data Ingestion
-Demonstrates batch inserts, bulk queries, and performance optimizations.
+Demonstrates batch inserts, bulk queries, and performance optimizations using HolonClient.
 """
 
 import json
 import time
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def generate_sample_data(count=100):
@@ -26,13 +26,14 @@ def generate_sample_data(count=100):
             "timestamp": f"2024-01-{str((i % 28) + 1).zfill(2)}",
             "session_id": f"session_{i % 10}",
         }
-        data.append(json.dumps(item))
+        data.append(item)  # Return dicts, not JSON strings
 
     return data
 
 
 def main():
     store = CPUStore()
+    client = HolonClient(local_store=store)
 
     print("📦 Bulk Operations Examples")
     print("=" * 50)
@@ -47,17 +48,19 @@ def main():
     start_time = time.time()
     individual_ids = []
     for item in test_data:
-        id_ = store.insert(item)
+        id_ = client.insert_json(item)
         individual_ids.append(id_)
     individual_time = time.time() - start_time
     print(f"   Individual inserts: {individual_time:.3f}s")
 
     # Clear and test bulk inserts
-    store.clear()
+    # Note: We can't directly clear through client, so we'll create a new store
+    store = CPUStore()
+    client = HolonClient(local_store=store)
 
     print("   Bulk inserts:")
     start_time = time.time()
-    bulk_ids = store.batch_insert(test_data)
+    bulk_ids = client.insert_batch_json(test_data)
     bulk_time = time.time() - start_time
     print(f"   Bulk inserts: {bulk_time:.3f}s")
 
@@ -69,9 +72,7 @@ def main():
 
     # Add more data for meaningful queries
     more_data = generate_sample_data(200)
-    store.batch_insert(more_data)
-
-    print(f"   Total items in store: {len(store.stored_data)}")
+    client.insert_batch_json(more_data)
 
     # Query for different activity types
     activities = ["login", "logout", "view_profile"]
@@ -79,7 +80,7 @@ def main():
     print("   Querying different activities:")
     for activity in activities:
         start_time = time.time()
-        results = store.query(f'{{"activity": "{activity}"}}', top_k=10)
+        results = client.search_json({"activity": activity}, top_k=10)
         query_time = time.time() - start_time
         print(f"   {activity}: {query_time:.4f}s")
 
@@ -87,47 +88,44 @@ def main():
     print("\n3. Complex Queries on Bulk Data")
 
     # Query successful logins on mobile devices
-    results = store.query(
-        '{"activity": "login"}',
+    results = client.search_json(
+        {"activity": "login"},
         guard={"status": "success", "device": "mobile"},
         top_k=5,
     )
 
     print(f"   Successful mobile logins: {len(results)}")
     for result in results[:3]:
-        data = result[2]
+        data = result["data"]
         print(f"   → User {data['user_id']} on {data['device']}")
 
     # Example 4: Bulk Operations with Negations
     print("\n4. Bulk Queries with Negations")
 
     # Find all activities except failed ones
-    results = store.query("{}", negations={"status": {"$not": "failed"}}, top_k=10)
+    results = client.search_json({}, negations={"status": {"$not": "failed"}}, top_k=10)
 
     print(f"   Non-failed activities: {len(results)}")
     status_counts = {}
     for result in results:
-        status = result[2]["status"]
+        status = result["data"]["status"]
         status_counts[status] = status_counts.get(status, 0) + 1
 
     for status, count in status_counts.items():
         print(f"   → {status}: {count}")
 
-    # Example 5: Memory and Performance Monitoring
+    # Example 5: Performance Monitoring via Client
     print("\n5. Performance Monitoring")
 
-    print(f"   Items stored: {len(store.stored_data)}")
-    print(f"   Vectors cached: {len(store.stored_vectors)}")
+    # Get health info from client
+    health = client.health()
+    print(f"   Items stored: {health['items_count']}")
+    print(f"   Backend: {health['backend']}")
 
-    # Check if ANN index is active
-    if hasattr(store, "ann_index") and store.ann_index is not None:
-        print("   ANN index: Active (optimized for queries)")
-    else:
-        print("   ANN index: Inactive (brute-force mode)")
-
-    # Estimate memory usage
-    estimated_memory = len(store.stored_data) * 70  # ~70KB per item
-    print(f"   Estimated memory: ~{estimated_memory}KB")
+    # Note: Internal details like ANN index status are abstracted away
+    # Users work with data, not implementation details
+    print("   Vector operations: Handled internally by Holon")
+    print("   Memory management: Optimized automatically")
 
     print("\n✅ Bulk operations examples completed!")
 

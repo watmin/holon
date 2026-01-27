@@ -4,7 +4,7 @@ Debug script to test VSA/HDC similarity calculations for n-gram encoding.
 """
 
 import json
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 
@@ -14,6 +14,8 @@ def test_bundle_encoding():
     print("=" * 48)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
+    client = HolonClient(local_store=store)
 
     # Test sequence
     words = ["everything", "depends", "upon", "relative", "minuteness"]
@@ -23,32 +25,30 @@ def test_bundle_encoding():
     ngram_data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
     # Insert bundle version
-    bundle_id = store.insert(json.dumps(bundle_data), "json")
+    bundle_id = client.insert_json(bundle_data)
 
     # Query with bundle
-    results = store.query(
-        probe=json.dumps(bundle_data),
-        data_type="json",
+    results = client.search_json(
+        bundle_data,
         top_k=1,
         threshold=0.0
     )
 
     if results:
-        score = results[0][1]
+        score = results[0]["score"]
         print(f"   Bundle self-similarity: {score:.4f}")
 
     # Insert ngram version
-    ngram_id = store.insert(json.dumps(ngram_data), "json")
+    ngram_id = client.insert_json(ngram_data)
 
     # Query bundle against ngram
-    results = store.query(
-        probe=json.dumps(bundle_data),
-        data_type="json",
+    results = client.search_json(
+        bundle_data,
         top_k=5,
         threshold=0.0
     )
 
-    print(f"   Bundle vs N-gram similarity: {results[0][1]:.4f} (same data, different encoding)")
+    print(f"   Bundle vs N-gram similarity: {results[0]['score']:.4f} (same data, different encoding)")
 
 
 def test_ngram_similarity():
@@ -57,6 +57,7 @@ def test_ngram_similarity():
     print("=" * 50)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Test sequence
     words = ["everything", "depends", "upon", "relative", "minuteness"]
@@ -66,20 +67,19 @@ def test_ngram_similarity():
     probe_data2 = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
     # Insert one as data
-    data_id = store.insert(json.dumps(probe_data1), "json")
+    data_id = client.insert_json(probe_data1)
     print(f"✅ Inserted test data with ID: {data_id}")
 
     # Query with the identical probe
-    results = store.query(
-        probe=json.dumps(probe_data2),
-        data_type="json",
+    results = client.search_json(
+        probe_data2,
         top_k=5,
         threshold=0.0
     )
 
     print(f"🔍 Query results: {len(results)} matches")
     if results:
-        score = results[0][1]
+        score = results[0]["score"]
         print(f"   Similarity score: {score:.4f}")
         # Expected: should be very close to 1.0 for identical sequences
         if score > 0.9:
@@ -100,26 +100,26 @@ def test_different_sequences():
     print("-" * 40)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     # Original sequence
     words1 = ["everything", "depends", "upon", "relative", "minuteness"]
     data = {"words": {"_encode_mode": "ngram", "sequence": words1}}
-    data_id = store.insert(json.dumps(data), "json")
+    data_id = client.insert_json(data)
 
     # Similar but different sequence
     words2 = ["depends", "on", "relative", "smallness"]
     probe = {"words": {"_encode_mode": "ngram", "sequence": words2}}
 
-    results = store.query(
-        probe=json.dumps(probe),
-        data_type="json",
+    results = client.search_json(
+        probe,
         top_k=5,
         threshold=0.0
     )
 
     print(f"🔍 Query results: {len(results)} matches")
     if results:
-        score = results[0][1]
+        score = results[0]["score"]
         print(f"   Similarity score: {score:.4f}")
         print("   Expected: lower similarity due to different sequences")
     else:
@@ -132,24 +132,23 @@ def test_raw_vector_similarity():
     print("-" * 35)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     words = ["everything", "depends", "upon", "relative", "minuteness"]
     data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
     # Get raw vector
-    vector = store.encoder.encode_data(data)
-    cpu_vector = store.vector_manager.to_cpu(vector)
+    vector = client.encode_vectors_json(data)
 
     # Query with same data
-    results = store.query(
-        probe=json.dumps(data),
-        data_type="json",
+    results = client.search_json(
+        data,
         top_k=1,
         threshold=0.0
     )
 
     if results:
-        score = results[0][1]
+        score = results[0]["score"]
         print(f"   Similarity score: {score:.4f}")
         print(f"   Vector magnitude: {cpu_vector.shape}")
         print(f"   Non-zero elements: {np.count_nonzero(cpu_vector)}")
@@ -161,43 +160,40 @@ def test_manual_similarity():
     print("-" * 32)
 
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     words = ["everything", "depends", "upon", "relative", "minuteness"]
     data = {"words": {"_encode_mode": "ngram", "sequence": words}}
 
     # Get two identical vectors
-    vector1 = store.encoder.encode_data(data)
-    vector2 = store.encoder.encode_data(data)
-
-    cpu_vec1 = store.vector_manager.to_cpu(vector1)
-    cpu_vec2 = store.vector_manager.to_cpu(vector2)
+    vector1 = client.encode_vectors_json(data)
+    vector2 = client.encode_vectors_json(data)
 
     # Manual dot product similarity
-    dot_product = np.dot(cpu_vec1.astype(float), cpu_vec2.astype(float))
-    normalized_similarity = dot_product / len(cpu_vec1)
+    dot_product = sum(a * b for a, b in zip(vector1, vector2))
+    normalized_similarity = dot_product / len(vector1)
 
     print(f"   Manual dot product: {dot_product}")
     print(f"   Manual normalized similarity: {normalized_similarity:.4f}")
-    print(f"   Vectors are identical: {np.array_equal(cpu_vec1, cpu_vec2)}")
+    print(f"   Vectors are identical: {vector1 == vector2}")
 
     # Check if vectors are actually the same
-    if np.array_equal(cpu_vec1, cpu_vec2):
+    if vector1 == vector2:
         print("   ✅ Vectors are identical - similarity should be 1.0")
 
         # But let's check why similarity isn't 1.0
-        print(f"   Vector dtype: {cpu_vec1.dtype}")
-        unique_vals = np.unique(cpu_vec1)
-        print(f"   Unique values in vector: {unique_vals}")
+        unique_vals = set(vector1)
+        print(f"   Unique values in vector: {sorted(unique_vals)}")
 
         # Count each value
-        for val in unique_vals:
-            count = np.sum(cpu_vec1 == val)
+        for val in sorted(unique_vals):
+            count = vector1.count(val)
             print(f"     {val}: {count} positions")
 
         # Expected dot product for identical bipolar vector
-        expected_dot = np.sum(cpu_vec1 * cpu_vec1)  # Should be dimension if bipolar
+        expected_dot = sum(v * v for v in vector1)  # Should be dimension if bipolar
         print(f"   Self-dot product (v·v): {expected_dot}")
-        print(f"   Expected similarity: {expected_dot / len(cpu_vec1):.4f}")
+        print(f"   Expected similarity: {expected_dot / len(vector1):.4f}")
 
     else:
         diff_count = np.sum(cpu_vec1 != cpu_vec2)

@@ -17,7 +17,7 @@ import json
 import random
 import uuid
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from geometric_graph_matching import GeometricGraphMatcher, create_test_graphs
 
 

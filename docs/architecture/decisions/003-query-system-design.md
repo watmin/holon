@@ -72,19 +72,19 @@ Probe Vector → Similarity Search → Guard Filter → Negation Filter → Resu
 
 ```python
 # Basic similarity with guards
-results = store.query(
-    '{"role": "developer"}',  # similarity probe
+results = client.search_json(
+    {"role": "developer"},  # similarity probe
     guard={"team": "backend"}  # exact filter
 )
 
 # Negations
-results = store.query(
-    '{"role": "developer"}',
+results = client.search_json(
+    {"role": "developer"},
     negations={"name": {"$not": "Alice"}}
 )
 
 # Complex $or conditions
-results = store.query('{}', guard={
+results = client.search_json({}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},
         {"project": "urgent", "category": "side"}

@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 from holon.encoder import ListEncodeMode
 
 logging.basicConfig(level=logging.INFO)
@@ -23,6 +23,7 @@ class MetadataQuoteSystem:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         # In a real system, this would be external metadata lookup
         self.metadata_lookup = {}  # vector_id -> coordinate_metadata
 
@@ -34,10 +35,8 @@ class MetadataQuoteSystem:
         # Create encoding data structure
         encode_data = {"text": {"_encode_mode": "ngram", "sequence": words}}
 
-        # Get vector from encoder (simulating /encode API)
-        vector = self.store.encoder.encode_data(encode_data)
-        cpu_vector = self.store.vector_manager.to_cpu(vector)
-        return cpu_vector.tolist()
+        # Get vector from client (simulating /encode API)
+        return self.client.encode_vectors_json(encode_data)
 
     def _normalize_text(self, text: str) -> List[str]:
         """Normalize text for encoding."""
@@ -78,7 +77,7 @@ class MetadataQuoteSystem:
 
         # Store in Holon (this will encode the vector_data again, but that's OK)
         # In a production system, you'd store pre-computed vectors directly
-        vector_id = self.store.insert(json.dumps(storage_unit), "json")
+        vector_id = self.client.insert_json(storage_unit)
 
         # Store coordinate lookup (in real system, this would be external DB)
         self.metadata_lookup[vector_id] = coordinates
@@ -104,9 +103,8 @@ class MetadataQuoteSystem:
         }
 
         # Search for similar vectors
-        results = self.store.query(
-            probe=json.dumps(probe_data),
-            data_type="json",
+        results = self.client.search_json(
+            probe_data,
             top_k=top_k,
             threshold=threshold,
         )
@@ -115,7 +113,10 @@ class MetadataQuoteSystem:
 
         # Return only coordinate metadata (no text content)
         coordinate_results = []
-        for vector_id, score, stored_data in results:
+        for result_data in results:
+            vector_id = result_data["id"]
+            score = result_data["score"]
+            stored_data = result_data["data"]
             coordinates = self.metadata_lookup.get(
                 vector_id, stored_data.get("coordinates", {})
             )

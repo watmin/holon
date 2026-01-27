@@ -8,7 +8,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timedelta
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 def create_sample_tasks():
@@ -105,25 +105,23 @@ def create_sample_tasks():
     return tasks
 
 
-def ingest_tasks(store, tasks):
+def ingest_tasks(client, tasks):
     """Ingest tasks into Holon store"""
     print(f"📥 Ingesting {len(tasks)} tasks into Holon memory...")
     for i, task in enumerate(tasks):
-        # Convert to JSON and store
-        task_json = json.dumps(task)
-        store.insert(task_json, data_type="json")
+        # Store directly as dict
+        client.insert_json(task)
         if (i + 1) % 4 == 0:
             print(f"  ✓ Ingested {i + 1}/{len(tasks)} tasks")
     print("✅ All tasks ingested successfully!")
 
 
-def query_tasks_validation(store, query, guard=None, negations=None, top_k=10):
+def query_tasks_validation(client, query, guard=None, negations=None, top_k=10):
     """Query tasks and return results for validation"""
     try:
-        # Convert query to JSON string as expected by Holon
-        query_json = json.dumps(query)
-        results = store.query(
-            query_json, guard=guard, negations=negations, top_k=top_k, threshold=0.0, data_type="json"
+        # Query using client
+        results = client.search_json(
+            query, guard=guard, negations=negations, top_k=top_k, threshold=0.0
         )
         return results
     except Exception as e:
@@ -136,15 +134,15 @@ def run_task_memory_validation():
     print("=" * 40)
 
     # Initialize store and create tasks
-    from holon import CPUStore
     store = CPUStore(dimensions=16000)
+    client = HolonClient(local_store=store)
 
     tasks = create_sample_tasks()
     print(f"📊 Created {len(tasks)} test tasks")
 
     # Ingest tasks
     start_time = time.time()
-    ingest_tasks(store, tasks)
+    ingest_tasks(client, tasks)
     ingest_time = time.time() - start_time
     print(f"   Ingested {len(tasks)} tasks in {ingest_time:.2f}s")
     # Define validation queries
@@ -224,7 +222,7 @@ def run_task_memory_validation():
         # Time the query
         start_time = time.time()
         query_results = query_tasks_validation(
-            store,
+            client,
             test["query"],
             guard=test.get("guard"),
             negations=test.get("negations"),
@@ -247,8 +245,8 @@ def run_task_memory_validation():
         print(f"   Response time: {response_time:.4f}s")
         # Show top result if available
         if query_results:
-            top_id, top_score, top_data = query_results[0]
-            print(f"   📊 Top result: {top_data.get('title', 'N/A')[:50]}...")
+            top_result = query_results[0]
+            print(f"   📊 Top result: {top_result['data'].get('title', 'N/A')[:50]}...")
 
     # Calculate final metrics
     success_rate = results["passed_tests"] / results["total_tests"]

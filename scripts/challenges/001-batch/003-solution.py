@@ -24,7 +24,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
-from holon import CPUStore
+from holon import CPUStore, HolonClient
 
 
 class BugReportStore:
@@ -32,6 +32,7 @@ class BugReportStore:
 
     def __init__(self, dimensions: int = 16000):
         self.store = CPUStore(dimensions=dimensions)
+        self.client = HolonClient(local_store=self.store)
         self.bug_reports = {}  # id -> original bug report dict
 
     def insert_bug_report(self, bug_report: Dict[str, Any]) -> str:
@@ -44,9 +45,8 @@ class BugReportStore:
         # Convert sets to lists for JSON serialization (but keep original for storage)
         json_ready_bug = self._prepare_for_json(bug_report)
 
-        # Convert to JSON string for Holon insertion
-        json_data = json.dumps(json_ready_bug)
-        vector_id = self.store.insert(json_data, "json")
+        # Use client for insertion
+        vector_id = self.client.insert_json(json_ready_bug)
 
         # Store original for retrieval and analysis
         self.bug_reports[vector_id] = bug_report
@@ -68,12 +68,12 @@ class BugReportStore:
         self, probe_bug: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
     ) -> List[Tuple[str, float, Dict]]:
         """Find bugs similar to the probe using Holon's similarity search."""
-        json_probe = json.dumps(self._prepare_for_json(probe_bug))
-        results = self.store.query(json_probe, "json", top_k=top_k, threshold=threshold)
+        json_probe = self._prepare_for_json(probe_bug)
+        results = self.client.search_json(json_probe, top_k=top_k, threshold=threshold)
 
         # Return with original bug report data
         return [
-            (bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results
+            (result["id"], result["score"], self.bug_reports[result["id"]]) for result in results
         ]
 
     def query_with_filters(
@@ -84,10 +84,9 @@ class BugReportStore:
         top_k: int = 10,
     ) -> List[Tuple[str, float, Dict]]:
         """Advanced query with guards and negations."""
-        json_probe = json.dumps(probe or {})
-        results = self.store.query(
+        json_probe = probe or {}
+        results = self.client.search_json(
             json_probe,
-            "json",
             guard=guard,
             negations=negations,
             top_k=top_k,
@@ -95,7 +94,7 @@ class BugReportStore:
         )
 
         return [
-            (bug_id, score, self.bug_reports[bug_id]) for bug_id, score, _ in results
+            (result["id"], result["score"], self.bug_reports[result["id"]]) for result in results
         ]
 
     def cluster_similar_bugs(
