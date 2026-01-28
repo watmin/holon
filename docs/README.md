@@ -6,7 +6,7 @@ See the main [README.md](../README.md) for overview and quick start.
 We've solved multiple complex challenges demonstrating Holon's VSA/HDC capabilities:
 - [Batch 1: Personal Task Memory](../scripts/challenges/001-batch/) - Fuzzy task retrieval system
 - [Batch 2: RPM Geometric Solver](../scripts/challenges/002-batch/) - Abstract reasoning with geometric learning
-- [Batch 3: Quote Finder](../scripts/challenges/003-batch/) - PDF indexing with vector bootstrapping
+- [Batch 3: Quote Finder (Geometric AI)](../scripts/challenges/003-batch/) - Pure Holon substring matching (*In Progress*)
 - [Batch 4: Sudoku Research](../scripts/challenges/004-batch/) - VSA/HDC constraint satisfaction examples
 
 ## Architecture

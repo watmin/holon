@@ -21,10 +21,12 @@ class EnhancedListEncodeMode(str, Enum):
     NGRAM = "ngram"
     BUNDLE = "bundle"
 
-    # New enhanced modes
+    # Enhanced modes
     NGRAM_CONFIGURABLE = "ngram_configurable"  # Configurable N-gram sizes
     NGRAM_WEIGHTED = "ngram_weighted"  # TF-IDF style bigram weighting
     SUBSEQUENCE_ALIGNED = "subsequence_aligned"  # Advanced subsequence matching
+    # SEMANTIC_FIELD = "semantic_field"  # Disabled - domain-specific semantic clustering
+    # CONTEXT_WINDOW = "context_window"  # Disabled - context-aware window encoding
 
 
 class EnhancedEncoder(Encoder):
@@ -69,8 +71,11 @@ class EnhancedEncoder(Encoder):
         elif mode == EnhancedListEncodeMode.SUBSEQUENCE_ALIGNED:
             return self._encode_subsequence_aligned(item_vecs, **config)
 
-        elif mode == EnhancedListEncodeMode.SEMANTIC_FIELD:
-            return self._encode_semantic_field(item_vecs, **config)
+        # elif mode == EnhancedListEncodeMode.SEMANTIC_FIELD:
+        #     return self._encode_semantic_field(item_vecs, **config)
+
+        # elif mode == EnhancedListEncodeMode.CONTEXT_WINDOW:
+        #     return self._encode_context_window(item_vecs, **config)
 
         else:
             # Fall back to base encoder for standard modes
@@ -221,6 +226,161 @@ class EnhancedEncoder(Encoder):
 
         else:
             raise ValueError(f"Unknown alignment_mode: {alignment_mode}")
+
+    def _encode_semantic_field(
+        self,
+        item_vecs: List[np.ndarray],
+        semantic_groups: Optional[Dict[str, List[str]]] = None,
+        field_weights: Optional[Dict[str, float]] = None,
+    ) -> np.ndarray:
+        """
+        Semantic field encoding - group related terms into geometric fields.
+
+        This primitive enables domain-specific term relationships, allowing
+        synonyms and related concepts to cluster geometrically in hyperspace.
+
+        Args:
+            item_vecs: Encoded item vectors
+            semantic_groups: Dict mapping field names to lists of related terms
+            field_weights: Weights for different semantic fields
+
+        Returns:
+            Vector representing semantic field relationships
+        """
+        if not semantic_groups:
+            # Default semantic groups for demonstration
+            semantic_groups = {
+                "mathematical": [
+                    "calculus",
+                    "differential",
+                    "integral",
+                    "derivative",
+                    "function",
+                ],
+                "logical": ["therefore", "hence", "thus", "consequently", "follows"],
+                "temporal": ["before", "after", "then", "now", "when", "time"],
+                "spatial": ["above", "below", "beside", "between", "around"],
+            }
+
+        if not field_weights:
+            field_weights = {field: 1.0 for field in semantic_groups.keys()}
+
+        # Create semantic field vectors
+        field_vectors = []
+        for field_name, related_terms in semantic_groups.items():
+            # Get vectors for all terms in this semantic field
+            field_term_vecs = []
+            for term in related_terms:
+                term_vec = self.vector_manager.get_vector(term)
+                field_term_vecs.append(term_vec)
+
+            if field_term_vecs:
+                # Bundle all terms in this field
+                field_bundle = np.sum(field_term_vecs, axis=0)
+                field_bundle = self._threshold_bipolar(field_bundle)
+
+                # Weight the field
+                weight = field_weights.get(field_name, 1.0)
+                field_vectors.append(weight * field_bundle)
+
+        # Bundle all semantic fields
+        if field_vectors:
+            semantic_bundle = np.sum(field_vectors, axis=0)
+            semantic_bundle = self._threshold_bipolar(semantic_bundle)
+
+            # Bind with original sequence for context
+            if item_vecs:
+                sequence_bundle = np.sum(item_vecs, axis=0)
+                sequence_bundle = self._threshold_bipolar(sequence_bundle)
+                return self.bind(sequence_bundle, semantic_bundle)
+            else:
+                return semantic_bundle
+        else:
+            # Fallback to regular bundling
+            if item_vecs:
+                return np.sum(item_vecs, axis=0)
+            else:
+                return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+
+    def _encode_context_window(
+        self,
+        item_vecs: List[np.ndarray],
+        window_size: int = 3,
+        stride: int = 1,
+        window_weighting: str = "uniform",
+    ) -> np.ndarray:
+        """
+        Context window encoding - encode sequences with surrounding context.
+
+        This primitive creates overlapping windows of vectors, allowing geometric
+        similarity to capture contextual relationships for better substring matching.
+
+        Args:
+            item_vecs: Encoded item vectors
+            window_size: Size of context window
+            stride: Step size for sliding window
+            window_weighting: How to weight vectors in window ('uniform', 'gaussian', 'positional')
+
+        Returns:
+            Vector representing contextual encoding
+        """
+        if len(item_vecs) < window_size:
+            # Too short, fall back to bundling
+            return np.sum(item_vecs, axis=0)
+
+        windows = []
+
+        # Create sliding windows
+        for i in range(0, len(item_vecs) - window_size + 1, stride):
+            window_vecs = item_vecs[i : i + window_size]
+
+            # Apply window weighting
+            if window_weighting == "uniform":
+                weighted_vecs = window_vecs
+            elif window_weighting == "gaussian":
+                # Gaussian weighting - center vectors more important
+                weights = self._gaussian_weights(window_size)
+                weighted_vecs = [w * v for w, v in zip(weights, window_vecs)]
+            elif window_weighting == "positional":
+                # Position-based weighting - earlier positions more important
+                weights = [1.0 / (j + 1) for j in range(window_size)]
+                weighted_vecs = [w * v for w, v in zip(weights, window_vecs)]
+            else:
+                weighted_vecs = window_vecs
+
+            # Chain the window vectors geometrically
+            if len(weighted_vecs) == 1:
+                window_encoding = weighted_vecs[0]
+            else:
+                window_encoding = weighted_vecs[0]
+                for vec in weighted_vecs[1:]:
+                    window_encoding = self.bind(window_encoding, vec)
+
+            windows.append(window_encoding)
+
+        # Bundle all windows
+        if windows:
+            result = np.sum(windows, axis=0)
+            return self._threshold_bipolar(result)
+        else:
+            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+
+    def _gaussian_weights(self, size: int) -> List[float]:
+        """Generate Gaussian weights for window."""
+        import math
+
+        sigma = size / 4.0  # Spread weight across window
+        center = (size - 1) / 2.0
+
+        weights = []
+        for i in range(size):
+            x = i - center
+            weight = math.exp(-(x**2) / (2 * sigma**2))
+            weights.append(weight)
+
+        # Normalize
+        total = sum(weights)
+        return [w / total for w in weights]
 
     def compute_enhanced_similarity(
         self,

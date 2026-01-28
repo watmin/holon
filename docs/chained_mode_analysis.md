@@ -64,7 +64,7 @@ CHAINED mode is **not defective** - it's designed for **suffix/prefix operations
 
 ### For Substring Matching
 1. **Use NGRAM mode** - Better similarity preservation
-2. **Combine with traditional algorithms** - Like the difflib approach in batch 003
+2. **Combine with traditional algorithms** - For precision substring matching
 3. **Consider hybrid approaches** - VSA for rough matching, traditional for precision
 
 ### For CHAINED Mode
@@ -76,7 +76,7 @@ CHAINED mode is **not defective** - it's designed for **suffix/prefix operations
 
 CHAINED mode works as designed for suffix/prefix operations. The "fuzzy subsequence matching" description is aspirational. For general substring search, NGRAM mode + traditional algorithms (like difflib) provide better results.
 
-The difflib fallback in batch 003 is the correct engineering solution given holon's current geometric primitives.</contents>
+Traditional algorithm fallbacks can enhance geometric approaches when precision substring matching is required.</contents>
 </xai:function_call"></xai:function_call">## 🎯 **CHAINED Mode: Suffix-Only, Not General Substrings**
 
 You're absolutely right to be confused! The test results reveal that **CHAINED mode only works for suffixes**, not general substring matching. Here's what I discovered:
