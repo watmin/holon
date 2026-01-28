@@ -345,14 +345,12 @@ def create_sample_tasks():
 
 
 def ingest_tasks(client, tasks):
-    """Ingest tasks into the Holon store via client."""
+    """Ingest tasks into the Holon store via client using batch operations for better performance."""
     print(f"📥 Ingesting {len(tasks)} tasks into Holon memory...")
 
-    for i, task in enumerate(tasks):
-        # Use client convenience method for JSON
-        client.insert_json(task)
-        if (i + 1) % 10 == 0:
-            print(f"  ✓ Ingested {i + 1}/{len(tasks)} tasks")
+    # Use batch insert for much better performance
+    ids = client.insert_batch_json(tasks)
+    print(f"  ✓ Batch inserted {len(tasks)} tasks in one operation")
 
     print("✅ All tasks ingested successfully!")
 
@@ -494,10 +492,45 @@ def main():
         top_k=3
     )
 
+    # 11. Advanced OR logic: High priority work tasks OR urgent personal tasks
+    query_tasks(
+        client,
+        {},
+        "11. ADVANCED OR LOGIC: High priority work OR urgent personal tasks",
+        guard={
+            "$or": [
+                {"project": "work", "priority": "high"},
+                {"project": "personal", "tags": ["urgent"]}
+            ]
+        },
+        top_k=5
+    )
+
+    # 12. Complex negation: Active tasks NOT in computer/phone contexts (errand-only tasks)
+    query_tasks(
+        client,
+        {"status": "todo"},
+        "12. COMPLEX NEGATION: Active tasks NOT computer/phone (errand-only)",
+        negations={
+            "context": {"$not_contains": "computer"},
+            "context": {"$not_contains": "phone"}
+        },
+        top_k=5
+    )
+
+    # 13. Wildcard with complex guards: Any priority side project that's NOT waiting
+    query_tasks(
+        client,
+        {"project": "side", "priority": {"$any": True}},
+        "13. WILDCARD + GUARDS: Any priority side projects NOT waiting",
+        negations={"status": {"$not": "waiting"}},
+        top_k=5
+    )
+
     print("\n" + "=" * 50)
     print("🎉 Task Memory Demo Complete!")
     print(
-        "Holon successfully demonstrated fuzzy retrieval, guards, negations, and wildcards"
+        "Holon successfully demonstrated fuzzy retrieval, guards, negations, wildcards, and advanced OR logic"
     )
     print("=" * 50)
 

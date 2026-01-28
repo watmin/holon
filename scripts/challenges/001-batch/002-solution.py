@@ -292,20 +292,23 @@ def convert_recipe_to_edn(recipe):
 
 
 def ingest_recipes(client, recipes):
-    """Ingest recipes into the Holon store."""
+    """Ingest recipes into the Holon store using batch operations."""
     print(f"📥 Ingesting {len(recipes)} recipes into Holon memory...")
 
-    for i, recipe in enumerate(recipes):
-        # Convert to dict format (client handles JSON conversion)
+    # Prepare all recipes for JSON serialization
+    json_ready_recipes = []
+    for recipe in recipes:
         recipe_dict = recipe.copy()
         # Convert sets to lists for JSON compatibility
         if 'diet' in recipe_dict and isinstance(recipe_dict['diet'], set):
             recipe_dict['diet'] = list(recipe_dict['diet'])
         if 'tags' in recipe_dict and isinstance(recipe_dict['tags'], set):
             recipe_dict['tags'] = list(recipe_dict['tags'])
-        client.insert_json(recipe_dict)
-        if (i + 1) % 3 == 0:
-            print(f"  ✓ Ingested {i + 1}/{len(recipes)} recipes")
+        json_ready_recipes.append(recipe_dict)
+
+    # Use batch insert for much better performance
+    ids = client.insert_batch_json(json_ready_recipes)
+    print(f"  ✓ Batch inserted {len(recipes)} recipes in one operation")
 
     print("✅ All recipes ingested successfully!")
 
@@ -347,25 +350,17 @@ def query_recipes(
 
         for i, result in enumerate(results):
             recipe = result["data"]
-            # EDN keywords are parsed as Keyword objects, need to access by keyword
-            from edn_format import Keyword
+            score = result["score"]
 
-            name_key = Keyword("name")
-            cuisine_key = Keyword("cuisine")
-            difficulty_key = Keyword("difficulty")
-            time_key = Keyword("time")
-            diet_key = Keyword("diet")
-            tags_key = Keyword("tags")
-
-            print(f"  {i+1}. [{score:.3f}] {recipe[name_key]}")
+            print(f"  {i+1}. [{score:.3f}] {recipe['name']}")
             print(
-                f"     Cuisine: {recipe[cuisine_key]} | Difficulty: {recipe[difficulty_key]} | "
-                f"Time: {recipe[time_key]} min"
+                f"     Cuisine: {recipe['cuisine']} | Difficulty: {recipe['difficulty']} | "
+                f"Time: {recipe['time']} min"
             )
-            if recipe.get(diet_key) and str(recipe[diet_key]) != "#{}":
-                print(f"     Diet: {recipe[diet_key]}")
-            if recipe.get(tags_key) and str(recipe[tags_key]) != "#{}":
-                print(f"     Tags: {recipe[tags_key]}")
+            if recipe.get('diet') and recipe['diet']:
+                print(f"     Diet: {recipe['diet']}")
+            if recipe.get('tags') and recipe['tags']:
+                print(f"     Tags: {recipe['tags']}")
 
     except Exception as e:
         print(f"  ❌ Query failed: {e}")
@@ -436,10 +431,48 @@ def main():
         client, {"tags": ["comfort"]}, "7. TAG SIMILARITY: Comfort food recipes"
     )
 
+    # 8. Advanced OR logic: Easy recipes OR vegan recipes
+    query_recipes(
+        client,
+        {},
+        "8. ADVANCED OR LOGIC: Easy recipes OR vegan recipes",
+        guard={
+            "$or": [
+                {"difficulty": ":easy"},
+                {"diet": ["vegan"]}
+            ]
+        },
+        top_k=8
+    )
+
+    # 9. Complex guards: Easy difficulty recipes that are NOT spicy
+    query_recipes(
+        client,
+        {},
+        "9. COMPLEX GUARDS + NEGATION: Easy recipes NOT spicy",
+        guard={"difficulty": ":easy"},
+        negations={"tags": {"$not_contains": "spicy"}},
+        top_k=5
+    )
+
+    # 10. Multi-criteria similarity: Asian or Indian curry dishes
+    query_recipes(
+        client,
+        {"tags": ["curry"]},
+        "10. MULTI-CRITERIA: Asian/Indian curry dishes",
+        guard={
+            "$or": [
+                {"cuisine": ":asian"},
+                {"cuisine": ":indian"}
+            ]
+        },
+        top_k=5
+    )
+
     print("\n" + "=" * 55)
     print("🎉 Recipe Memory Demo Complete!")
     print(
-        "Holon successfully demonstrated recipe similarity, substitution, and advanced querying"
+        "Holon successfully demonstrated recipe similarity, substitution, advanced OR logic, and complex querying"
     )
     print("=" * 55)
 
