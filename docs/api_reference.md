@@ -145,10 +145,28 @@ Advanced neural similarity search with guards, negations, and compound condition
 #### POST /api/v1/vectors/encode
 Encode structured data into a vector for similarity operations.
 
-**Request**:
+**Basic Request**:
 ```json
 {
   "data": "{\"user\": \"alice\", \"action\": \"login\"}",
+  "data_type": "json"
+}
+```
+
+**Enhanced Request with Configuration**:
+```json
+{
+  "data": {
+    "sequence": {
+      "_encode_mode": "ngram",
+      "_encode_config": {
+        "n_sizes": [1, 2],
+        "weights": [0.3, 0.7],
+        "length_penalty": true
+      },
+      "words": ["hello", "world"]
+    }
+  },
   "data_type": "json"
 }
 ```
@@ -160,6 +178,14 @@ Encode structured data into a vector for similarity operations.
   "encoding_type": "structural_json"
 }
 ```
+
+**Configuration Options**:
+- `n_sizes`: Array of n-gram sizes (e.g., `[1, 2, 3]`)
+- `weights`: Relative weights for each n-gram size
+- `length_penalty`: Normalize for sequence length
+- `term_weighting`: Weight terms by importance
+- `positional_weighting`: Favor earlier elements
+- `discrimination_boost`: Enhance distinctive features
 
 #### POST /api/v1/vectors/encode/mathematical
 Encode mathematical primitives (fundamental VSA/HDC operations).
@@ -363,9 +389,22 @@ POST /api/v1/vectors/encode
   "data_type": "json"
 }
 
-# Python API
+# Python API - Basic encoding
 vector1 = client.encode_vectors_json({"type": "login"})
 vector2 = client.encode_vectors_json({"type": "authentication"})
+
+# Enhanced encoding with configurable n-gram sizes
+text_vector = client.encode_vectors_json({
+    "content": {
+        "_encode_mode": "ngram",
+        "_encode_config": {
+            "n_sizes": [1, 2],        // Individual words + word pairs
+            "weights": [0.3, 0.7],    // Weight pairs higher
+            "length_penalty": true    // Normalize query length
+        },
+        "sequence": ["find", "this", "phrase"]
+    }
+})
 
 # Use for custom similarity calculations (advanced)
 # Note: Client interface abstracts vector operations for typical use cases

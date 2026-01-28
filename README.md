@@ -59,7 +59,20 @@ vector = client.encode_mathematical("convergence_rate", 0.85)
 # Mathematical composition (bind/bundle operations)
 composed_vector = client.compose_vectors("bind", [vector1, vector2])
 
-# Structural data encoding (original functionality)
+# Enhanced structural encoding with configurable n-gram sizes
+vector = client.encode_vectors_json({
+    "text": {
+        "_encode_mode": "ngram",
+        "_encode_config": {
+            "n_sizes": [1, 2],        // Individual words + word pairs
+            "weights": [0.3, 0.7],    // Weight pairs higher
+            "length_penalty": true    // Fair query normalization
+        },
+        "sequence": ["hello", "world"]
+    }
+})
+
+# Basic structural encoding (backward compatible)
 vector = client.encode_vectors_json({"user": "alice"})
 ```
 
@@ -75,6 +88,46 @@ vector = client.encode_vectors_json({"user": "alice"})
 
 These primitives enable semantic similarity for mathematical patterns, going beyond structural matching to understand mathematical relationships.
 
+### Enhanced Encoding Primitives
+
+Holon provides advanced geometric encoding primitives for optimized similarity search across different domains:
+
+```python
+# Domain-optimized encoding configurations
+dna_vector = client.encode_vectors_json({
+    "sequence": {
+        "_encode_mode": "ngram",
+        "_encode_config": {
+            "n_sizes": [3, 6, 9],        // Codons, genes, segments
+            "weights": [0.5, 0.3, 0.2]  // Biological hierarchy
+        },
+        "data": ["ATG", "GCC", "TTA", ...]  // DNA sequence
+    }
+})
+
+# Text analysis with substring matching
+text_vector = client.encode_vectors_json({
+    "content": {
+        "_encode_mode": "ngram",
+        "_encode_config": {
+            "n_sizes": [2],             // Bigrams for substring search
+            "weights": [1.0]            // Simple, effective configuration
+        },
+        "sequence": ["find", "this", "phrase"]
+    }
+})
+```
+
+**Configuration Options:**
+- **`n_sizes`**: N-gram sizes (e.g., `[1, 2, 3]` for individual + pairs + triples)
+- **`weights`**: Relative importance of each n-gram size
+- **`length_penalty`**: Normalize for sequence length differences
+- **`term_weighting`**: Weight terms by importance/density
+- **`positional_weighting`**: Favor earlier elements in sequences
+- **`discrimination_boost`**: Enhance distinctive vector components
+
+**Performance**: 75% F1 score for substring matching with optimized configurations ([Encoding Guide](docs/encoding_guide.md))
+
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
 
@@ -84,7 +137,7 @@ Comprehensive validation results:
 - **RPM geometric reasoning**: 100% accuracy on implemented rules ([RPM Findings](docs/rpm_geometric_solution_findings.md))
 - **Graph topology recognition**: 100% family clustering ([Challenge 2 Assessment](docs/challenge_2_gaps_and_improvements.md))
 - **Mathematical primitives**: 8 primitives for semantic encoding ([Mathematical Primitives Findings](docs/challenge_2_mathematical_primitives_findings.md))
-- **Hybrid text search**: 75% F1 score ([Quote Finder Improvements](docs/quote_finder_improvements.md))
+- **Geometric text search**: 75% F1 score for substring matching ([Encoding Guide](docs/encoding_guide.md))
 - **Geometric constraint satisfaction**: Sudoku solver planned ([Sudoku Findings](docs/sudoku_geometric_solution_findings.md))
 
 ## Use Cases
