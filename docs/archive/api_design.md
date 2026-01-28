@@ -76,7 +76,7 @@ store = CPUStore(dimensions=16000)  # 16k dimensions
 data_id = store.insert('{"name": "Alice", "age": 30}', 'json')
 
 # Query similar data
-results = store.query('{"name": "Bob", "age": 25}', 'json', top_k=5, threshold=0.5)
+results = store.query(probe='{"name": "Bob", "age": 25}', data_type='json', top_k=5, threshold=0.5)
 for data_id, score, data in results:
     print(f"ID: {data_id}, Score: {score}, Data: {data}")
 

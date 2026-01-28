@@ -18,7 +18,7 @@ client = HolonClient(remote_url="http://localhost:8000")
 
 # Same interface either way!
 client.insert_json({"type": "task", "title": "Review code"})
-results = client.search_json({"type": "task"})
+results = client.search_json(probe={"type": "task"})
 ```
 
 The client abstracts all vector operations - you work with data, not vectors.
@@ -220,7 +220,7 @@ batch_ids = client.insert_batch_json([
 
 # Advanced queries with complex guards
 results = client.search_json(
-    {"user": "alice"},  # Similarity probe
+    probe={"user": "alice"},  # Similarity probe
     top_k=10,
     threshold=0.0,
     guard={
@@ -256,10 +256,10 @@ Guards support sophisticated compound conditions with `$or` logic:
 
 ```python
 # Simple guards
-client.search_json({"role": "developer"}, guard={"status": "active"})
+client.search_json(probe={"role": "developer"}, guard={"status": "active"})
 
 # Compound OR conditions
-client.search_json({}, guard={
+client.search_json(probe={}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},
         {"project": "urgent", "category": "side"}
@@ -267,7 +267,7 @@ client.search_json({}, guard={
 })
 
 # Nested OR logic
-client.search_json({"project": "work"}, guard={
+client.search_json(probe={"project": "work"}, guard={
     "status": "active",
     "tags": {
         "$or": [
@@ -279,7 +279,7 @@ client.search_json({"project": "work"}, guard={
 
 # Combined with negations
 client.search_json(
-    {"project": "side"},
+    probe={"project": "side"},
     guard={
         "$or": [
             {"priority": "high"},
@@ -305,10 +305,10 @@ negations={"user.preferences": {"$not": {"theme": "dark"}}}
 #### Wildcard Patterns
 ```python
 # Wildcard in probe (doesn't match anything)
-client.search_json({"role": {"$any": true}})  # Matches any role value
+client.search_json(probe={"role": {"$any": true}})  # Matches any role value
 
 # Wildcard in guard
-client.search_json({"tags": ["urgent"]}, guard={"role": {"$any": True}})
+client.search_json(probe={"tags": ["urgent"]}, guard={"role": {"$any": True}})
 ```
 
 ### Backend Options

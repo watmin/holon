@@ -39,7 +39,7 @@ The comprehensive test was **structurally flawed**:
 for test in tests:
     incomplete_matrix = generate_matrix(missing_panel=True)
     client.insert_json(incomplete_matrix)  # Nothing to learn from!
-    results = client.search_json(incomplete_matrix)  # Tries to find patterns from nothing
+    results = client.search_json(probe=incomplete_matrix)  # Tries to find patterns from nothing
 ```
 
 **Issue**: The system was trying to learn geometric rules from incomplete examples, but had no complete reference matrices to establish baseline patterns.
@@ -53,7 +53,7 @@ client.insert_batch_json(complete_matrices)  # Establish geometric patterns
 
 # Then test completion
 incomplete_matrix = generate_matrix(missing_panel=True)
-results = client.search_json(incomplete_matrix)  # Now has patterns to complete from
+results = client.search_json(probe=incomplete_matrix)  # Now has patterns to complete from
 ```
 
 ## Validation Results
@@ -158,7 +158,7 @@ for position, panel in matrix.panels:
 ```python
 # Find geometrically analogous complete matrices
 incomplete_structure = encode_partial_matrix(matrix)
-complete_matches = client.search_json(incomplete_structure)
+complete_matches = client.search_json(probe=incomplete_structure)
 
 # Extract missing panel from best geometric analog
 predicted_panel = complete_matches[0]["data"].get_missing_panel(position)

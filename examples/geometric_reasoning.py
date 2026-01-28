@@ -101,7 +101,7 @@ def main():
         "rule": "unknown",
     }
 
-    results = client.search_json(probe_data, top_k=3)
+    results = client.search_json(probe=probe_data, top_k=3)
     print(f"   Found {len(results)} similar complete matrices")
 
     for i, result in enumerate(results):
@@ -135,7 +135,7 @@ def main():
     incomplete_xor = create_xor_matrix("row2-col2")  # Missing center
     probe_xor = {"type": "xor_matrix", "matrix": incomplete_xor, "rule": "unknown"}
 
-    results = client.search_json(probe_xor, top_k=3)
+    results = client.search_json(probe=probe_xor, top_k=3)
     print(f"   Found {len(results)} similar complete XOR matrices")
 
     for i, result in enumerate(results):
@@ -170,7 +170,7 @@ def main():
         "matrix": create_progression_matrix("row3-col3"),
     }
 
-    results = client.search_json(prog_probe, top_k=5)
+    results = client.search_json(probe=prog_probe, top_k=5)
     progression_count = sum(
         1 for result in results if result["data"].get("rule") == "count_progression"
     )
@@ -196,7 +196,7 @@ def main():
         "description": "modified_progression",
     }
 
-    results = client.search_json(novel_probe, top_k=3)
+    results = client.search_json(probe=novel_probe, top_k=3)
     print(f"   Novel pattern matches {len(results)} learned patterns")
 
     for i, result in enumerate(results):

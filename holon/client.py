@@ -161,6 +161,7 @@ class HolonClient:
 
     def search(
         self,
+        *,
         probe: Union[str, Dict],
         data_type: str = "json",
         top_k: int = 10,
@@ -207,7 +208,12 @@ class HolonClient:
             return response.json()["results"]
         else:
             results = self._store.query(
-                probe_str, data_type, top_k, threshold, guard=guard, negations=negations
+                probe=probe_str,
+                data_type=data_type,
+                top_k=top_k,
+                threshold=threshold,
+                guard=guard,
+                negations=negations,
             )
             # Convert to same format as HTTP API
             return [
@@ -325,7 +331,7 @@ class HolonClient:
 
     def search_json(self, probe: Dict, **kwargs) -> List[Dict[str, Any]]:
         """Search with JSON dict probe (convenience method)."""
-        return self.search(probe, "json", **kwargs)
+        return self.search(probe=probe, data_type="json", **kwargs)
 
     def encode_vectors_json(self, data: Dict) -> List[float]:
         """Encode JSON dict to vector (convenience method)."""

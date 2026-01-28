@@ -46,7 +46,7 @@ from holon import HolonClient
 
 client = HolonClient("http://localhost:8000")
 client.insert_json({"type": "task", "title": "Review"})
-results = client.search_json({"type": "task"})
+results = client.search_json(probe={"type": "task"})
 vector = client.encode_vectors_json({"action": "login"})
 ```
 

@@ -29,7 +29,7 @@ def test_gpu():
     print(f"✅ Inserted on GPU: {id}")
 
     # Test query
-    results = store.query(data, "json", top_k=5)
+    results = store.query(probe=data, data_type="json", top_k=5)
     print(f"✅ Queried on GPU: {len(results)} results")
 
     # Test vector types

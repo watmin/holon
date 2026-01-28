@@ -45,7 +45,7 @@ class ReteDemo:
 
             for rule in self.rules:
                 # Query for matching facts
-                results = self.client.search_json(rule["conditions"], top_k=10)
+                results = self.client.search_json(probe=rule["conditions"], top_k=10)
 
                 if results:
                     print(f"🎯 Rule '{rule['name']}' fired ({len(results)} matches)")
@@ -81,7 +81,7 @@ class ReteDemo:
         guard = {"is_input": False}
         if "finding" in query:
             guard["finding"] = query["finding"]
-        results = self.client.search_json(query, guard=guard, top_k=10)
+        results = self.client.search_json(probe=query, guard=guard, top_k=10)
         return [r["data"] for r in results]
 
 
@@ -104,7 +104,7 @@ def main():
         if fact.get("has_children") and "person" in fact:
             # Check if this person is parent of someone with children
             grandparents = demo.client.search_json(
-                {"parent_of": fact["person"], "has_children": True}, top_k=5
+                probe={"parent_of": fact["person"], "has_children": True}, top_k=5
             )
             if grandparents:
                 return {

@@ -73,13 +73,13 @@ Probe Vector → Similarity Search → Guard Filter → Negation Filter → Resu
 ```python
 # Basic similarity with guards
 results = client.search_json(
-    {"role": "developer"},  # similarity probe
+    probe={"role": "developer"},  # similarity probe
     guard={"team": "backend"}  # exact filter
 )
 
 # Negations
 results = client.search_json(
-    {"role": "developer"},
+    probe={"role": "developer"},
     negations={"name": {"$not": "Alice"}}
 )
 

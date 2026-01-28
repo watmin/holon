@@ -60,7 +60,7 @@ store = CPUStore()
 store.insert('{"name": "Alice", "skills": ["python", "ai"]}', 'json')
 
 # Similarity search
-results = store.query('{"skills": ["python"]}', 'json')
+results = store.query(probe='{"skills": ["python"]}', data_type='json')
 for id, score, data in results:
     print(f"Match: {score:.3f} - {data}")
 ```

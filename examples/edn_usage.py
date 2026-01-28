@@ -35,7 +35,7 @@ def main():
 
     # Query with EDN probe - partial match
     probe = '{:skills #{"clojure"}, :status :active}'
-    results = client.search(probe, data_type="edn", top_k=5, threshold=0.0)
+    results = client.search(probe=probe, data_type="edn", top_k=5, threshold=0.0)
 
     print("EDN Query results (partial match on skills and status):")
     for result in results:
@@ -45,7 +45,7 @@ def main():
 
     # Query with exact name match
     probe2 = '{:name "Alice"}'
-    results2 = client.search(probe2, data_type="edn", top_k=5, threshold=0.0)
+    results2 = client.search(probe=probe2, data_type="edn", top_k=5, threshold=0.0)
 
     print("EDN Query results (exact name match):")
     for result in results2:

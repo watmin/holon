@@ -79,7 +79,7 @@ def demo_client_operations(client: HolonClient, mode: str):
         # Search for high priority tasks
         print(f"3. Finding high priority tasks ({mode})...")
         results = client.search_json(
-            {"type": "task"}, guard={"priority": "high"}, top_k=10
+            probe={"type": "task"}, guard={"priority": "high"}, top_k=10
         )
         print(f"   ✅ Found {len(results)} high priority tasks")
         for result in results[:3]:  # Show first 3
@@ -102,7 +102,7 @@ def demo_client_operations(client: HolonClient, mode: str):
         # Search using encoded vector (advanced usage)
         print(f"6. Finding items similar to encoded vector ({mode})...")
         similar_results = client.search_json(
-            {"user": "alice"}, top_k=5  # Still use regular data probe
+            probe={"user": "alice"}, top_k=5  # Still use regular data probe
         )
         print(f"   ✅ Found {len(similar_results)} similar items")
 

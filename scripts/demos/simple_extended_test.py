@@ -148,8 +148,7 @@ def test_novel_problems():
 
         probe = {"panels": matrix["panels"], "rule": rule}
         probe_edn = edn_format.dumps(probe)
-        results = client.search(
-            probe_edn, data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
+        results = client.search(probe=probe_edn, data_type="edn", negations={"missing-position": {"$any": True}}, top_k=3
         )
 
         found_correct = False
@@ -216,8 +215,7 @@ def test_cross_validation():
 
             probe = {"panels": incomplete["panels"], "rule": incomplete["rule"]}
             probe_edn = edn_format.dumps(probe)
-            results = client.search(
-                probe_edn,
+            results = client.search(probe=probe_edn,
                 data_type="edn",
                 negations={"missing-position": {"$any": True}},
                 top_k=3,
@@ -272,8 +270,7 @@ def test_ablation():
             if vector_ops:
                 probe = {"panels": matrix["panels"], "rule": rule}
                 probe_edn = edn_format.dumps(probe)
-                results = client.search(
-                    probe_edn,
+                results = client.search(probe=probe_edn,
                     data_type="edn",
                     negations={"missing-position": {"$any": True}},
                     top_k=3,

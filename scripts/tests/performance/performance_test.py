@@ -52,7 +52,7 @@ def performance_test():
     for i, query in enumerate(test_queries):
         print(f"\nQuery {i+1}: {query}")
         start = time.time()
-        results = store.query(query, "json", top_k=10)
+        results = store.query(probe=query, data_type="json", top_k=10)
         query_time = time.time() - start
         print(f"  Query time: {query_time:.4f}s")
         print(f"  Results: {len(results)}")

@@ -70,7 +70,7 @@ def main():
     print("   Query: High priority developers OR active managers")
 
     results = client.search_json(
-        {},
+        probe={},
         guard={
             "$or": [
                 {"priority": "high", "role": "developer"},
@@ -90,7 +90,7 @@ def main():
     print("   Query: Web project with high priority OR active mobile developers")
 
     results = client.search_json(
-        {"project": "web"},
+        probe={"project": "web"},
         guard={
             "$or": [{"priority": "high"}, {"project": "mobile", "status": "active"}]
         },
@@ -107,7 +107,7 @@ def main():
     print("   Query: Developers who are NOT inactive")
 
     results = client.search_json(
-        {"role": "developer"},
+        probe={"role": "developer"},
         guard={"status": "active"},
         negations={"user": {"$not": "charlie"}},  # Exclude charlie specifically
     )
@@ -121,7 +121,8 @@ def main():
     print("   Query: Exclude low priority AND inactive status")
 
     results = client.search_json(
-        {}, negations={"priority": {"$not": "low"}, "status": {"$not": "inactive"}}
+        probe={},
+        negations={"priority": {"$not": "low"}, "status": {"$not": "inactive"}},
     )
 
     for result in results:
@@ -135,7 +136,7 @@ def main():
     print("   Query: Any priority level, but must be active developers")
 
     results = client.search_json(
-        {"priority": {"$any": True}},  # Match any priority
+        probe={"priority": {"$any": True}},  # Match any priority
         guard={"role": "developer", "status": "active"},
     )
 

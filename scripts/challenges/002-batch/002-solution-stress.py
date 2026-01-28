@@ -408,8 +408,7 @@ def test_similarity_queries(client, graphs):
         start_time = time.time()
 
         # Find graphs similar to this type
-        query_results = client.search(
-            f'{{:name "{query_name}"}}', data_type="edn", top_k=20, threshold=0.0
+        query_results = client.search(probe=f'{{:name "{query_name}"}}', data_type="edn", top_k=20, threshold=0.0
         )
 
         query_time = time.time() - start_time
@@ -448,7 +447,7 @@ def test_subgraph_matching(client, graphs):
     for pattern, description in patterns:
         start_time = time.time()
 
-        query_results = client.search(pattern, data_type="edn", top_k=50, threshold=0.0)
+        query_results = client.search(probe=pattern, data_type="edn", top_k=50, threshold=0.0)
 
         query_time = time.time() - start_time
         results["queries"] += 1
@@ -482,8 +481,7 @@ def test_family_clustering(client, graphs):
         representative = family_graphs[0]
 
         # Query for similar graphs
-        query_results = client.search(
-            f'{{:name "{representative["name"]}"}}',
+        query_results = client.search(probe=f'{{:name "{representative["name"]}"}}',
             data_type="edn",
             top_k=30,
             threshold=0.1,
@@ -531,8 +529,7 @@ def test_query_performance(client, graphs):
         test_graph = graphs[size // 2]  # Middle of current dataset
 
         start_time = time.time()
-        client.search(
-            f'{{:name "{test_graph["name"]}"}}',
+        client.search(probe=f'{{:name "{test_graph["name"]}"}}',
             data_type="edn",
             top_k=10,
             threshold=0.0,
@@ -570,8 +567,7 @@ def test_approximate_accuracy(client, graphs):
         graph2 = graph2_candidates[0]
 
         # Query graph2's similarity to graph1
-        query_results = client.search(
-            f'{{:name "{graph1["name"]}"}}', data_type="edn", top_k=20, threshold=0.0
+        query_results = client.search(probe=f'{{:name "{graph1["name"]}"}}', data_type="edn", top_k=20, threshold=0.0
         )
 
         # Check if graph2 appears in results with high similarity

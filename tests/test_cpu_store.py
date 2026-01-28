@@ -29,7 +29,7 @@ class TestCPUStore:
         store.insert(data2, "json")
 
         probe = '{"name": "Alice"}'
-        results = store.query(probe, "json", top_k=5, threshold=0.0)
+        results = store.query(probe=probe, data_type="json", top_k=5, threshold=0.0)
         assert len(results) >= 1
         # Should find the Alice data with some similarity
 
@@ -41,7 +41,7 @@ class TestCPUStore:
         store.insert(data2, "edn")
 
         probe = '{:skills #{"clojure"}}'
-        results = store.query(probe, "edn", top_k=5, threshold=0.0)
+        results = store.query(probe=probe, data_type="edn", top_k=5, threshold=0.0)
         assert len(results) >= 1
         # Should find data with clojure skill
 
@@ -177,22 +177,22 @@ class TestCPUStore:
             store.insert(data)
 
         # Test empty guard should return all results
-        results = store.query("{}", guard={}, top_k=10, threshold=0.0)
+        results = store.query(probe="{}", guard={}, top_k=10, threshold=0.0)
         assert len(results) == 3
 
         # Test guard with non-existent field should return no results
         results = store.query(
-            "{}", guard={"nonexistent": "value"}, top_k=10, threshold=0.0
+            probe="{}", guard={"nonexistent": "value"}, top_k=10, threshold=0.0
         )
         assert len(results) == 0
 
         # Test guard OR with empty array should return no results
-        results = store.query("{}", guard={"status": []}, top_k=10, threshold=0.0)
+        results = store.query(probe="{}", guard={"status": []}, top_k=10, threshold=0.0)
         assert len(results) == 0
 
         # Test guard OR with single element array
         results = store.query(
-            "{}", guard={"status": ["active"]}, top_k=10, threshold=0.0
+            probe="{}", guard={"status": ["active"]}, top_k=10, threshold=0.0
         )
         assert len(results) == 2  # Item1 and Item3
 
@@ -231,7 +231,7 @@ class TestCPUStore:
 
         # Test query with ngram-encoded data
         probe = '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown"]}}'
-        results = store.query(probe, top_k=5, threshold=0.0)
+        results = store.query(probe=probe, top_k=5, threshold=0.0)
         assert len(results) >= 1  # Should find the ngram_test item
 
     def test_vector_bootstrapping_api(self):

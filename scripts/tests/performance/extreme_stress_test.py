@@ -159,7 +159,7 @@ def query_worker(store, queries, results, worker_id):
     for query in queries:
         try:
             start = time.time()
-            res = store.query(query, "json", top_k=10)
+            res = store.query(probe=query, data_type="json", top_k=10)
             duration = time.time() - start
             results.append((worker_id, query[:30], len(res), duration))
         except Exception as e:

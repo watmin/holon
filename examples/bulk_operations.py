@@ -80,7 +80,7 @@ def main():
     print("   Querying different activities:")
     for activity in activities:
         start_time = time.time()
-        results = client.search_json({"activity": activity}, top_k=10)
+        results = client.search_json(probe={"activity": activity}, top_k=10)
         query_time = time.time() - start_time
         print(f"   {activity}: {query_time:.4f}s")
 
@@ -89,7 +89,7 @@ def main():
 
     # Query successful logins on mobile devices
     results = client.search_json(
-        {"activity": "login"},
+        probe={"activity": "login"},
         guard={"status": "success", "device": "mobile"},
         top_k=5,
     )
@@ -103,7 +103,9 @@ def main():
     print("\n4. Bulk Queries with Negations")
 
     # Find all activities except failed ones
-    results = client.search_json({}, negations={"status": {"$not": "failed"}}, top_k=10)
+    results = client.search_json(
+        probe={}, negations={"status": {"$not": "failed"}}, top_k=10
+    )
 
     print(f"   Non-failed activities: {len(results)}")
     status_counts = {}

@@ -541,8 +541,7 @@ def demonstrate_missing_panel_completion(client):
 
         # Find complete matrices with this rule
         edn_probe = edn_format.dumps(probe_structure)
-        complete_results = client.search(
-            edn_probe,
+        complete_results = client.search(probe=edn_probe,
             data_type="edn",
             negations={"missing-position": {"$any": True}},
             top_k=3,

@@ -119,7 +119,7 @@ client = HolonClient(local_store=store)
 
 # Insert and query data
 client.insert_json({"name": "Alice", "role": "developer"})
-results = client.search_json({"role": "developer"})
+results = client.search_json(probe={"role": "developer"})
 print(f"Found {len(results)} developers")
 ```
 
@@ -128,16 +128,16 @@ This inserts JSON data like `{"name": "Alice", "role": "developer"}` and queries
 ### Advanced Queries
 ```python
 # Wildcards - match any value for a field
-client.search_json({"role": {"$any": true}})  # Any role
+client.search_json(probe={"role": {"$any": true}})  # Any role
 
 # Guards - exact post-query filtering
-client.search_json({"name": "Alice"}, guard={"role": "developer"})
+client.search_json(probe={"name": "Alice"}, guard={"role": "developer"})
 
 # Negations - exclude specific values
-client.search_json({"role": "developer"}, negations={"name": {"$not": "Alice"}})
+client.search_json(probe={"role": "developer"}, negations={"name": {"$not": "Alice"}})
 
 # Disjunctions - OR logic in query probe
-client.search_json({"$or": [{"role": "developer"}, {"role": "designer"}]})
+client.search_json(probe={"$or": [{"role": "developer"}, {"role": "designer"}]})
 ```
 
 ### Complex Guard Syntax with $or Logic
@@ -146,7 +146,7 @@ Guards support sophisticated compound conditions using structured `$or` for powe
 
 ```python
 # Complex OR conditions in guards
-results = client.search_json({}, guard={
+results = client.search_json(probe={}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},     # High priority TODO items
         {"project": "side", "category": "urgent"}   # OR urgent side projects
@@ -154,7 +154,7 @@ results = client.search_json({}, guard={
 })
 
 # Nested OR conditions for hierarchical filtering
-results = client.search_json({"project": "work"}, guard={
+results = client.search_json(probe={"project": "work"}, guard={
     "status": "active",
     "tags": {
         "$or": [
@@ -166,7 +166,7 @@ results = client.search_json({"project": "work"}, guard={
 
 # Combined with negations for precise filtering
 results = client.search_json(
-    {"project": "side"},
+    probe={"project": "side"},
     guard={
         "$or": [
             {"priority": "high"},
@@ -180,13 +180,13 @@ results = client.search_json(
 ### Query Pattern Examples
 ```python
 # Fuzzy similarity search
-client.search_json({"title": "prepare presentation"})
+client.search_json(probe={"title": "prepare presentation"})
 
 # Exact structural matching with guards
-client.search_json({"role": "developer"}, guard={"status": "active"})
+client.search_json(probe={"role": "developer"}, guard={"status": "active"})
 
 # Complex compound conditions
-client.search_json({}, guard={
+client.search_json(probe={}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},
         {"project": "personal", "due": "2026-01-25"}
@@ -194,7 +194,7 @@ client.search_json({}, guard={
 })
 
 # Context-aware filtering
-client.search_json({"context": ["computer"]}, guard={"priority": "high"})
+client.search_json(probe={"context": ["computer"]}, guard={"priority": "high"})
 ```
 
 ### EDN Support
@@ -220,7 +220,7 @@ client.insert('''
 ''', data_type='edn')
 
 # Query with EDN syntax
-results = client.search('{:user {:name "alice"}}', data_type='edn')
+results = client.search(probe='{:user {:name "alice"}}', data_type='edn')
 ```
 
 **EDN Advantages over JSON:**
@@ -251,14 +251,14 @@ client.insert_json({"session": "123", "user": "alice", "message": "How does HDC 
 client.insert_json({"session": "123", "user": "bot", "message": "HDC uses high-dim vectors"})
 
 # Find bot responses in session 123
-results = client.search_json({"user": "bot"}, guard={"session": "123"})
+results = client.search_json(probe={"user": "bot"}, guard={"session": "123"})
 print(f"Bot responses in session 123: {len(results)}")
 ```
 
 ### Advanced Guards with Structured OR
 ```python
 # Complex compound conditions using structured $or
-results = client.search_json({}, guard={
+results = client.search_json(probe={}, guard={
     "$or": [
         {"priority": "high", "status": "todo"},  # High priority tasks that are todo
         {"project": "side", "category": "urgent"} # OR urgent side projects
@@ -401,7 +401,7 @@ client = HolonClient(local_store=store)
 data_id = client.insert_json({"name": "Alice", "age": 30})
 
 # Query similar JSON data
-results = client.search_json({"name": "Alice"})
+results = client.search_json(probe={"name": "Alice"})
 for result in results:
     print(f"Score: {result['score']}, Data: {result['data']}")
 
@@ -409,7 +409,7 @@ for result in results:
 edn_id = client.insert('{:name "Bob", :skills #{"clojure" "python"}}', data_type="edn")
 
 # Query EDN data
-edn_results = client.search('{:skills #{"python"}}', data_type="edn")
+edn_results = client.search(probe='{:skills #{"python"}}', data_type="edn")
 ```
 
 See `examples/basic_usage.py` for JSON examples and `examples/edn_usage.py` for EDN examples.

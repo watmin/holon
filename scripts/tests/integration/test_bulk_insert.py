@@ -69,7 +69,7 @@ def main():
     print("✅ Both methods produced same number of inserts")
 
     # Test query works
-    results = store.query('{"user": "user_0"}', top_k=5)
+    results = store.query(probe='{"user": "user_0"}', top_k=5)
     print(f"✅ Query works: {len(results)} results found")
 
 

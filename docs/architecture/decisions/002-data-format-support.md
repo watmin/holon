@@ -64,7 +64,7 @@ client.insert_json({"name": "Alice", "role": "developer"})
 client.insert('{:name "Alice" :role :developer :skills #{:clojure :python}}', data_type="edn")
 
 # Query (format must match)
-results = client.search('{:role :developer}', data_type="edn")
+results = client.search(probe='{:role :developer}', data_type="edn")
 ```
 
 ## References

@@ -68,7 +68,8 @@ def main():
         # Use client search with the concept data (this demonstrates the typical usage)
         # Note: In practice, you'd search for similar items using the stored data
         similar_results = client.search_json(
-            {"type": concept.split("_")[0] if "_" in concept else concept}, top_k=2
+            probe={"type": concept.split("_")[0] if "_" in concept else concept},
+            top_k=2,
         )
 
         for i, result in enumerate(similar_results):

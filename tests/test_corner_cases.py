@@ -16,7 +16,7 @@ def test_empty_data():
     store = CPUStore()
     # Empty dict
     store.insert("{}")
-    result = store.query("{}")
+    result = store.query(probe="{}")
     assert len(result) == 1
 
 
@@ -25,7 +25,7 @@ def test_deep_nesting():
     # Deep nested structure
     deep = {"a": {"b": {"c": {"d": {"e": "value"}}}}}
     store.insert(json.dumps(deep))
-    results = store.query(json.dumps({"a": {"b": {"c": {"d": {"e": "value"}}}}}))
+    results = store.query(probe=json.dumps({"a": {"b": {"c": {"d": {"e": "value"}}}}}))
     assert len(results) == 1
 
 
@@ -33,27 +33,27 @@ def test_large_lists():
     store = CPUStore()
     large_list = {"sequence": list(range(1000))}
     store.insert(json.dumps(large_list))
-    results = store.query(json.dumps({"sequence": [0, 1, 2, {"$any": True}, 4]}))
+    results = store.query(probe=json.dumps({"sequence": [0, 1, 2, {"$any": True}, 4]}))
     assert len(results) == 1  # Should match due to positional encoding
 
 
 def test_invalid_probe():
     store = CPUStore()
     with pytest.raises(Exception):
-        store.query("invalid json")
+        store.query(probe="invalid json")
 
 
 def test_no_results():
     store = CPUStore()
     store.insert('{"user": "alice"}')
-    results = store.query('{"user": "bob"}')
+    results = store.query(probe='{"user": "bob"}')
     assert len(results) == 0
 
 
 def test_wildcard_edge():
     store = CPUStore()
     store.insert('{"a": {"b": "c"}}')
-    results = store.query('{"a": {"$any": true}}')  # Match any in a
+    results = store.query(probe='{"a": {"$any": true}}')  # Match any in a
     assert len(results) == 1
 
 
@@ -61,7 +61,7 @@ def test_negation_edge():
     store = CPUStore()
     store.insert('{"status": "success"}')
     results = store.query(
-        '{"status": "success"}', negations={"status": {"$not": "success"}}
+        probe='{"status": "success"}', negations={"status": {"$not": "success"}}
     )
     assert len(results) == 0  # Excluded
 
@@ -69,7 +69,7 @@ def test_negation_edge():
 def test_or_empty():
     store = CPUStore()
     store.insert('{"user": "alice"}')
-    results = store.query('{"$or": []}')
+    results = store.query(probe='{"$or": []}')
     assert len(results) == 0  # No subqueries
 
 
@@ -78,7 +78,7 @@ def test_guard_exact():
     store.insert('{"tags": ["a", "b", "c"]}')
     # Guard as data structure
     guard = {"tags": ["a", "b", "c"]}
-    results = store.query('{"tags": ["a", "b", "c"]}', guard=guard)
+    results = store.query(probe='{"tags": ["a", "b", "c"]}', guard=guard)
     assert len(results) == 1
 
 
@@ -89,7 +89,7 @@ def test_concurrent_like():
         store.insert(json.dumps({"id": i, "data": "x" * (i + 1)}))  # Make data distinct
     results = []
     for i in range(10):
-        res = store.query(json.dumps({"id": i, "data": "x" * (i + 1)}))
+        res = store.query(probe=json.dumps({"id": i, "data": "x" * (i + 1)}))
         results.append(len(res))
     assert all(r >= 1 for r in results)  # At least the inserted one
 

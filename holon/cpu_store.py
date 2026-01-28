@@ -115,6 +115,7 @@ class CPUStore(Store):
 
     def query(
         self,
+        *,
         probe: str,
         data_type: str = "json",
         top_k: int = 10,
@@ -131,7 +132,12 @@ class CPUStore(Store):
             seen_ids = set()
             for sub_probe in parsed_probe["$or"]:
                 sub_results = self.query(
-                    json.dumps(sub_probe), data_type, top_k, threshold, guard, negations
+                    probe=json.dumps(sub_probe),
+                    data_type=data_type,
+                    top_k=top_k,
+                    threshold=threshold,
+                    guard=guard,
+                    negations=negations,
                 )
                 for res in sub_results:
                     if res[0] not in seen_ids:

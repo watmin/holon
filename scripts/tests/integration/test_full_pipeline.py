@@ -56,23 +56,20 @@ class FullPipelineTest:
         print(f"✅ Inserted {len(ids)} JSON records")
 
         # Test basic query
-        results = self.store.query('{"role": "developer"}', "json", top_k=10)
+        results = self.store.query(probe='{"role": "developer"}', data_type="json", top_k=10)
         assert len(results) >= 3  # Alice, Charlie, Eve
 
         print(f"✅ Found {len(results)} developers")
 
         # Test guards
-        results = self.store.query(
-            '{"role": "developer"}', "json", guard={"team": "backend"}, top_k=10
-        )
+        results = self.store.query(probe='{"role": "developer"}', data_type="json", guard={"team": "backend"}, top_k=10)
         assert len(results) >= 2  # Alice, Eve
 
         print(f"✅ Found {len(results)} backend developers with guards")
 
         # Test negations
-        results = self.store.query(
-            '{"role": "developer"}',
-            "json",
+        results = self.store.query(probe='{"role": "developer"}',
+            data_type="json",
             negations={"name": {"$not": "Alice"}},
             top_k=10,
         )
@@ -81,9 +78,7 @@ class FullPipelineTest:
         print(f"✅ Found {len(results)} developers excluding Alice")
 
         # Test $or
-        results = self.store.query(
-            '{"$or": [{"team": "backend"}, {"team": "frontend"}]}', "json", top_k=10
-        )
+        results = self.store.query(probe='{"$or": [{"team": "backend"}, {"team": "frontend"}]}', data_type="json", top_k=10)
         assert len(results) >= 4
 
         print(f"✅ Found {len(results)} team members with $or query")
@@ -102,7 +97,7 @@ class FullPipelineTest:
         print(f"✅ Inserted {len(ids)} EDN records")
 
         # Query EDN data
-        results = self.store.query("{:role :developer}", "edn", top_k=10)
+        results = self.store.query(probe="{:role :developer}", data_type="edn", top_k=10)
         assert len(results) >= 1  # Frank
 
         print(f"✅ Found {len(results)} EDN developers")
@@ -130,13 +125,13 @@ class FullPipelineTest:
 
         # Query with ANN (should be fast)
         ann_start = time.time()
-        ann_results = self.store.query('{"id": 750}', "json", top_k=5)
+        ann_results = self.store.query(probe='{"id": 750}', data_type="json", top_k=5)
         ann_time = time.time() - ann_start
 
         # Force brute force by temporarily disabling ANN
         self.store.ann_index = None
         brute_start = time.time()
-        brute_results = self.store.query('{"id": 750}', "json", top_k=5)
+        brute_results = self.store.query(probe='{"id": 750}', data_type="json", top_k=5)
         brute_time = time.time() - brute_start
 
         # Re-enable ANN
@@ -177,7 +172,7 @@ class FullPipelineTest:
         print(f"✅ Bulk inserted {len(bulk_ids)} records")
 
         # Query bulk data
-        results = self.store.query('{"role": "bulk_tester"}', "json", top_k=100)
+        results = self.store.query(probe='{"role": "bulk_tester"}', data_type="json", top_k=100)
         assert len(results) >= 50
 
         print(f"✅ Found {len(results)} bulk test records")
@@ -204,13 +199,13 @@ class FullPipelineTest:
 
         # Test querying with invalid probe
         try:
-            self.store.query("invalid json probe", "json")
+            self.store.query(probe="invalid json probe", data_type="json")
             assert False, "Should have failed with invalid probe"
         except Exception:
             print("✅ Invalid query probe properly rejected")
 
         # Test querying non-existent data (should not crash)
-        results = self.store.query('{"nonexistent": "field"}', "json", top_k=5)
+        results = self.store.query(probe='{"nonexistent": "field"}', data_type="json", top_k=5)
         # Should return results (possibly empty or low-scoring matches), but not crash
         assert isinstance(results, list)  # Should return a list, not crash
         print(
@@ -240,7 +235,7 @@ class FullPipelineTest:
         print("✅ Data storage/retrieval integrity verified")
 
         # Query and verify
-        results = integrity_store.query('{"name": "Integrity_Test"}', "json", top_k=5)
+        results = integrity_store.query(probe='{"name": "Integrity_Test"}', data_type="json", top_k=5)
         assert len(results) >= 1
 
         # Verify the retrieved data matches original

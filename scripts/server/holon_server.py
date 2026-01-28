@@ -203,10 +203,10 @@ async def search_items_v1(request: QueryRequest):
 
         # Execute query
         results = store.query(
-            request.probe,
-            request.data_type,
-            request.top_k,
-            request.threshold,
+            probe=request.probe,
+            data_type=request.data_type,
+            top_k=request.top_k,
+            threshold=request.threshold,
             guard=request.guard,
             negations=request.negations,
             any_marker=request.any_marker,

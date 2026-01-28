@@ -189,11 +189,13 @@ class TestCPUStoreBulkOperations:
         store.batch_insert(bulk_items, "json")
 
         # Query should work
-        results = store.query('{"category": "bulk"}', "json", top_k=50)
+        results = store.query(probe='{"category": "bulk"}', data_type="json", top_k=50)
         assert len(results) >= 50  # Should find bulk items
 
         # Query for initial item
-        results = store.query('{"category": "initial"}', "json", top_k=10)
+        results = store.query(
+            probe='{"category": "initial"}', data_type="json", top_k=10
+        )
         assert len(results) >= 1
 
     def test_ann_index_invalidation_on_insert(self, store):
@@ -277,8 +279,10 @@ class TestCPUStoreBulkOperations:
             store.delete(bulk_ids[i])
 
         # Query operations should still work
-        bulk_results = store.query('{"type": "bulk"}', "json", top_k=50)
-        single_results = store.query('{"type": "single"}', "json", top_k=10)
+        bulk_results = store.query(probe='{"type": "bulk"}', data_type="json", top_k=50)
+        single_results = store.query(
+            probe='{"type": "single"}', data_type="json", top_k=10
+        )
 
         assert len(bulk_results) >= 50  # Should have remaining bulk items (top_k=50)
         assert len(single_results) >= 1  # Should find single item
