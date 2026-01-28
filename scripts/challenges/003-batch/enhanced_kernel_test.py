@@ -33,16 +33,18 @@ class EnhancedKernelQuoteFinder:
 
         units_data = []
         for quote in quotes:
-            # Enhanced N-gram with kernel-level primitives
-            # User specifies config via JSON - kernel handles the complexity
+            # Enhanced N-gram with ALL advanced kernel-level primitives
+            # User specifies config via JSON - kernel handles ALL the complexity
             unit_data = {
                 "text": {
-                    "_encode_mode": "ngram",  # Use standard NGRAM mode
+                    "_encode_mode": "ngram",  # Use enhanced NGRAM mode
                     "_encode_config": {
-                        "n_sizes": [1, 2],        # Individual + bigrams
-                        "weights": [0.3, 0.7],  # Weight bigrams higher
-                        "length_penalty": True, # Normalize for query length
-                        "idf_weighting": False  # Could enable with corpus stats
+                        "n_sizes": [1, 2, 3],        # Individual + bigrams + trigrams (VSA standard)
+                        "weights": [0.2, 0.6, 0.4],  # Progressive weighting (Kanerva trigram approach)
+                        "length_penalty": True,      # Normalize for query length differences
+                        "term_weighting": True,      # Weight by vector magnitude/density
+                        "positional_weighting": True, # Earlier n-grams more important
+                        "discrimination_boost": True  # Enhance distinctive vector components
                     },
                     "sequence": self.normalize_words(quote["text"])
                 }
@@ -80,33 +82,45 @@ class EnhancedKernelQuoteFinder:
 
         print(f"🔍 Enhanced kernel search for: '{query_phrase}' → {words}")
 
-        # Pure geometric search through JSON API
-        results = self.client.search_json(
-            probe=probe_data,
-            top_k=top_k,
-            threshold=0.0
-        )
+        # Test different Qdrant-native similarity metrics
+        similarity_methods = ["cosine", "euclidean", "manhattan", "dot_product"]
+        all_results = {}
 
-        # Convert to our format
+        for sim_method in similarity_methods:
+            print(f"  Testing {sim_method} similarity...")
+            results = self.client.search(
+                probe=probe_data,
+                similarity=sim_method,
+                limit=top_k,
+                threshold=0.0
+            )
+            all_results[sim_method] = results
+
+        # Process results from different similarity methods
         formatted_results = []
-        for result in results:
-            data_id = result["id"]
-            vsa_score = result["score"]
-            original_quote = self.id_to_quote.get(data_id)
+        for sim_method, results in all_results.items():
+            print(f"    {sim_method}: {len(results)} results")
 
-            if original_quote:
-                result_data = {
-                    "id": data_id,
-                    "vsa_score": vsa_score,
-                    "fuzzy_score": 0.0,
-                    "combined_score": vsa_score,
-                    "search_method": "enhanced_kernel",
-                    "metadata": original_quote,
-                    "reconstructed_text": original_quote["text"],
-                    "search_words": words,
-                }
-                formatted_results.append(result_data)
+            for result in results:
+                data_id = result["id"]
+                vsa_score = result["score"]
+                original_quote = self.id_to_quote.get(data_id)
 
+                if original_quote:
+                    result_data = {
+                        "id": f"{data_id}_{sim_method}",
+                        "vsa_score": vsa_score,
+                        "fuzzy_score": 0.0,
+                        "combined_score": vsa_score,
+                        "search_method": f"enhanced_kernel_{sim_method}",
+                        "similarity_metric": sim_method,
+                        "metadata": original_quote,
+                        "reconstructed_text": original_quote["text"],
+                        "search_words": words,
+                    }
+                    formatted_results.append(result_data)
+
+        # Sort by combined score across all methods
         formatted_results.sort(key=lambda x: x["combined_score"], reverse=True)
         return formatted_results[:top_k]
 

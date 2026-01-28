@@ -20,14 +20,14 @@ print("Inserted 3 items")
 
 # Normal probe: should return all alice logins
 probe_normal = {"user": "alice", "action": "login"}
-results_normal = client.search_json(probe_normal, top_k=10)
+results_normal = client.search_json(probe_normal, limit=10)
 print(f"\nNormal probe results: {len(results_normal)}")
 for res in results_normal:
     print(f"  Status: {res['data']['status']}")
 
 # Probe with negation: exclude failed
 probe_neg = {"user": "alice", "action": "login"}
-results_neg = client.search_json(probe_neg, top_k=10, negations={"status": {"$not": "failed"}})
+results_neg = client.search_json(probe_neg, limit=10, negations={"status": {"$not": "failed"}})
 print(f"\nNegated probe results: {len(results_neg)}")
 for res in results_neg:
     print(f"  Status: {res['data']['status']}")

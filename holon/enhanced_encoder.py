@@ -69,6 +69,9 @@ class EnhancedEncoder(Encoder):
         elif mode == EnhancedListEncodeMode.SUBSEQUENCE_ALIGNED:
             return self._encode_subsequence_aligned(item_vecs, **config)
 
+        elif mode == EnhancedListEncodeMode.SEMANTIC_FIELD:
+            return self._encode_semantic_field(item_vecs, **config)
+
         else:
             # Fall back to base encoder for standard modes
             return super().encode_list(seq, mode)

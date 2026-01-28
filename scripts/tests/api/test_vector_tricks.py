@@ -23,7 +23,7 @@ print("Inserted 4 items")
 
 # Test user-specified $any: match alice with any action
 probe_any = {"user": "alice", "action": {"$any": True}}
-results_any = client.search_json(probe_any, top_k=10)
+results_any = client.search_json(probe_any, limit=10)
 print(f"\nProbe with $any: {len(results_any)} results")
 for res in results_any:
     print(f"  {res['data']['user']} - {res['data']['action']} - {res['data']['status']}")
@@ -33,7 +33,7 @@ for res in results_any:
 # Test user-specified negation: exclude {"status": {"$not": "success"}}
 probe_any_neg = {"user": "alice", "action": {"$any": True}}
 results_neg = client.search_json(
-    probe_any_neg, top_k=10, negations={"status": {"$not": "success"}}
+    probe_any_neg, limit=10, negations={"status": {"$not": "success"}}
 )
 print(
     f"\nProbe with $any and user-specified negation (exclude success): {len(results_neg)} results"
@@ -53,7 +53,7 @@ client.insert_json(nested_data)
 
 probe_deep = {"user": "charlie"}
 results_deep = client.search_json(
-    probe_deep, top_k=10, negations={"meta": {"details": {"status": "success"}}}
+    probe_deep, limit=10, negations={"meta": {"details": {"status": "success"}}}
 )
 print(
     f"\nProbe with deep negation (exclude nested success): {len(results_deep)} results"
@@ -63,7 +63,7 @@ for res in results_deep:
 
 # Test $or: match alice OR success
 probe_or = {"$or": [{"user": "alice"}, {"status": "success"}]}
-results_or = client.search_json(probe_or, top_k=10)
+results_or = client.search_json(probe_or, limit=10)
 print(f"\nProbe with $or (alice OR success): {len(results_or)} results")
 for res in results_or:
     status = res['data'].get("status", "N/A")

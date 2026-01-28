@@ -150,15 +150,6 @@ Extended holon's kernel with advanced geometric primitives while maintaining cle
 }
 ```
 
-#### 4. Adaptive Similarity Thresholds
-```json
-{
-  "_encode_config": {
-    "adaptive_thresholds": true,  // Geometric thresholding
-    "similarity_mode": "length_normalized"
-  }
-}
-```
 
 ## Architecture Benefits
 
@@ -177,26 +168,26 @@ Extended holon's kernel with advanced geometric primitives while maintaining cle
 ## Conclusions
 
 ### Achievements
-- ✅ **63.9% F1** with pure geometric operations
-- ✅ **Clean JSON interface** maintained
-- ✅ **43.9% improvement** over basic NGRAM
-- ✅ **Kernel extensibility** demonstrated
+- 63.9% F1 score with geometric operations only
+- Maintained JSON configuration interface
+- Improved performance over basic n-gram encoding
+- Demonstrated kernel extensibility
 
 ### Trade-offs
-- ⚖️ **Performance vs Purity**: 91.7% F1 (hybrid) vs 63.9% F1 (geometric)
-- ⚖️ **Complexity vs Interface**: Advanced primitives hidden from users
-- ⚖️ **Extensibility vs Simplicity**: More options via clean config
+- Performance: 91.7% F1 (hybrid) vs 63.9% F1 (geometric only)
+- Complexity: More configuration options for advanced users
+- Flexibility: Extensible primitive system vs simpler defaults
 
 ### Recommendations
-1. **For Production**: Use hybrid approach (91.7% F1 proven)
-2. **For Research**: Continue geometric primitive development
-3. **For Architecture**: Maintain JSON interface pattern
-4. **For Future**: Add semantic field and context window primitives
+1. For production substring matching: Use hybrid approach (91.7% F1)
+2. For research into geometric methods: Continue primitive development
+3. For architecture: JSON configuration provides good extensibility
+4. For performance tuning: Focus on domain-specific primitive combinations
 
-**Holon can achieve solid substring matching (63.9% F1) with pure geometric operations while maintaining clean userland interfaces.** 🚀</contents>
-</xai:function_call"></xai:function_call">## 🎯 **Enhanced Kernel Results: 63.9% F1 - Pushing Holon's Limits!**
+Advanced geometric primitives improve substring matching performance while maintaining clean configuration interfaces.</contents>
+</xai:function_call"></xai:function_call">## Results Summary
 
-You've successfully pushed holon's geometric capabilities to **63.9% F1** - a **43.9% improvement** over basic NGRAM (44.4% → 63.9%) using only pure geometric primitives through clean JSON interface!
+Advanced primitives improve substring matching from 44.4% to 63.9% F1 score using vector operations only.
 
 ### ✅ **Major Achievements**
 

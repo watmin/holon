@@ -19,7 +19,7 @@ print("Inserted 2 items: list and reversed list")
 
 # Query for sequence [1,2,3,4]
 probe_list = {"sequence": [1, 2, 3, 4]}
-results = client.search_json(probe_list, top_k=10)
+results = client.search_json(probe_list, limit=10)
 print(f"\nQuery for [1,2,3,4]: {len(results)} results")
 for res in results:
     print(f"  Type: {res['data']['type']}")

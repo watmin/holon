@@ -23,7 +23,7 @@ probe = {"id": 50, "text": "sample text 50", "value": 500}
 print(f"\nQuerying with probe: {probe}")
 
 start = time.time()
-results = client.search_json(probe, top_k=5)
+results = client.search_json(probe, limit=5)
 query_time = time.time() - start
 
 print(f"Query Results (time: {query_time:.4f}s):")

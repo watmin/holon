@@ -290,6 +290,7 @@ class Encoder:
         # Bundle all enhanced components
         if all_ngrams:
             bundled = np.sum(all_ngrams, axis=0)
+
             return self._threshold_bipolar(bundled)
         else:
             return np.zeros(self.vector_manager.dimensions, dtype=np.int8)

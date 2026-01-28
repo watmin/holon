@@ -65,7 +65,7 @@ def run_comprehensive_test():
     # Test 1: Fuzzy search
     print("\n📊 Test 1: Fuzzy Search")
     probe = {"user": "alice", "action": "login"}
-    results = client.search_json(probe, top_k=5)
+    results = client.search_json(probe, limit=5)
     print(f"  Query: alice login → {len(results)} results")
     for res in results[:3]:
         print(f"    {res['data']['user']} {res['data']['action']} (score: {res['score']:.3f})")
@@ -73,7 +73,7 @@ def run_comprehensive_test():
     # Test 2: Wildcards
     print("\n🎭 Test 2: Wildcards")
     probe_wild = {"user": "bob", "action": {"$any": True}}
-    results_wild = client.search_json(probe_wild, top_k=5)
+    results_wild = client.search_json(probe_wild, limit=5)
     print(f"  Query: bob with any action → {len(results_wild)} results")
     actions_found = set(res["data"]["action"] for res in results_wild)
     print(f"    Actions found: {actions_found}")
@@ -103,14 +103,14 @@ def run_comprehensive_test():
         return True
 
     guard_pattern = {"tags": ["tag_0", {"$any": True}, "cat_0"]}
-    results_guard = client.search_json(probe_guard, top_k=5, guard=guard_pattern)
+    results_guard = client.search_json(probe_guard, limit=5, guard=guard_pattern)
     print(f"  Query: alice with guard on tags → {len(results_guard)} results")
 
     # Test 4: Negations
     print("\n🚫 Test 4: Negations")
     probe_neg = {"user": "charlie"}
     negations = {"status": {"$not": "failed"}}
-    results_neg = client.search_json(probe_neg, top_k=5, negations=negations)
+    results_neg = client.search_json(probe_neg, limit=5, negations=negations)
     print(f"  Query: charlie excluding failed → {len(results_neg)} results")
     statuses = [res["data"]["status"] for res in results_neg]
     print(f"    Statuses: {set(statuses)} (no 'failed')")
@@ -118,7 +118,7 @@ def run_comprehensive_test():
     # Test 5: Disjunctions
     print("\n🔀 Test 5: Disjunctions ($or)")
     probe_or = {"$or": [{"user": "diana"}, {"priority": "high"}]}
-    results_or = client.search_json(probe_or, top_k=10)
+    results_or = client.search_json(probe_or, limit=10)
     print(f"  Query: diana OR high priority → {len(results_or)} results")
     users_priorities = [(res["data"]["user"], res["data"]["priority"]) for res in results_or[:5]]
     print(f"    Samples: {users_priorities}")
@@ -129,7 +129,7 @@ def run_comprehensive_test():
     guard_combined = {"priority": "medium"}
     negations_combined = {"status": {"$not": "banned"}}
     results_combined = client.search_json(
-        probe_combined, top_k=5, guard=guard_combined, negations=negations_combined
+        probe_combined, limit=5, guard=guard_combined, negations=negations_combined
     )
     print(
         f"  Query: any action + nested flag + medium priority - banned → "

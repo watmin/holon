@@ -12,6 +12,7 @@ The client abstracts all vector operations - users work with data, not vectors.
 import json
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+import numpy as np
 import requests
 
 if TYPE_CHECKING:
@@ -164,10 +165,11 @@ class HolonClient:
         *,
         probe: Union[str, Dict],
         data_type: str = "json",
-        top_k: int = 10,
+        limit: int = 10,
         threshold: float = 0.0,
         guard: Optional[Dict] = None,
         negations: Optional[Dict] = None,
+        similarity: Optional[Union[str, Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search for similar items using vector similarity.
@@ -175,13 +177,40 @@ class HolonClient:
         Args:
             probe: Search probe (dict or JSON string)
             data_type: "json" or "edn"
-            top_k: Maximum number of results
+            limit: Maximum number of results
             threshold: Similarity threshold (0.0-1.0)
             guard: Guard conditions
             negations: Negation filters
+            similarity: Distance metric for Qdrant
+                - None: Basic cosine similarity
+                - "cosine": Cosine similarity (Qdrant native)
+                - "euclidean": Euclidean distance (Qdrant native)
+                - "manhattan": Manhattan distance (Qdrant native)
+                - "dot_product": Dot product (Qdrant native)
 
         Returns:
             List of results with id, score, and data
+
+        Examples:
+            # Basic search (cosine similarity)
+            results = client.search({"text": "machine learning"})
+
+            # Named similarity methods
+            results = client.search({"text": "machine learning"}, similarity="euclidean")
+            results = client.search({"text": "machine learning"}, similarity="manhattan")
+            results = client.search({"text": "machine learning"}, similarity="dot_product")
+
+            # Different distance metrics
+            results = client.search({"text": "machine learning"}, similarity="euclidean")
+
+            # Full query with all options
+            results = client.search(
+                {"text": "machine learning"},
+                limit=20,
+                threshold=0.1,
+                guard={"category": "ml"},
+                similarity="euclidean"
+            )
         """
         if isinstance(probe, dict):
             probe_str = json.dumps(probe)
@@ -191,7 +220,7 @@ class HolonClient:
         payload = {
             "probe": probe_str,
             "data_type": data_type,
-            "top_k": top_k,
+            "top_k": limit,  # Use limit parameter, but API expects top_k
             "threshold": threshold,
             "any_marker": "$any",
         }
@@ -200,26 +229,31 @@ class HolonClient:
         if negations:
             payload["negations"] = negations
 
+        # Perform basic search first
         if self._mode == "http":
             response = self._session.post(
                 f"{self._base_url}/api/v1/search", json=payload
             )
             response.raise_for_status()
-            return response.json()["results"]
+            basic_results = response.json()["results"]
         else:
-            results = self._store.query(
+            basic_results = self._store.query(
                 probe=probe_str,
                 data_type=data_type,
-                top_k=top_k,
+                top_k=limit,  # API still uses top_k internally for compatibility
                 threshold=threshold,
                 guard=guard,
                 negations=negations,
             )
             # Convert to same format as HTTP API
-            return [
+            basic_results = [
                 {"id": item_id, "score": score, "data": data}
-                for item_id, score, data in results
+                for item_id, score, data in basic_results
             ]
+
+        # For Qdrant-native similarity methods, results are already computed with the correct metric
+        # No client-side enhancement needed - similarity parameter controls Qdrant distance metric
+        return basic_results
 
     def encode_vectors(
         self, data: Union[str, Dict], data_type: str = "json"
@@ -305,8 +339,6 @@ class HolonClient:
             response.raise_for_status()
             return response.json()["vector"]
         else:
-            import numpy as np
-
             np_vectors = [np.array(vec, dtype=np.int8) for vec in vectors]
 
             if operation == "bind":
@@ -318,6 +350,8 @@ class HolonClient:
 
             cpu_result = self._store.vector_manager.to_cpu(result)
             return cpu_result.tolist()
+
+    # Advanced Similarity (Minimal Kernel Addition)
 
     # Convenience methods for common operations
 

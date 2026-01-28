@@ -47,7 +47,7 @@ print(f"Inserted {len(data)} items")
 probe = {"user": "alice", "action": "login"}
 
 # Query without guard - should return alice logins (success and failed)
-results_no_guard = client.search_json(probe, top_k=10)
+results_no_guard = client.search_json(probe, limit=10)
 print(f"\nQuery without guard: {len(results_no_guard)} results")
 for res in results_no_guard:
     print(
@@ -57,7 +57,7 @@ for res in results_no_guard:
 
 # Query with guard: only success status
 guard_success = {"status": "success"}
-results_guarded = client.search_json(probe, top_k=10, guard=guard_success)
+results_guarded = client.search_json(probe, limit=10, guard=guard_success)
 print(f"\nQuery with guard (status=='success'): {len(results_guarded)} results")
 for res in results_guarded:
     print(
@@ -80,12 +80,12 @@ else:
 
 # Test nested guard: require 'ip' key present
 guard_ip = {"ip": None}
-results_ip_guard = client.search_json(probe, top_k=10, guard=guard_ip)
+results_ip_guard = client.search_json(probe, limit=10, guard=guard_ip)
 print(f"\nQuery with guard ('ip' present): {len(results_ip_guard)} results")
 # Should be same as no guard since all have ip
 
 # Test guard that excludes some: require 'extra' field
 guard_extra = {"extra": None}
-results_extra_guard = client.search_json(probe, top_k=10, guard=guard_extra)
+results_extra_guard = client.search_json(probe, limit=10, guard=guard_extra)
 print(f"\nQuery with guard ('extra' present): {len(results_extra_guard)} results")
 print("  Should be 1 result (the one with extra field)")

@@ -32,19 +32,23 @@ Holon provides flexible N-gram encoding configurations through the `_encode_conf
 **Performance**: 75% F1, fast encoding
 **Example**: PDF paragraph search, code function location
 
-#### Full-Text Book Analysis
+#### Full-Text Book Analysis (Enhanced Kernel)
 ```json
 {
   "_encode_mode": "ngram",
   "_encode_config": {
-    "n_sizes": [1, 2, 3],
-    "weights": [0.2, 0.6, 0.4]
+    "n_sizes": [1, 2, 3],        // Multi-resolution (VSA standard)
+    "weights": [0.2, 0.6, 0.4],  // Progressive trigram weighting
+    "length_penalty": true,       // Normalize query length differences
+    "term_weighting": true,       // Weight important terms higher
+    "positional_weighting": true, // Earlier patterns more important
+    "discrimination_boost": true  // Enhance unique components
   }
 }
 ```
-**Best for**: Complex text analysis with multiple query types
-**Performance**: Balanced precision/recall
-**Example**: Literary analysis, academic research
+**Best for**: Complex text analysis requiring multiple n-gram sizes
+**Performance**: 63.9% F1 (improvement over basic n-grams)
+**Example**: Academic research, detailed text analysis
 
 ### 2. Query Characteristics
 

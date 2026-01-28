@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # Query
     probe = {"id": 100, "value": "test_100"}
     start = time.time()
-    results = client.search_json(probe, top_k=5)
+    results = client.search_json(probe, limit=5)
     query_time = time.time() - start
 
     print(f"Query time: {query_time:.4f}s")
