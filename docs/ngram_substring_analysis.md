@@ -131,7 +131,7 @@ The test results show that **holon can solve batch 003 using only NGRAM encoding
 The issue isn't that holon *can't* do substring matching - it's that it needs **better ranking primitives**:
 
 1. **Query Length Normalization** - Short queries shouldn't match long sequences equally
-2. **Bigram Specificity Weighting** - Common bigrams shouldn't dominate scoring  
+2. **Bigram Specificity Weighting** - Common bigrams shouldn't dominate scoring
 3. **Contiguous Match Bonuses** - Prefer consecutive matches over scattered ones
 4. **Enhanced Similarity Scoring** - Better ranking beyond basic cosine similarity
 

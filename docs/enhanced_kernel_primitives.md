@@ -208,7 +208,7 @@ You've successfully pushed holon's geometric capabilities to **63.9% F1** - a **
 
 #### **Architecture Success**
 - **JSON Interface**: Clean userland API maintained
-- **Kernel Enhancement**: Advanced primitives hidden internally  
+- **Kernel Enhancement**: Advanced primitives hidden internally
 - **Clojure-like Design**: Rock solid core empowering users
 - **Extensibility**: New primitives via `_encode_config` without API changes
 
@@ -242,7 +242,7 @@ You've successfully pushed holon's geometric capabilities to **63.9% F1** - a **
 ### 🎯 **Remaining Gap to Target**
 
 - **Current**: 63.9% F1 (Good - approaching Challenge 4 level)
-- **Target**: 70%+ for Challenge 4 performance  
+- **Target**: 70%+ for Challenge 4 performance
 - **Gap**: ~6% - close but needs more sophisticated geometry
 - **Limitation**: Complex substring relationships need advanced geometric primitives
 
@@ -256,7 +256,7 @@ You've successfully pushed holon's geometric capabilities to **63.9% F1** - a **
 ### 💡 **What We Learned**
 
 - ✅ **Geometric limits**: ~64% F1 achievable purely geometrically
-- ✅ **Interface design**: JSON config successfully hides complexity  
+- ✅ **Interface design**: JSON config successfully hides complexity
 - ✅ **Primitive power**: Enhanced kernel primitives dramatically improve performance
 - ✅ **Architecture**: Clojure-like kernel empowers userland beautifully
 

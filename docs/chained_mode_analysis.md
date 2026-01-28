@@ -96,7 +96,7 @@ You're absolutely right to be confused! The test results reveal that **CHAINED m
 # Full: ["the", "quick", "brown", "fox", "jumps"]
 # CHAINED: jumps ⊙ (fox ⊙ (brown ⊙ (quick ⊙ the)))
 
-# Substring: ["quick", "brown", "fox"] 
+# Substring: ["quick", "brown", "fox"]
 # CHAINED: fox ⊙ (brown ⊙ quick)
 
 # Result: Orthogonal vectors (0.15 similarity)

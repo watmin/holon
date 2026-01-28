@@ -4,8 +4,10 @@ Extends holon kernel with primitives for better substring matching and ranking.
 """
 
 from enum import Enum
-from typing import List, Dict, Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
+
 from .encoder import Encoder, ListEncodeMode
 from .vector_manager import VectorManager
 
@@ -21,7 +23,7 @@ class EnhancedListEncodeMode(str, Enum):
 
     # New enhanced modes
     NGRAM_CONFIGURABLE = "ngram_configurable"  # Configurable N-gram sizes
-    NGRAM_WEIGHTED = "ngram_weighted"        # TF-IDF style bigram weighting
+    NGRAM_WEIGHTED = "ngram_weighted"  # TF-IDF style bigram weighting
     SUBSEQUENCE_ALIGNED = "subsequence_aligned"  # Advanced subsequence matching
 
 
@@ -37,10 +39,7 @@ class EnhancedEncoder(Encoder):
         super().__init__(vector_manager)
 
     def encode_list(
-        self,
-        seq: List[Any],
-        mode: Union[str, EnhancedListEncodeMode] = None,
-        **config
+        self, seq: List[Any], mode: Union[str, EnhancedListEncodeMode] = None, **config
     ) -> np.ndarray:
         """
         Enhanced list encoding with configurable primitives.
@@ -78,7 +77,7 @@ class EnhancedEncoder(Encoder):
         self,
         item_vecs: List[np.ndarray],
         n_sizes: List[int] = None,
-        weights: List[float] = None
+        weights: List[float] = None,
     ) -> np.ndarray:
         """
         Configurable N-gram encoding - choose which N values to use.
@@ -107,7 +106,7 @@ class EnhancedEncoder(Encoder):
             else:
                 # N-grams
                 for i in range(len(item_vecs) - n + 1):
-                    ngram_vecs = item_vecs[i:i + n]
+                    ngram_vecs = item_vecs[i : i + n]
                     # Chain the n-gram
                     chained = ngram_vecs[0]
                     for vec in ngram_vecs[1:]:
@@ -126,7 +125,7 @@ class EnhancedEncoder(Encoder):
         self,
         item_vecs: List[np.ndarray],
         corpus_stats: Optional[Dict[str, float]] = None,
-        length_penalty: bool = True
+        length_penalty: bool = True,
     ) -> np.ndarray:
         """
         TF-IDF style weighted N-gram encoding.
@@ -172,7 +171,7 @@ class EnhancedEncoder(Encoder):
         self,
         item_vecs: List[np.ndarray],
         alignment_mode: str = "sliding_window",
-        window_size: int = 3
+        window_size: int = 3,
     ) -> np.ndarray:
         """
         Advanced subsequence alignment encoding.
@@ -191,7 +190,7 @@ class EnhancedEncoder(Encoder):
             # Create overlapping windows and encode each
             windows = []
             for i in range(len(item_vecs) - window_size + 1):
-                window_vecs = item_vecs[i:i + window_size]
+                window_vecs = item_vecs[i : i + window_size]
 
                 # Chain the window
                 chained = window_vecs[0]
@@ -225,7 +224,7 @@ class EnhancedEncoder(Encoder):
         query_vector: np.ndarray,
         target_vector: np.ndarray,
         similarity_mode: str = "cosine",
-        **params
+        **params,
     ) -> float:
         """
         Enhanced similarity computation with advanced scoring.
@@ -249,7 +248,9 @@ class EnhancedEncoder(Encoder):
 
             # Length-normalized similarity
             length_factor = min(query_norm, target_norm) / max(query_norm, target_norm)
-            cosine_sim = np.dot(query_vector, target_vector) / (query_norm * target_norm)
+            cosine_sim = np.dot(query_vector, target_vector) / (
+                query_norm * target_norm
+            )
 
             return cosine_sim * length_factor
 
@@ -259,8 +260,8 @@ class EnhancedEncoder(Encoder):
 
             # Add bonus for contiguous matches (simplified geometric approach)
             # This could be enhanced with actual bigram overlap detection
-            contiguous_bonus = params.get('contiguous_bonus', 0.1)
-            overlap_factor = params.get('overlap_factor', 0.5)
+            contiguous_bonus = params.get("contiguous_bonus", 0.1)
+            overlap_factor = params.get("overlap_factor", 0.5)
 
             # Simplified: assume some overlap exists and apply bonus
             enhanced_sim = base_sim + (contiguous_bonus * overlap_factor)

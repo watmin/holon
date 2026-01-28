@@ -273,7 +273,7 @@ Performance Branch: What matters most?
 The guide covers:
 
 1. **Quick reference** for common use cases
-2. **Detailed scenarios** with specific configurations  
+2. **Detailed scenarios** with specific configurations
 3. **Domain-specific applications** (DNA, code, time series)
 4. **Performance trade-offs** (speed, accuracy, memory)
 5. **Decision flowcharts** for choosing configurations
@@ -281,6 +281,6 @@ The guide covers:
 
 **You're absolutely right - providing customization is valuable even when one approach performs best. Users should have the power to optimize for their specific use cases!** 🚀
 
-Would you like me to add any specific use cases or configuration examples to the guide? 
+Would you like me to add any specific use cases or configuration examples to the guide?
 
 The encoding flexibility is one of holon's key strengths - users aren't locked into one approach, they can tune for their domain and requirements. 💪✨

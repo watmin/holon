@@ -3,8 +3,9 @@ Tests for enhanced encoder functionality.
 Tests configurable n-gram sizes and advanced geometric primitives.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from holon.encoder import Encoder, ListEncodeMode
 from holon.vector_manager import VectorManager
 
@@ -40,10 +41,7 @@ class TestEnhancedEncoder:
         data = ["the", "quick", "brown"]
 
         # Test with different weights
-        config = {
-            "n_sizes": [1, 2],
-            "weights": [0.3, 0.7]  # Weight bigrams higher
-        }
+        config = {"n_sizes": [1, 2], "weights": [0.3, 0.7]}  # Weight bigrams higher
 
         result = encoder.encode_list(data, mode=ListEncodeMode.NGRAM, **config)
         assert isinstance(result, np.ndarray)
@@ -58,8 +56,12 @@ class TestEnhancedEncoder:
 
         config = {"length_penalty": True}
 
-        short_result = encoder.encode_list(short_data, mode=ListEncodeMode.NGRAM, **config)
-        long_result = encoder.encode_list(long_data, mode=ListEncodeMode.NGRAM, **config)
+        short_result = encoder.encode_list(
+            short_data, mode=ListEncodeMode.NGRAM, **config
+        )
+        long_result = encoder.encode_list(
+            long_data, mode=ListEncodeMode.NGRAM, **config
+        )
 
         assert isinstance(short_result, np.ndarray)
         assert isinstance(long_result, np.ndarray)
@@ -104,9 +106,9 @@ class TestEnhancedEncoder:
                 "_encode_config": {
                     "n_sizes": [1, 2],
                     "weights": [0.5, 0.5],
-                    "length_penalty": True
+                    "length_penalty": True,
                 },
-                "words": ["hello", "world"]
+                "words": ["hello", "world"],
             }
         }
 
@@ -135,8 +137,9 @@ class TestEnhancedEncoder:
         # Should handle gracefully even with potentially problematic configs
         # The encoder is designed to be robust and not fail on config issues
         result1 = encoder.encode_list(data, mode=ListEncodeMode.NGRAM, n_sizes=[1])
-        result2 = encoder.encode_list(data, mode=ListEncodeMode.NGRAM,
-                                    n_sizes=[1, 2], weights=[0.5, 0.5])  # Correct length
+        result2 = encoder.encode_list(
+            data, mode=ListEncodeMode.NGRAM, n_sizes=[1, 2], weights=[0.5, 0.5]
+        )  # Correct length
 
         assert isinstance(result1, np.ndarray)
         assert isinstance(result2, np.ndarray)
@@ -152,8 +155,9 @@ class TestEnhancedEncoder:
 
         # Very long n-gram sizes
         long_data = ["a"] * 10
-        result = encoder.encode_list(long_data, mode=ListEncodeMode.NGRAM,
-                                   n_sizes=[5], weights=[1.0])
+        result = encoder.encode_list(
+            long_data, mode=ListEncodeMode.NGRAM, n_sizes=[5], weights=[1.0]
+        )
         assert isinstance(result, np.ndarray)
 
     def test_enhanced_vs_basic_similarity(self, encoder):
@@ -164,9 +168,13 @@ class TestEnhancedEncoder:
         basic = encoder.encode_list(data, mode=ListEncodeMode.NGRAM)
 
         # Enhanced encoding
-        enhanced = encoder.encode_list(data, mode=ListEncodeMode.NGRAM,
-                                     n_sizes=[1, 2], weights=[0.3, 0.7],
-                                     length_penalty=True)
+        enhanced = encoder.encode_list(
+            data,
+            mode=ListEncodeMode.NGRAM,
+            n_sizes=[1, 2],
+            weights=[0.3, 0.7],
+            length_penalty=True,
+        )
 
         # Both should be valid bipolar vectors
         assert np.all(np.isin(basic, [-1, 0, 1]))
