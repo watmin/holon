@@ -20,7 +20,9 @@ class ListEncodeMode(str, Enum):
     """Encoding modes for sequences/lists."""
 
     POSITIONAL = "positional"  # Absolute position binding (default, current behavior)
-    CHAINED = "chained"  # Relative chained binding for fuzzy subsequence matching
+    CHAINED = (
+        "chained"  # Relative chained binding for suffix operations and prefix unbinding
+    )
     NGRAM = "ngram"  # N-gram pairs/triples for local order preservation
     BUNDLE = "bundle"  # Pure bundling (multiset, no order)
 
@@ -68,7 +70,7 @@ class Encoder:
         elif isinstance(data, (list, tuple)):
             # Use provided list_mode or default
             mode = list_mode if list_mode is not None else self.default_list_mode
-            return self.encode_list(data, mode=mode)
+            return self.encode_list(data, mode=mode, **kwargs)
         elif isinstance(data, (frozenset, set)):
             return self._encode_set(data)
         else:
@@ -84,18 +86,25 @@ class Encoder:
 
         bound_vectors = []
         for key, value in data.items():
-            # Check for encoding mode hint
+            # Check for encoding mode and config hints
             effective_list_mode = list_mode
-            if isinstance(value, dict) and "_encode_mode" in value:
-                mode_str = value["_encode_mode"]
-                if mode_str in [m.value for m in ListEncodeMode]:
-                    effective_list_mode = ListEncodeMode(mode_str)
-                # Remove the hint from the value for encoding
-                value = {k: v for k, v in value.items() if k != "_encode_mode"}
+            encode_config = {}
+            if isinstance(value, dict):
+                if "_encode_mode" in value:
+                    mode_str = value["_encode_mode"]
+                    if mode_str in [m.value for m in ListEncodeMode]:
+                        effective_list_mode = ListEncodeMode(mode_str)
+                    # Remove the hint from the value for encoding
+                    value = {k: v for k, v in value.items() if k != "_encode_mode"}
+
+                if "_encode_config" in value:
+                    encode_config = value["_encode_config"]
+                    # Remove the config from the value for encoding
+                    value = {k: v for k, v in value.items() if k != "_encode_config"}
 
             key_vector = self._encode_scalar(key)
             value_vector = self._encode_recursive(
-                value, list_mode=effective_list_mode, **kwargs
+                value, list_mode=effective_list_mode, **encode_config, **kwargs
             )
             # Bind key and value
             bound = key_vector * value_vector
@@ -106,13 +115,14 @@ class Encoder:
         return self._threshold_bipolar(bundled)
 
     def encode_list(
-        self, seq: Sequence[Any], mode: ListEncodeMode | str | None = None
+        self, seq: Sequence[Any], mode: ListEncodeMode | str | None = None, **config
     ) -> np.ndarray:
         """
         Encode a sequence with configurable encoding mode.
 
         :param seq: Sequence to encode
         :param mode: Encoding mode (positional, chained, ngram, bundle)
+        :param **config: Additional configuration for enhanced modes
         :return: Encoded vector
         """
         if mode is None:
@@ -141,7 +151,9 @@ class Encoder:
             return self._threshold_bipolar(bundled)
 
         elif mode == ListEncodeMode.CHAINED:
-            # Relative chained binding for subsequence matching
+            # Relative chained binding for suffix operations and prefix unbinding
+            # Creates: itemN ⊙ (itemN-1 ⊙ (... ⊙ item1))
+            # Useful for: suffix matching, prefix removal, sequence reversal operations
             if len(item_vecs) == 0:
                 return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
             # Chain from the end for easy unbinding of prefixes
@@ -151,27 +163,136 @@ class Encoder:
             return chained
 
         elif mode == ListEncodeMode.NGRAM:
-            # N-gram encoding (pairs by default, with singles for robustness)
-            if len(seq) < 2:
-                return (
-                    self.bundle(item_vecs)
-                    if item_vecs
-                    else np.zeros(self.vector_manager.dimensions, dtype=np.int8)
-                )
-
-            # Create bigram bindings
-            pairs = []
-            for i in range(len(item_vecs) - 1):
-                pair_bound = self.bind(item_vecs[i], item_vecs[i + 1])
-                pairs.append(pair_bound)
-
-            # Bundle pairs + singles for better recall
-            all_components = pairs + item_vecs
-            bundled = np.sum(all_components, axis=0)
-            return self._threshold_bipolar(bundled)
+            # Enhanced N-gram encoding with configurable primitives
+            return self._encode_ngram_enhanced(item_vecs, **config)
 
         else:
             raise ValueError(f"Unknown encoding mode: {mode}")
+
+    def _encode_ngram_enhanced(
+        self, item_vecs: List[np.ndarray], **config
+    ) -> np.ndarray:
+        """
+        Enhanced N-gram encoding with advanced kernel-level primitives.
+
+        Supports configurable geometric operations for optimal substring matching.
+        """
+        if len(item_vecs) < 2:
+            # For short sequences, apply enhanced single-term processing
+            bundled = (
+                self.bundle(item_vecs)
+                if item_vecs
+                else np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            )
+            if config.get("length_penalty", False):
+                # Apply length normalization for short queries
+                length_factor = 1.0 / np.sqrt(len(item_vecs)) if item_vecs else 1.0
+                bundled = bundled * length_factor
+
+            # Apply term importance weighting for single terms
+            if config.get("term_weighting", False):
+                # Weight based on vector magnitude (important terms have stronger vectors)
+                magnitudes = [np.linalg.norm(vec) for vec in item_vecs]
+                avg_magnitude = np.mean(magnitudes) if magnitudes else 1.0
+                if avg_magnitude > 0:
+                    importance_factor = min(avg_magnitude / 2.0, 2.0)  # Cap at 2x boost
+                    bundled = bundled * importance_factor
+
+            return self._threshold_bipolar(bundled)
+
+        # Extract configuration options
+        n_sizes = config.get("n_sizes", [1, 2])  # Individual items + pairs
+        weights = config.get("weights", [1.0] * len(n_sizes))
+        length_penalty = config.get("length_penalty", False)
+        idf_weighting = config.get("idf_weighting", False)
+        corpus_stats = config.get("corpus_stats", None)
+        term_weighting = config.get("term_weighting", False)  # New primitive
+
+        # Generate n-grams of specified sizes
+        all_ngrams = []
+
+        for n_size, weight in zip(n_sizes, weights):
+            if n_size == 1:
+                # Enhanced unigrams with term importance weighting
+                for vec in item_vecs:
+                    weighted_vec = weight * vec
+
+                    # Apply term importance weighting
+                    if term_weighting:
+                        # Weight based on vector density/magnitude
+                        magnitude = np.linalg.norm(vec)
+                        density = np.sum(np.abs(vec)) / len(vec)
+                        importance_score = (
+                            magnitude * density
+                        ) / 1000.0  # Normalized metric
+                        importance_factor = min(
+                            max(importance_score, 0.5), 2.0
+                        )  # 0.5x to 2x
+                        weighted_vec = weighted_vec * importance_factor
+
+                    if idf_weighting and corpus_stats:
+                        weighted_vec = weighted_vec * 0.8  # Reduce unigram weight
+
+                    all_ngrams.append(weighted_vec)
+            else:
+                # Multi-item patterns with enhanced weighting
+                for i in range(len(item_vecs) - n_size + 1):
+                    # Chain the pattern
+                    chained = item_vecs[i]
+                    for j in range(1, n_size):
+                        chained = self.bind(chained, item_vecs[i + j])
+
+                    # Apply base weighting
+                    weighted_pattern = weight * chained
+
+                    # Apply positional weighting (earlier patterns more important)
+                    if config.get("positional_weighting", False):
+                        position_factor = 1.0 / (i + 1)  # Decay with position
+                        weighted_pattern = weighted_pattern * position_factor
+
+                    # Apply IDF weighting if available
+                    if idf_weighting and corpus_stats:
+                        pattern_key = f"ngram_{n_size}_{i}"
+                        idf_factor = corpus_stats.get(pattern_key, 1.0)
+                        weighted_pattern = weighted_pattern * min(idf_factor, 2.0)
+
+                    all_ngrams.append(weighted_pattern)
+
+        # Apply sequence-level enhancements
+        if length_penalty and all_ngrams:
+            # Enhanced length normalization
+            seq_length = len(item_vecs)
+            length_factor = 1.0 / np.sqrt(seq_length)
+
+            # Apply different normalization for different pattern sizes
+            normalized_patterns = []
+            for i, pattern in enumerate(all_ngrams):
+                # Individual items get slight boost, patterns get slight reduction
+                if i < len(item_vecs):  # Individual items
+                    pattern_length_factor = length_factor * 1.2
+                else:  # Multi-item patterns
+                    pattern_length_factor = length_factor * 0.8
+
+                normalized_patterns.append(pattern_length_factor * pattern)
+
+            all_ngrams = normalized_patterns
+
+        # Apply discrimination enhancement
+        if config.get("discrimination_boost", False):
+            # Boost components that are more unique (higher variance vectors)
+            enhanced_patterns = []
+            for pattern in all_ngrams:
+                variance = np.var(pattern)
+                uniqueness_factor = min(variance / 0.1, 1.5)  # Cap at 1.5x boost
+                enhanced_patterns.append(pattern * uniqueness_factor)
+            all_ngrams = enhanced_patterns
+
+        # Bundle all enhanced components
+        if all_ngrams:
+            bundled = np.sum(all_ngrams, axis=0)
+            return self._threshold_bipolar(bundled)
+        else:
+            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
 
     def bind(self, vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
         """Bind two vectors using element-wise multiplication."""
