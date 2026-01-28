@@ -40,7 +40,7 @@ class QuoteFinderAPIValidator:
             max_attempts = 10
             for attempt in range(max_attempts):
                 try:
-                    response = requests.get(f"{self.api_base}/health", timeout=2)
+                    response = requests.get(f"{self.api_base}/api/v1/health", timeout=2)
                     if response.status_code == 200:
                         print("✅ Holon server started successfully")
                         return True
@@ -83,7 +83,7 @@ class QuoteFinderAPIValidator:
 
         # 1. Health check
         try:
-            response = requests.get(f"{self.api_base}/health", timeout=5)
+            response = requests.get(f"{self.api_base}/api/v1/health", timeout=5)
             results["health_check"] = response.status_code == 200
             print(f"   Health check: {'✅' if results['health_check'] else '❌'}")
         except Exception as e:
@@ -108,7 +108,7 @@ class QuoteFinderAPIValidator:
                     "data_type": "json"
                 }
                 response = requests.post(
-                    f"{self.api_base}/insert",
+                    f"{self.api_base}/api/v1/items",
                     json=api_request,
                     headers={"Content-Type": "application/json"},
                     timeout=10
@@ -138,7 +138,7 @@ class QuoteFinderAPIValidator:
                     "data_type": "json"
                 }
                 response = requests.post(
-                    f"{self.api_base}/encode",
+                    f"{self.api_base}/api/v1/vectors/encode",
                     json=api_request,
                     headers={"Content-Type": "application/json"},
                     timeout=10
@@ -201,7 +201,7 @@ class QuoteFinderAPIValidator:
                     "top_k": 5
                 }
                 response = requests.post(
-                    f"{self.api_base}/query",
+                    f"{self.api_base}/api/v1/search",
                     json=api_request,
                     headers={"Content-Type": "application/json"},
                     timeout=10

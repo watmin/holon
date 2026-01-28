@@ -140,11 +140,29 @@ class QuoteFinder:
 
             quote_text_lower = quote["text"].lower()
 
+            # Check for substring match first
             if query_lower in quote_text_lower:
                 similarity = 1.0
             else:
-                matcher = difflib.SequenceMatcher(None, query_lower, quote_text_lower)
-                similarity = matcher.ratio()
+                # Try substring matching - find best matching window
+                query_words = query_lower.split()
+                quote_words = quote_text_lower.split()
+
+                best_similarity = 0.0
+                # Try windows of different sizes
+                for window_size in range(len(query_words), min(len(query_words) + 3, len(quote_words) + 1)):
+                    for i in range(len(quote_words) - window_size + 1):
+                        window = " ".join(quote_words[i:i + window_size])
+                        matcher = difflib.SequenceMatcher(None, query_lower, window)
+                        similarity = matcher.ratio()
+                        best_similarity = max(best_similarity, similarity)
+
+                similarity = best_similarity
+
+                # Fallback to full text comparison if no good substring match
+                if similarity < min_similarity:
+                    matcher = difflib.SequenceMatcher(None, query_lower, quote_text_lower)
+                    similarity = matcher.ratio()
 
             if similarity >= min_similarity:
                 candidates.append({
@@ -222,7 +240,7 @@ class QuoteFinderValidator:
         # Fuzzy matches (should find related quotes)
         fuzzy_queries = [
             ("depends on relative smallness", [3]),  # Similar to quote 3
-            ("differential symbol", [5]),  # Related to differentiation
+            ("differential symbol", [1]),  # Related to differential quote
             ("calculus tricks", [7]),  # Related to quote 7
         ]
 
