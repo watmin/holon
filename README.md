@@ -126,19 +126,10 @@ text_vector = client.encode_vectors_json({
 - **`positional_weighting`**: Favor earlier elements in sequences
 - **`discrimination_boost`**: Enhance distinctive vector components
 
-**Performance**: Up to 63.9% F1 score for substring matching with advanced geometric primitives ([Encoding Guide](docs/encoding_guide.md))
+**Performance**: 100% validation accuracy on real PDF content with 92 queries/second ([Quote Finder Improvements](docs/quote_finder_improvements.md))
 
 ### Why "Holon"?
 Named after Arthur Koestler's concept of a "holon"—a self-contained whole that is simultaneously a part of a larger whole. In Holon, each data item is a holon: independent yet entangled in the memory system through vector relationships, reflecting the interdependent, hierarchical nature of knowledge and memory.
-
-## Research Validation
-
-Comprehensive validation results:
-- **RPM geometric reasoning**: 100% accuracy on implemented rules ([RPM Findings](docs/rpm_geometric_solution_findings.md))
-- **Graph topology recognition**: 100% family clustering ([Challenge 2 Assessment](docs/challenge_2_gaps_and_improvements.md))
-- **Mathematical primitives**: 8 primitives for semantic encoding ([Mathematical Primitives Findings](docs/challenge_2_mathematical_primitives_findings.md))
-- **Geometric text search**: 63.9% F1 score for substring matching with advanced primitives ([Encoding Guide](docs/encoding_guide.md))
-- **Geometric constraint satisfaction**: Sudoku solver planned ([Sudoku Findings](docs/sudoku_geometric_solution_findings.md))
 
 ## Use Cases
 
@@ -154,7 +145,7 @@ Challenge solutions demonstrating capabilities:
 - **Task memory system** (fuzzy retrieval with complex filtering) - ✅ Production-ready
 - **RPM solver** (geometric rule learning, 100% accuracy on 4 implemented rules) - ✅ Complete
 - **Graph matching** (VSA/HDC topology recognition, 100% family clustering) - ✅ Complete
-- **Quote finder** (geometric primitives, 63.9% F1 score) - ✅ Pure VSA/HDC system
+- **Quote finder** (vector bootstrapping, 100% validation accuracy) - ✅ Pure kernel solution
 - **Sudoku solver** (geometric constraint satisfaction) - 📋 Planned implementation
 
 See [docs/](docs/) for detailed documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
@@ -480,7 +471,7 @@ See [api_design.md](api_design.md) for the abstract store interface specificatio
 Comprehensive validation results available in docs:
 - [RPM Geometric Reasoning](docs/rpm_geometric_solution_findings.md) - 100% accuracy on geometric rule learning
 - [Graph Topology Recognition](docs/challenge_2_gaps_and_improvements.md) - 100% family clustering breakthrough
-- [Geometric Text Search](docs/quote_finder_improvements.md) - 63.9% F1 score with advanced primitives
+- [Geometric Text Search](docs/quote_finder_improvements.md) - 100% validation accuracy with pure kernel approach
 - [Geometric Constraint Satisfaction](docs/sudoku_geometric_solution_findings.md) - Analysis and planned implementation
 - [Comprehensive Assessment](docs/comprehensive_challenge_assessment.md) - All challenges evaluated
 
