@@ -10,7 +10,8 @@ scripts/
 ├── challenges/               # Challenge solutions (organized by batch)
 │   ├── 001-batch/           # Personal task memory
 │   ├── 002-batch/           # RPM geometric solver
-│   └── 003-batch/           # PDF quote finder
+│   ├── 003-batch/           # PDF quote finder
+│   └── 004-batch/           # Sudoku solver (hyperspace-guided backtracking)
 ├── tests/                   # Testing scripts
 │   ├── performance/         # Stress and performance tests
 │   ├── integration/         # End-to-end pipeline tests
@@ -57,7 +58,13 @@ Always use the virtual environment to avoid polluting your system Python:
 - **pdf_content_indexer.py**: Document structure extraction
 - **vector bootstrapping**: API for custom search term encoding
 
-### 🚧 004-batch: Geometric Sudoku Solver (In Progress)
+### ✅ 004-batch: Sudoku Solver (Hyperspace-Guided Backtracking)
+- **001-solution.py**: Local solver with VSA/HDC-guided backtracking
+- **002-solution-http.py**: HTTP API version demonstrating Holon-as-a-service
+- **LEARNINGS.md**: Honest assessment of what VSA/HDC actually does here
+- **FUTURE_RADICAL_APPROACHES.md**: Ideas for genuinely geometric solutions
+
+**Honest Note**: VSA/HDC provides ordering heuristics for backtracking, not geometric solutions. Valuable API improvements (batch search) but not the "radical" approach originally envisioned.
 
 ## Testing Strategy
 

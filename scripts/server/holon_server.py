@@ -131,6 +131,39 @@ class EncodeResponse(BaseModel):
     encoding_type: str = Field(..., description="Type of encoding performed")
 
 
+class SimilarityRequest(BaseModel):
+    vector_a: List[float] = Field(..., description="First vector")
+    vector_b: List[float] = Field(..., description="Second vector")
+
+
+class SimilarityResponse(BaseModel):
+    similarity: float = Field(..., description="Cosine similarity between vectors")
+
+
+class VectorSearchRequest(BaseModel):
+    vector: List[float] = Field(..., description="Query vector")
+    top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of results")
+    threshold: float = Field(0.0, description="Similarity threshold")
+    guard: Optional[Dict[str, Any]] = Field(None, description="Guard condition")
+    negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters")
+
+
+class BatchSearchItem(BaseModel):
+    """Single search request within a batch (Qdrant-compatible)."""
+    probe: str = Field(..., description="Query probe (JSON or EDN string)")
+    data_type: str = Field("json", description="Data format")
+    top_k: int = Field(DEFAULT_QUERY_RESULTS, description="Number of results")
+    threshold: float = Field(0.0, description="Similarity threshold")
+    guard: Optional[Dict[str, Any]] = Field(None, description="Guard condition")
+    negations: Optional[Dict[str, Any]] = Field(None, description="Negation filters")
+    any_marker: str = Field("$any", description="Marker for wildcards")
+
+
+class BatchSearchRequest(BaseModel):
+    """Batch search request - Qdrant search_batch compatible."""
+    searches: List[BatchSearchItem] = Field(..., description="List of search requests")
+
+
 
 
 @app.get("/api/v1/health")
@@ -141,6 +174,20 @@ async def health_v1():
         backend=store.backend,
         items_count=len(store.stored_data)
     )
+
+
+@app.get("/api/v1/diagnostics")
+async def diagnostics_v1():
+    """Get diagnostic information about the store and query performance."""
+    return {
+        "items_count": len(store.stored_data),
+        "vectors_count": len(store.stored_vectors),
+        "ann_index_active": store.ann_index is not None,
+        "ann_threshold": 1000,  # ANN_THRESHOLD from cpu_store
+        "dimensions": store.dimensions,
+        "query_stats": query_stats,
+        "encode_stats": encode_stats,
+    }
 
 
 @app.post("/api/v1/items")
@@ -182,9 +229,15 @@ async def get_item_v1(item_id: str):
         raise HTTPException(status_code=400, detail=f"Get item failed: {str(e)}")
 
 
+# Query timing stats
+query_stats = {"count": 0, "total_time": 0.0, "last_logged": 0}
+
 @app.post("/api/v1/search")
 async def search_items_v1(request: QueryRequest):
     """Search items using vector similarity (v1 API)."""
+    import time
+    start_time = time.time()
+
     try:
         # Validate top_k
         if request.top_k > MAX_QUERY_RESULTS:
@@ -218,6 +271,16 @@ async def search_items_v1(request: QueryRequest):
             for data_id, score, data in results
         ]
 
+        # Track timing
+        elapsed = time.time() - start_time
+        query_stats["count"] += 1
+        query_stats["total_time"] += elapsed
+
+        # Log every 100 queries
+        if query_stats["count"] % 100 == 0:
+            avg = query_stats["total_time"] / query_stats["count"]
+            logger.info(f"QUERY_STATS: {query_stats['count']} queries, avg={avg*1000:.2f}ms, total={query_stats['total_time']:.2f}s")
+
         return {"results": formatted_results, "count": len(formatted_results)}
 
     except HTTPException:
@@ -227,14 +290,29 @@ async def search_items_v1(request: QueryRequest):
         raise HTTPException(status_code=400, detail=f"Search failed: {str(e)}")
 
 
+# Encode timing stats
+encode_stats = {"count": 0, "total_time": 0.0}
+
 @app.post("/api/v1/vectors/encode")
 async def encode_data_v1(request: EncodeRequest):
     """Encode structured data to vector (v1 API)."""
+    import time
+    start_time = time.time()
+
     try:
         parsed = parse_data(request.data, request.data_type)
         encoded_vector = store.encoder.encode_data(parsed)
         cpu_vector = store.vector_manager.to_cpu(encoded_vector)
         vector_list = cpu_vector.tolist()
+
+        # Track timing
+        elapsed = time.time() - start_time
+        encode_stats["count"] += 1
+        encode_stats["total_time"] += elapsed
+
+        if encode_stats["count"] % 100 == 0:
+            avg = encode_stats["total_time"] / encode_stats["count"]
+            logger.info(f"ENCODE_STATS: {encode_stats['count']} encodes, avg={avg*1000:.2f}ms")
 
         return {"vector": vector_list, "encoding_type": f"structural_{request.data_type}"}
     except Exception as e:
@@ -292,6 +370,232 @@ async def compose_vectors_v1(request: MathematicalComposeRequest):
     except Exception as e:
         logger.error(f"Vector composition failed: {e}")
         raise HTTPException(status_code=400, detail=f"Vector composition failed: {str(e)}")
+
+
+# ============================================================================
+# NEW API ENDPOINTS: Full black-box support for advanced VSA/HDC applications
+# ============================================================================
+
+@app.delete("/api/v1/items/{item_id}")
+async def delete_item_v1(item_id: str):
+    """Delete a specific item by ID (v1 API)."""
+    try:
+        success = store.delete(item_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Item not found")
+        logger.info(f"Deleted item {item_id}")
+        return {"id": item_id, "deleted": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete item failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Delete failed: {str(e)}")
+
+
+@app.post("/api/v1/store/clear")
+async def clear_store_v1():
+    """Clear all items from the store (v1 API)."""
+    try:
+        count = len(store.stored_data)
+        store.clear()
+        logger.info(f"Cleared store ({count} items removed)")
+        return {"cleared": True, "items_removed": count}
+    except Exception as e:
+        logger.error(f"Clear store failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Clear failed: {str(e)}")
+
+
+@app.get("/api/v1/items/{item_id}/vector")
+async def get_item_vector_v1(item_id: str):
+    """Retrieve the encoded vector for a stored item (v1 API)."""
+    try:
+        if item_id not in store.stored_vectors:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        vector = store.stored_vectors[item_id]
+        cpu_vector = store.vector_manager.to_cpu(vector)
+        vector_list = cpu_vector.tolist()
+
+        return {"id": item_id, "vector": vector_list}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get item vector failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Get vector failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/similarity")
+async def compute_similarity_v1(request: SimilarityRequest):
+    """Compute cosine similarity between two vectors (v1 API)."""
+    try:
+        import numpy as np
+
+        v1 = np.array(request.vector_a, dtype=np.float64)
+        v2 = np.array(request.vector_b, dtype=np.float64)
+
+        if len(v1) != len(v2):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Vector dimensions must match ({len(v1)} vs {len(v2)})"
+            )
+
+        dot = np.dot(v1, v2)
+        norm1 = np.linalg.norm(v1)
+        norm2 = np.linalg.norm(v2)
+
+        if norm1 == 0 or norm2 == 0:
+            similarity = 0.0
+        else:
+            similarity = float(dot / (norm1 * norm2))
+
+        return {"similarity": similarity}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Similarity computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Similarity failed: {str(e)}")
+
+
+@app.post("/api/v1/search/batch")
+async def batch_search_v1(request: BatchSearchRequest):
+    """
+    Batch search - multiple probes in one request (Qdrant-compatible).
+
+    Returns results for each search in the same order as the input.
+    Uses concurrent execution via thread pool for efficiency.
+
+    Design mirrors Qdrant's search_batch:
+    - POST /collections/{collection}/points/search/batch
+    - Takes list of SearchRequest objects
+    - Returns list of result lists
+    """
+    import concurrent.futures
+    import time
+
+    start_time = time.time()
+
+    def execute_single_search(search: BatchSearchItem) -> List[Dict[str, Any]]:
+        """Execute a single search synchronously."""
+        try:
+            top_k = min(max(1, search.top_k), MAX_QUERY_RESULTS)
+            threshold = max(0.0, min(1.0, search.threshold))
+
+            results = store.query(
+                probe=search.probe,
+                data_type=search.data_type,
+                top_k=top_k,
+                threshold=threshold,
+                guard=search.guard,
+                negations=search.negations,
+                any_marker=search.any_marker,
+            )
+
+            return [
+                {"id": data_id, "score": score, "data": data}
+                for data_id, score, data in results
+            ]
+        except Exception as e:
+            logger.error(f"Batch search item failed: {e}")
+            return []
+
+    try:
+        # Execute searches concurrently via thread pool
+        # This mirrors how Qdrant processes batch searches in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [
+                executor.submit(execute_single_search, search)
+                for search in request.searches
+            ]
+
+            all_results = []
+            for future in futures:
+                try:
+                    result = future.result()
+                    all_results.append(result)
+                except Exception as e:
+                    logger.error(f"Batch search future error: {e}")
+                    all_results.append([])
+
+        # Track timing
+        elapsed = time.time() - start_time
+        query_stats["count"] += len(request.searches)
+        query_stats["total_time"] += elapsed
+
+        if query_stats["count"] % 100 == 0:
+            avg = query_stats["total_time"] / query_stats["count"]
+            logger.info(f"QUERY_STATS: {query_stats['count']} queries, avg={avg*1000:.2f}ms")
+
+        return {
+            "results": all_results,
+            "count": len(all_results),
+            "searches_executed": len(request.searches),
+            "elapsed_ms": elapsed * 1000
+        }
+
+    except Exception as e:
+        logger.error(f"Batch search failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Batch search failed: {str(e)}")
+
+
+@app.post("/api/v1/search/by-vector")
+async def search_by_vector_v1(request: VectorSearchRequest):
+    """Search using a raw vector instead of JSON probe (v1 API)."""
+    try:
+        import numpy as np
+        from holon.similarity import find_similar_vectors
+
+        # Validate parameters
+        if request.top_k > MAX_QUERY_RESULTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"top_k exceeds maximum allowed ({MAX_QUERY_RESULTS})"
+            )
+        if request.top_k < 1:
+            raise HTTPException(status_code=400, detail="top_k must be >= 1")
+
+        if not (0.0 <= request.threshold <= 1.0):
+            raise HTTPException(
+                status_code=400, detail="threshold must be between 0.0 and 1.0"
+            )
+
+        # Convert to numpy array
+        probe_vector = np.array(request.vector, dtype=np.int8)
+
+        # Use similarity search
+        similar_ids_scores = find_similar_vectors(
+            probe_vector, store.stored_vectors, request.top_k, request.threshold
+        )
+
+        # Apply guards and negations if provided
+        results = []
+        for data_id, score in similar_ids_scores:
+            data_dict = store.stored_data[data_id]
+
+            # Apply guard
+            if request.guard and not is_subset(request.guard, data_dict):
+                continue
+
+            # Apply negations (simplified)
+            if request.negations:
+                skip = False
+                for key, value in request.negations.items():
+                    if isinstance(value, dict) and "$not" in value:
+                        not_val = value["$not"]
+                        if key in data_dict and data_dict[key] == not_val:
+                            skip = True
+                            break
+                if skip:
+                    continue
+
+            results.append({"id": data_id, "score": score, "data": data_dict})
+
+        return {"results": results, "count": len(results)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Vector search failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Vector search failed: {str(e)}")
 
 
 @app.on_event("startup")

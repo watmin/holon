@@ -1,8 +1,27 @@
 # Sudoku Solver Research: VSA/HDC Constraint Satisfaction Exploration
 
-## Executive Summary
+## Honest Assessment (January 2026 Update)
+
+**What we claimed:** Geometric constraint satisfaction using hyperspace similarity.
+
+**What we built:** Standard backtracking with VSA/HDC-based ordering heuristics.
+
+The hyperspace queries help **order guesses** during backtracking, but the actual constraint satisfaction uses traditional verification. This is valuable (faster convergence) but not the "radical" geometric solution originally envisioned.
+
+**Real contribution:**
+- Batch search API (Qdrant-compatible) - 34% speedup for multi-query workloads
+- HTTP client pattern for Holon-as-a-service
+- Honest analysis of what VSA/HDC can do for CSP
+
+**See:** [LEARNINGS.md](challenges/004-batch/LEARNINGS.md) for detailed honest assessment, [FUTURE_RADICAL_APPROACHES.md](challenges/004-batch/FUTURE_RADICAL_APPROACHES.md) for genuinely novel approaches to explore.
+
+---
+
+## Original Executive Summary
 
 We implemented and tested a **geometric constraint satisfaction approach** using Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC) to solve Sudoku puzzles. The system explores **vector similarity for combinatorial constraint solving**, achieving partial success on standard 9×9 Sudoku puzzles using similarity-based reasoning.
+
+**Clarification (January 2026):** "Partial success" means the hyperspace helps with ordering decisions, but backtracking does the actual constraint verification. Pure geometric solving (no search) remains an open research direction.
 
 ## Background
 

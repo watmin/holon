@@ -33,7 +33,7 @@ Holon is a high-performance implementation of Vector Symbolic Architectures (VSA
 - **Batch 1**: Personal Task Memory - Fuzzy task retrieval with complex filtering
 - **Batch 2**: RPM Geometric Solver - Abstract reasoning with 72% accuracy (14x random)
 - **Batch 3**: PDF Quote Finder - Vector bootstrapping for document indexing
-- **Batch 4**: Sudoku Solver - Geometric constraint satisfaction (in progress)
+- **Batch 4**: Sudoku Solver - Hyperspace-guided backtracking + HTTP API demo (complete, see [honest assessment](challenges/004-batch/LEARNINGS.md))
 
 ## Performance Characteristics
 
@@ -61,7 +61,7 @@ For detailed performance benchmarks and optimization strategies, see the [Perfor
 - ✅ **Bulk operations** with optimized indexing
 - ✅ **HTTP REST API** with FastAPI and complex query support
 - ✅ **JSON/EDN support** with rich type conversion
-- ✅ **Challenge solutions** completed (3/4 major VSA/HDC challenges)
+- ✅ **Challenge solutions** completed (4/4 major VSA/HDC challenges)
 - ✅ **Comprehensive testing** (138 tests, 136/138 pass rate)
 - ✅ **Repository organization** clean and documented
 

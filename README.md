@@ -146,7 +146,7 @@ Challenge solutions demonstrating capabilities:
 - **RPM solver** (geometric rule learning, 100% accuracy on 4 implemented rules) - ✅ Complete
 - **Graph matching** (VSA/HDC topology recognition, 100% family clustering) - ✅ Complete
 - **Quote finder** (vector bootstrapping, 100% validation accuracy) - ✅ Pure kernel solution
-- **Sudoku solver** (geometric constraint satisfaction) - 📋 Planned implementation
+- **Sudoku solver** (hyperspace-guided backtracking, HTTP API demo) - ✅ Complete (honest assessment: VSA provides ordering heuristics, not geometric solutions)
 
 See [docs/](docs/) for detailed documentation, API reference, and [architecture decisions](docs/architecture/decisions/). Check [examples/](examples/) for runnable code samples.
 
@@ -472,7 +472,7 @@ Comprehensive validation results available in docs:
 - [RPM Geometric Reasoning](docs/rpm_geometric_solution_findings.md) - 100% accuracy on geometric rule learning
 - [Graph Topology Recognition](docs/challenge_2_gaps_and_improvements.md) - 100% family clustering breakthrough
 - [Geometric Text Search](docs/quote_finder_improvements.md) - 100% validation accuracy with pure kernel approach
-- [Geometric Constraint Satisfaction](docs/sudoku_geometric_solution_findings.md) - Analysis and planned implementation
+- [Sudoku Research](docs/sudoku_geometric_solution_findings.md) - VSA/HDC as heuristic layer for constraint satisfaction (honest assessment)
 - [Comprehensive Assessment](docs/comprehensive_challenge_assessment.md) - All challenges evaluated
 
 ## Challenge Implementations
@@ -481,7 +481,7 @@ Challenge solutions available in scripts/challenges/:
 - **Batch 1**: Production-ready fuzzy task retrieval system
 - **Batch 2**: Complete RPM geometric reasoning (100% accuracy) + VSA/HDC graph matching (100% topology recognition)
 - **Batch 3**: High-performance fuzzy quote finder (100% validation accuracy, 92 queries/sec)
-- **Batch 4**: Not yet implemented (will use Holon for advanced reasoning)
+- **Batch 4**: Sudoku solver with hyperspace-guided backtracking + HTTP API demo (see [honest assessment](docs/challenges/004-batch/LEARNINGS.md))
 - **Batch 5-6**: Additional challenge implementations
 
 MIT licensed. FastAPI server included.
