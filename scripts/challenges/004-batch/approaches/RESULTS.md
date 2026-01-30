@@ -94,6 +94,63 @@ but provides **no advantage over traditional propagation** for hard puzzles.
 
 ---
 
+## Approach 1: Hopfield Constraint Resonance
+
+**Status:** FAILED
+
+### Results
+| Puzzle | Result | Notes |
+|--------|--------|-------|
+| 4x4 | ✗ | All cells → digit 2 |
+| 9x9 Hard | ✗ | Converged to invalid state with repeated digits |
+
+### Key Findings
+- Energy minimization converges to local minima
+- Cells "avoid" each other but settle to similar patterns
+- Confidence values very low (0.006-0.054)
+- Classic Hopfield problem: stable ≠ valid
+
+---
+
+## Approach 6: Constraint Orientation
+
+**Status:** PARTIAL SUCCESS
+
+### Results
+| Puzzle | Cells | Valid | Notes |
+|--------|-------|-------|-------|
+| 4x4 | 4/4 | ✓ | Solved! |
+| 9x9 Hard | 53/58 | ✗ | Similar to row-only |
+
+### Key Findings
+- **Correctly identifies intersection digits!**
+- When Row allows {1,2,3,4,5}, Col allows {3,4,5,6,7}, Block allows {4,5,6,7,8}:
+  - Intersection {4,5} has highest total score (1.186, 1.245)
+  - Non-intersection digits score lower
+- Still makes wrong early decisions
+
+---
+
+## Approach 7: Data Similarity
+
+**Status:** PARTIAL SUCCESS
+
+### Results
+| Puzzle | Cells | Valid | Notes |
+|--------|-------|-------|-------|
+| 4x4 | 4/4 | ✓ | Solved! |
+| 9x9 Hard (Completion) | 52/58 | ✗ | |
+| 9x9 Hard (Missing) | 52/58 | ✗ | 10x faster |
+
+### Key Findings
+- **Adding valid digit increases similarity** (+0.055)
+- **Adding duplicate DECREASES similarity** (-0.053) ← Natural validity detector!
+- Missing digit detection works perfectly:
+  - Missing digits: ~0.44 similarity
+  - Present digits: ~0.00 similarity
+
+---
+
 ## Approach 5: Structural Entanglement
 
 **Status:** PARTIAL SUCCESS (most promising so far!)
@@ -171,5 +228,71 @@ When choosing between digits 3 and 6 at a cell:
 | **Approach 5 (Entanglement)** | ✓ | ✓ | **54/58** | **Best greedy geometric approach** |
 
 Approach 5 gets MUCH further on the hard puzzle (54 cells vs 0-6 for others), but still cannot achieve a valid solution without backtracking.
+
+---
+
+## Combined Approach
+
+**Status:** WORSE THAN SIMPLE
+
+### Results
+| Configuration | Cells | Valid |
+|---------------|-------|-------|
+| Greedy (row+col+block) | 51/58 | ✗ |
+| No penalty | 51/58 | ✗ |
+| Conservative | 51/58 | ✗ |
+| Very conservative | 50/58 | ✗ |
+
+### Key Finding
+**Combining signals HURTS performance.** Simple row-only (54/58) beats all combined approaches (50-51/58).
+
+---
+
+# FINAL SUMMARY
+
+## All Approaches Tested
+
+| Approach | 4x4 | 9x9 Hard | Key Insight |
+|----------|-----|----------|-------------|
+| 1. Hopfield | ✗ | ✗ (invalid) | Converges to local minima |
+| 2. Superposition | ✗ | 0/58 | = Constraint propagation |
+| **5. Entanglement (Row-only)** | ✓ | **54/58** | **BEST RESULT** |
+| 6. Orientation | ✓ | 53/58 | Correctly finds intersection |
+| 7. Similarity | ✓ | 52/58 | Detects duplicates |
+| 9. Dimensional | ✓ | 6/58 | Detects validity |
+| Combined | ✓ | 51/58 | Worse than simple! |
+
+## Conclusions
+
+### What Works
+1. **Simpler is better**: Row-only completion beats all combinations
+2. **Pattern completion framing**: "What should be here?" not "What is here?"
+3. **Constraint intersection detection**: Correctly identifies valid digits
+4. **Duplicate detection**: Geometric natural validity check
+
+### What Doesn't Work
+1. **Combining signals**: Dilutes rather than strengthens
+2. **Hopfield energy minimization**: Local minima ≠ valid solutions
+3. **Conservative approaches**: Just make fewer placements
+
+### The Fundamental Limitation
+
+**Geometric similarity cannot encode global consistency.**
+
+When choosing between digits 3 and 6 for a cell:
+- Both are valid for row/col/block
+- Both increase similarity to "ideal" patterns
+- But only ONE leads to a globally consistent solution
+- The geometric signal is noise-level for this distinction
+
+### The 54/58 Barrier
+
+Pure geometric approaches plateau at ~93% (54/58) on hard puzzles.
+The remaining cells require information that local geometric comparisons cannot provide.
+
+**Options to break through:**
+1. Hybrid: Geometric guidance + minimal backtracking (implemented in 001-solution.py)
+2. Solution encoding: Pre-encode known solutions and match (defeats the purpose)
+3. Global consistency mechanism: Not yet discovered
 
 ---
