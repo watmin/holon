@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 18 Approaches Explored
+### 21 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -38,6 +38,9 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 16 | Tree encoding | 78% same puzzle | Abstract features transfer (0.76) |
 | 17 | Guided solving | 0-30% | Ordering is puzzle-specific |
 | 18 | Remaining attacks | Assessed | Limited value |
+| 19 | **Opportunistic racing** | **-11.6% backtracks** | **Chain length = good ordering** |
+| 20 | Chained encoding | 65.6% accuracy | Modest prototype transfer |
+| 21 | Constraint landscape | Redundant | Delta = chain length (same signal) |
 
 ---
 
@@ -74,6 +77,20 @@ But transfer doesn't help with ordering - only detection.
 ### 5. What Works: Rejection, Not Selection
 - **Rejection (simulation)**: Detecting bad paths → 10x speedup
 - **Selection (ordering)**: Puzzle-specific, doesn't transfer
+
+### 6. Opportunistic Guessing Works!
+The "lucky chain" insight: choices that force more moves are better bets.
+
+| Solver | Backtracks | Improvement |
+|--------|-----------|-------------|
+| Standard (sim-guided) | 249 | baseline |
+| **Hybrid (sim + chain)** | **220** | **-11.6%** |
+
+The Hybrid solver combines:
+1. **Simulation rejection** (skip contradicting paths)
+2. **Chain length ordering** (more forced moves = try first)
+
+This IS the "opportunistic" heuristic: deterministic paths are safer bets.
 
 ---
 
@@ -168,7 +185,8 @@ We found it cannot - and understood deeply WHY.
 
 But we also found that geometry provides POWERFUL heuristics:
 - 93% accuracy for greedy filling
-- 10x backtrack reduction when combined with search
+- 10x backtrack reduction with simulation rejection
+- 11.6% additional reduction with chain-length ordering (Hybrid solver)
 - 0.76 transfer of abstract features across puzzles
 
 The "radical perspective" succeeded in revealing the BOUNDARY
