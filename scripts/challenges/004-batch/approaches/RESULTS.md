@@ -248,19 +248,79 @@ Approach 5 gets MUCH further on the hard puzzle (54 cells vs 0-6 for others), bu
 
 ---
 
+---
+
+## Approach 3: Direct Geometric Decoding
+
+**Status:** FAILED
+
+### Results
+| Puzzle | Result | Notes |
+|--------|--------|-------|
+| 4x4 | ✗ | Decodes noise from partial encoding |
+| 9x9 Hard | ✗ | All cells filled with wrong digits |
+
+### Key Findings
+- Encode-decode works for COMPLETE solutions (90%+ accuracy)
+- **Decoding from PARTIAL encoding returns noise**
+- Confidence values low (0.1-0.2)
+- Cannot infer unknown cells from known cells via unbinding
+
+---
+
+## Approach 4: Constraint Propagation in Hyperspace
+
+**Status:** PARTIAL
+
+### Results
+| Puzzle | Method | Cells | Valid | Notes |
+|--------|--------|-------|-------|-------|
+| 4x4 | Pure Prop | 0/8 | ✗ | No naked singles |
+| 9x9 Hard | Pure Prop | 0/58 | ✗ | No naked singles |
+| 9x9 Hard | Prop + Geo | 58/58 | ✗ | Fills all but creates duplicates |
+
+### Key Findings
+- Pure propagation = set-based arc consistency (no geometric advantage)
+- Adding geometric choice fills all cells but makes wrong decisions
+- Geometric scoring doesn't prevent constraint violations
+
+---
+
+## Approach 8: Inverse Encoding
+
+**Status:** PARTIAL SUCCESS
+
+### Results
+| Puzzle | Cells | Valid | Notes |
+|--------|-------|-------|-------|
+| 4x4 | 4/4 | ✓ | Solved! |
+| 9x9 Hard | 52/58 | ✗ | Similar to other approaches |
+
+### Key Findings
+- Inverse encoding (digit→position) gives different perspective
+- Works on simple puzzles
+- **Still hits the same barrier** on hard puzzles
+
+---
+
 # FINAL SUMMARY
 
-## All Approaches Tested
+## All 9 Approaches Tested
 
-| Approach | 4x4 | 9x9 Hard | Key Insight |
-|----------|-----|----------|-------------|
-| 1. Hopfield | ✗ | ✗ (invalid) | Converges to local minima |
-| 2. Superposition | ✗ | 0/58 | = Constraint propagation |
-| **5. Entanglement (Row-only)** | ✓ | **54/58** | **BEST RESULT** |
-| 6. Orientation | ✓ | 53/58 | Correctly finds intersection |
-| 7. Similarity | ✓ | 52/58 | Detects duplicates |
-| 9. Dimensional | ✓ | 6/58 | Detects validity |
-| Combined | ✓ | 51/58 | Worse than simple! |
+| # | Approach | 4x4 | 9x9 Hard | Key Insight |
+|---|----------|-----|----------|-------------|
+| 1 | Hopfield | ✗ | ✗ (invalid) | Converges to local minima |
+| 2 | Superposition | ✗ | 0/58 | = Constraint propagation |
+| 3 | Direct Decoding | ✗ | ✗ (invalid) | Partial encoding → noise |
+| 4 | Propagation | ✗ | 0/58* | No naked singles |
+| **5** | **Entanglement (Row-only)** | ✓ | **54/58** | **BEST RESULT** |
+| 6 | Orientation | ✓ | 53/58 | Correctly finds intersection |
+| 7 | Similarity | ✓ | 52/58 | Detects duplicates |
+| 8 | Inverse Encoding | ✓ | 52/58 | Different perspective, same barrier |
+| 9 | Dimensional | ✓ | 6/58 | Detects validity only |
+| - | Combined | ✓ | 51/58 | Worse than simple! |
+
+*Approach 4 with geometric choice fills 58/58 but creates invalid solution
 
 ## Conclusions
 
