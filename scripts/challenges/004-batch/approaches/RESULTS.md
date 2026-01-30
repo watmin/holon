@@ -130,23 +130,46 @@ we ask "which digit SHOULD be here to make row more ideal?"
 
 This frames the problem as **pattern completion** rather than **information extraction**.
 
-### Enhancement Needed
+### Extensive Strategy Testing (January 2026)
 
-Current implementation only compares to ideal ROW. Should combine:
-- Row similarity to ideal row
-- Column similarity to ideal column
-- Block similarity to ideal block
+Tested multiple strategies to improve on row-only:
 
-This would give 3x the geometric signal for each cell.
+| Strategy | Cells | Valid | Notes |
+|----------|-------|-------|-------|
+| Row-only (greedy) | 54/58 | ✗ | Best coverage but wrong decisions |
+| Full avg (row+col+block) | 51/58 | ✗ | Averaging dilutes signal |
+| Full min | 51/58 | ✗ | Too conservative |
+| Full max | 51/58 | ✗ | Not helpful |
+| Full product | 52/58 | ✗ | Slightly better than avg |
+| Voting (unanimous) | 46/58 | ✗ | Too conservative |
+| Row + Lookahead | 44/58 | ✗ | Avoids contradictions, fewer placements |
+
+**Key Finding:** The row-only approach is actually the BEST. Adding more constraints or being more conservative HURTS performance.
+
+### Why Row-Only is Best
+
+1. Row constraint gives the clearest geometric signal
+2. Adding column/block adds noise rather than clarity
+3. All strategies make fundamentally wrong decisions due to lack of global consistency encoding
+
+### The Fundamental Limitation
+
+**Geometric similarity to "ideal constraint" doesn't encode global consistency.**
+
+When choosing between digits 3 and 6 at a cell:
+- Both are valid for the row (not duplicates)
+- Both increase similarity to ideal row by similar amounts
+- But only ONE leads to a globally consistent solution
+- The geometric signal cannot distinguish between them
 
 ### Comparison to Other Approaches
 
-| Approach | 4x4 | 9x9 Easy | 9x9 Hard | Key Difference |
-|----------|-----|----------|----------|----------------|
-| Approach 9 (Dimensional) | ✓ | ✓ | ✗ (6 cells) | Local validity check |
-| Approach 2 (Superposition) | ✗ | ✓ | ✗ (0 cells) | Constraint propagation |
-| **Approach 5 (Entanglement)** | ✓ | ✓ | **✗ (54 cells)** | **Pattern completion** |
+| Approach | 4x4 | 9x9 Easy | 9x9 Hard | Key Insight |
+|----------|-----|----------|----------|-------------|
+| Approach 9 (Dimensional) | ✓ | ✓ | 6/58 | Detects validity, not global consistency |
+| Approach 2 (Superposition) | ✗ | ✓ | 0/58 | Constraint propagation in hyperspace |
+| **Approach 5 (Entanglement)** | ✓ | ✓ | **54/58** | **Best greedy geometric approach** |
 
-Approach 5 gets MUCH further on the hard puzzle (54 cells vs 0-6 for others)!
+Approach 5 gets MUCH further on the hard puzzle (54 cells vs 0-6 for others), but still cannot achieve a valid solution without backtracking.
 
 ---
