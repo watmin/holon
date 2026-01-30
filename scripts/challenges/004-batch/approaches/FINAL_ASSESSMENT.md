@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 21 Approaches Explored
+### 24 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -41,7 +41,9 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 19 | **Opportunistic racing** | **-11.6% backtracks** | **Chain length = good ordering** |
 | 20 | Chained encoding | 65.6% accuracy | Modest prototype transfer |
 | 21 | Constraint landscape | Redundant | Delta = chain length (same signal) |
-| 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching at constraint level** |
+| 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching = BEST** |
+| 23 | Deep nesting | Simpler wins | Nested structure adds noise |
+| 24 | Batshit ideas | Validated | Multi-scale confirms template matching |
 
 ---
 
