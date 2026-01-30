@@ -96,6 +96,57 @@ but provides **no advantage over traditional propagation** for hard puzzles.
 
 ## Approach 5: Structural Entanglement
 
-**Status:** TO BE TESTED
+**Status:** PARTIAL SUCCESS (most promising so far!)
+
+### Hypothesis
+Binding creates entanglement that can be queried/exploited.
+Use structure comparison to guide placements.
+
+### Results
+
+| Puzzle | Solved | Time | Notes |
+|--------|--------|------|-------|
+| 4x4 Easy | ✓ | ~0.01s | Row completion works! |
+| 9x9 Easy | ✓ | ~0.5s | All cells placed correctly |
+| 9x9 Hard | ✗ | 8.5s | 54/58 cells (93%), then stuck |
+
+### Key Findings
+
+**What Works:**
+1. **Unbinding recovers known bindings** (100% accuracy from bundle)
+2. **Row completion approach**: Compare partial row to ideal row structure
+3. **Clear score gaps** when obvious choice exists
+4. **Solved both easy puzzles WITHOUT backtracking!**
+
+**What Doesn't Work:**
+1. **Querying unknown positions** returns noise
+2. **Row-only comparison** doesn't consider column/block constraints
+3. **Hard puzzle** makes wrong choices that lead to contradiction
+
+### Why Row Completion Works Better
+
+The key insight: instead of asking "what digit IS here?" (which returns noise),
+we ask "which digit SHOULD be here to make row more ideal?"
+
+This frames the problem as **pattern completion** rather than **information extraction**.
+
+### Enhancement Needed
+
+Current implementation only compares to ideal ROW. Should combine:
+- Row similarity to ideal row
+- Column similarity to ideal column
+- Block similarity to ideal block
+
+This would give 3x the geometric signal for each cell.
+
+### Comparison to Other Approaches
+
+| Approach | 4x4 | 9x9 Easy | 9x9 Hard | Key Difference |
+|----------|-----|----------|----------|----------------|
+| Approach 9 (Dimensional) | ✓ | ✓ | ✗ (6 cells) | Local validity check |
+| Approach 2 (Superposition) | ✗ | ✓ | ✗ (0 cells) | Constraint propagation |
+| **Approach 5 (Entanglement)** | ✓ | ✓ | **✗ (54 cells)** | **Pattern completion** |
+
+Approach 5 gets MUCH further on the hard puzzle (54 cells vs 0-6 for others)!
 
 ---
