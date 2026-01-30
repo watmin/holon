@@ -41,6 +41,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 19 | **Opportunistic racing** | **-11.6% backtracks** | **Chain length = good ordering** |
 | 20 | Chained encoding | 65.6% accuracy | Modest prototype transfer |
 | 21 | Constraint landscape | Redundant | Delta = chain length (same signal) |
+| 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching at constraint level** |
 
 ---
 
@@ -84,13 +85,22 @@ The "lucky chain" insight: choices that force more moves are better bets.
 | Solver | Backtracks | Improvement |
 |--------|-----------|-------------|
 | Standard (sim-guided) | 249 | baseline |
-| **Hybrid (sim + chain)** | **220** | **-11.6%** |
+| Hybrid (sim + chain) | 220 | -11.6% |
 
-The Hybrid solver combines:
-1. **Simulation rejection** (skip contradicting paths)
-2. **Chain length ordering** (more forced moves = try first)
+### 7. BREAKTHROUGH: Hierarchical Encoding
+We weren't exploiting Holon's recursive data encoding properly!
 
-This IS the "opportunistic" heuristic: deterministic paths are safer bets.
+**What we did wrong**: Flat encoding `bundle([bind(pos, digit) for all cells])`
+
+**What works**: Encode digit SETS for each constraint unit, measure similarity to complete template.
+
+| Solver | Backtracks | Improvement |
+|--------|-----------|-------------|
+| Standard (sim-guided) | 249 | baseline |
+| **Template Matching** | **52** | **-79%** |
+
+Key insight: Choices that add NEW digits to a constraint unit score 0.70 similarity to complete,
+while duplicates score only 0.63. This 11% gap is enough to dramatically improve ordering.
 
 ---
 
@@ -186,8 +196,11 @@ We found it cannot - and understood deeply WHY.
 But we also found that geometry provides POWERFUL heuristics:
 - 93% accuracy for greedy filling
 - 10x backtrack reduction with simulation rejection
-- 11.6% additional reduction with chain-length ordering (Hybrid solver)
+- **79% backtrack reduction with hierarchical template matching** (Approach 22)
 - 0.76 transfer of abstract features across puzzles
+
+The breakthrough came from properly exploiting Holon's hierarchical encoding:
+encode digit SETS, not position-digit pairs, and match against complete templates.
 
 The "radical perspective" succeeded in revealing the BOUNDARY
 between what geometry can and cannot do. That boundary is real,
