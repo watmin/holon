@@ -271,20 +271,4 @@ Performance Branch: What matters most?
 - **Data Characteristics**: Handle clean vs noisy data
 - **Resource Constraints**: Balance memory vs quality
 
-**Basic bigrams work best for general substring matching, but the full configuration space enables optimization for any use case!** 🎯</contents>
-</xai:function_call">This comprehensive guide shows why customization matters - different encodings excel in different scenarios. Users can now choose the optimal configuration for their specific needs, even though basic bigrams work best for general substring matching.
-
-The guide covers:
-
-1. **Quick reference** for common use cases
-2. **Detailed scenarios** with specific configurations
-3. **Domain-specific applications** (DNA, code, time series)
-4. **Performance trade-offs** (speed, accuracy, memory)
-5. **Decision flowcharts** for choosing configurations
-6. **Testing recommendations** for optimization
-
-**You're absolutely right - providing customization is valuable even when one approach performs best. Users should have the power to optimize for their specific use cases!** 🚀
-
-Would you like me to add any specific use cases or configuration examples to the guide?
-
-The encoding flexibility is one of holon's key strengths - users aren't locked into one approach, they can tune for their domain and requirements. 💪✨
+Basic bigrams (`n_sizes: [2]`) work best for general substring matching, but the full configuration space enables optimization for specific use cases.

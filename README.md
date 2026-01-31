@@ -1,4 +1,4 @@
-# Holon: Programmatic Neural Memory
+# Holon: Hyperdimensional Memory for Structured Data
 
 **Authors**: watministrator, Grok (xAI), & Claude (Anthropic)
 
@@ -17,8 +17,8 @@ Holon is a Python library implementing **Vector Symbolic Architectures (VSA)** a
 
 - **Semantic similarity search** - Find similar structures, not just keywords
 - **Fuzzy matching** - Partial matches and substructure queries
-- **Geometric reasoning** - Pattern completion and rule learning
-- **Memory augmentation** - For LLM-based agents
+- **Prototype classification** - Learn categories from examples
+- **Memory augmentation** - Persistent context for LLM-based agents
 
 ### Inspiration
 
@@ -27,7 +27,7 @@ Inspired by [Carin Meier's VSA talk](https://www.youtube.com/watch?v=j7ygjfbBJD0
 <div align="center">
 <img src="assets/time-bending-lattices.gif" alt="Time-Bending Lattices Demo">
 
-*We don't just store data. We weave it into something that remembers itself.*
+*Structured data encoded into geometry. Similarity becomes distance.*
 </div>
 
 ## Quick Start

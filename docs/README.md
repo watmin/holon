@@ -32,9 +32,9 @@ Each batch contains problem statements and learnings:
 | [001](challenges/001-batch/) | Task Memory, Recipes, Bugs, D&D | Complete | Fuzzy retrieval with guards/negations |
 | [002](challenges/002-batch/) | RPM Reasoning, Graph Matching | Complete | 100% classification with prototypes |
 | [003](challenges/003-batch/) | Quote Finder | Complete | N-gram encoding, vector bootstrapping |
-| [004](challenges/004-batch/) | Sudoku | Complete | VSA as heuristic layer ([honest assessment](challenges/004-batch/LEARNINGS.md)) |
-| [005](challenges/005-batch/) | Additional challenges | Available | - |
-| [006](challenges/006-batch/) | Additional challenges | Available | - |
+| [004](challenges/004-batch/) | Sudoku | Complete | VSA cannot solve CSPs ([honest assessment](challenges/004-batch/LEARNINGS.md)) |
+| [005](challenges/005-batch/) | NP-hard optimization | Not attempted | Expected to fail (same reasons as Sudoku) |
+| [006](challenges/006-batch/) | LLM Memory Augmentation | Complete | [Ideal use case - 82% token savings](challenges/006-batch/LEARNINGS.md) |
 
 ## Examples
 
