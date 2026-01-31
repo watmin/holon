@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from .encoder import Encoder, ListEncodeMode
+from .encoder import Encoder
 from .vector_manager import VectorManager
 
 

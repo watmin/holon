@@ -1,8 +1,8 @@
 # Holon: Programmatic Neural Memory
 # Version: 0.1.0
 
-from .client import HolonClient  # Unified local/remote client
-from .cpu_store import CPUStore  # Supports both CPU and GPU backends
-from .store import Store
+from .client import HolonClient  # noqa: F401 - re-exported for public API
+from .cpu_store import CPUStore  # noqa: F401 - re-exported for public API
+from .store import Store  # noqa: F401 - re-exported for public API
 
 __version__ = "0.1.0"

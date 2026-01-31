@@ -83,7 +83,6 @@ def _find_similar_vectors_parallel(
     """Parallel similarity search using thread pools."""
     import concurrent.futures
     import heapq
-    import threading
 
     # Split work into chunks for parallel processing
     items = list(stored_vectors.items())

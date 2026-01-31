@@ -1,7 +1,6 @@
 from typing import Dict, Union
 
 import numpy as np
-from numba import jit
 
 try:
     import cupy as cp

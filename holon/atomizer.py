@@ -6,7 +6,7 @@ try:
     import ujson as json_fast
 except ImportError:
     json_fast = json
-from typing import Any, Set, Union
+from typing import Any, Set
 
 from edn_format.immutable_dict import ImmutableDict
 

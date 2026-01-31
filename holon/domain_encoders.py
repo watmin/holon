@@ -7,7 +7,7 @@ mathematical pattern recognition.
 """
 
 import math
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import numpy as np
 
