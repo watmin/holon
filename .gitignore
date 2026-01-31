@@ -144,3 +144,6 @@ test_results/
 
 # Result JSON files
 *_results*.json
+
+# Qdrant storage volume
+qdrant_storage/
