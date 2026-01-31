@@ -49,17 +49,21 @@ class CPUStore(Store):
         self.stored_data: Dict[str, Dict[str, Any]] = {}  # id -> original data dict
         self.stored_vectors: Dict[str, Any] = {}  # id -> encoded vector
 
-        # ANN indexing
+        # ANN indexing options
         self.ann_index = None
         self.ann_ids: List[str] = []  # Ordered list of IDs for FAISS index mapping
-
-        # Bulk insert optimization
-        self.bulk_mode = False  # When True, defer ANN rebuilds during rapid insertions
         self.ann_vectors = None  # Numpy array for FAISS
+
+        # ANN control flags
+        self.bulk_mode = False  # When True, defer ANN rebuilds during rapid insertions
+        self.ann_enabled = True  # Master switch to enable/disable ANN indexing
+        self.ann_auto_rebuild = False  # If True, rebuild on every insert (slow); if False, lazy rebuild on query
 
     def _build_ann_index(self):
         """Build FAISS ANN index when dataset grows large."""
-        if not FAISS_AVAILABLE or len(self.stored_vectors) <= ANN_THRESHOLD:
+        if not FAISS_AVAILABLE or not self.ann_enabled:
+            return
+        if len(self.stored_vectors) <= ANN_THRESHOLD:
             return
 
         # Convert stored vectors to numpy array
@@ -103,11 +107,20 @@ class CPUStore(Store):
         }
         self.stored_vectors[data_id] = encoded_vector
 
-        # Invalidate ANN index if it exists (unless in bulk mode)
+        # Invalidate ANN index if it exists (unless in bulk mode or lazy mode)
+        # With ann_auto_rebuild=False (default), we just invalidate and rebuild on next query
         if self.ann_index is not None and not self.bulk_mode:
-            self.ann_index = None
-            self.ann_vectors = None
-            self.ann_ids = []
+            if self.ann_auto_rebuild:
+                # Expensive: rebuild immediately (old behavior)
+                self.ann_index = None
+                self.ann_vectors = None
+                self.ann_ids = []
+                self._build_ann_index()
+            else:
+                # Cheap: just invalidate, rebuild lazily on next query
+                self.ann_index = None
+                self.ann_vectors = None
+                self.ann_ids = []
 
         # Log timing for first few inserts
         if len(self.stored_data) <= 5:
@@ -259,8 +272,12 @@ class CPUStore(Store):
                     return False
             return True
 
-        # Use ANN if available and dataset is large
-        if FAISS_AVAILABLE and len(self.stored_vectors) > ANN_THRESHOLD:
+        # Use ANN if available, enabled, and dataset is large
+        if (
+            FAISS_AVAILABLE
+            and self.ann_enabled
+            and len(self.stored_vectors) > ANN_THRESHOLD
+        ):
             if self.ann_index is None:
                 self._build_ann_index()
 
