@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 25 Approaches Explored
+### 26 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -44,7 +44,8 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching = BEST** |
 | 23 | Deep nesting | Simpler wins | Nested structure adds noise |
 | 24 | Batshit ideas | Validated | Multi-scale confirms template matching |
-| 25 | **Quantum-inspired** | 849 backtracks | Beautiful theory, doesn't beat template |
+| 25 | Quantum-inspired | 849 backtracks | Beautiful theory, doesn't beat template |
+| 26 | **NEGATION PRIMITIVE** | **NEW HOLON FEATURE** | **Extends VSA with NOT operation** |
 
 ---
 
@@ -106,6 +107,22 @@ Tested quantum computing concepts:
 
 BUT: 849 backtracks vs template matching's 52. The quantum metaphor doesn't
 capture global consistency as well as simple template scoring.
+
+### 9. NEW PRIMITIVE: VSA Negation
+Traditional VSA only has AND (bind) and OR (bundle). We added NOT (negate):
+
+```
+sim(A+B+C, B) = 0.53
+sim(negate(A+B+C, B), B) = -0.40  ← NEGATIVE!
+```
+
+**Implementation**: `negate(superposition, component) = superposition - component`
+
+**Results**:
+- Eliminated components get negative similarity
+- Other components preserved
+- Composes through nested structures
+- Added to Holon as `store.negate()` and `encoder.negate()`
 
 | Solver | Backtracks | Improvement |
 |--------|-----------|-------------|
