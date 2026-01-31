@@ -65,11 +65,11 @@ class BugReportStore:
             return data
 
     def find_similar_bugs(
-        self, probe_bug: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
+        self, probe_bug: Dict[str, Any], limit: int = 10, threshold: float = 0.0
     ) -> List[Tuple[str, float, Dict]]:
         """Find bugs similar to the probe using Holon's similarity search."""
         json_probe = self._prepare_for_json(probe_bug)
-        results = self.client.search_json(json_probe, top_k=top_k, threshold=threshold)
+        results = self.client.search_json(json_probe, limit=limit, threshold=threshold)
 
         # Return with original bug report data
         return [
@@ -81,7 +81,7 @@ class BugReportStore:
         probe: Dict[str, Any] = None,
         guard: Dict[str, Any] = None,
         negations: Dict[str, Any] = None,
-        top_k: int = 10,
+        limit: int = 10,
     ) -> List[Tuple[str, float, Dict]]:
         """Advanced query with guards and negations."""
         json_probe = probe or {}
@@ -89,7 +89,7 @@ class BugReportStore:
             json_probe,
             guard=guard,
             negations=negations,
-            top_k=top_k,
+            limit=limit,
             threshold=0.0,
         )
 
@@ -114,7 +114,7 @@ class BugReportStore:
 
             # Search for similar bugs
             similar = self.find_similar_bugs(
-                bug_report, top_k=20, threshold=similarity_threshold
+                bug_report, limit=20, threshold=similarity_threshold
             )
 
             for sim_id, sim_score, sim_bug in similar:
@@ -330,7 +330,7 @@ def demonstrate_queries(bug_store: BugReportStore):
         "environment": {"browser": ":chrome"},
     }
 
-    results = bug_store.find_similar_bugs(probe_bug, top_k=5)
+    results = bug_store.find_similar_bugs(probe_bug, limit=5)
     print(f"Found {len(results)} similar bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
         print(f"  {i}. Score: {score:.3f}")
@@ -340,7 +340,7 @@ def demonstrate_queries(bug_store: BugReportStore):
     print("2. Structured Filtering: 'High severity :auth component bugs'")
     guard = {"severity": ":high", "component": ":auth"}
 
-    results = bug_store.query_with_filters(guard=guard, top_k=10)
+    results = bug_store.query_with_filters(guard=guard, limit=10)
     print(f"Found {len(results)} high severity auth bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
         print(
@@ -359,7 +359,7 @@ def demonstrate_queries(bug_store: BugReportStore):
     #     "component": {"$not": ":mobile"},
     # }
 
-    results = bug_store.find_similar_bugs(probe_bug, top_k=5)
+    results = bug_store.find_similar_bugs(probe_bug, limit=5)
     # Filter out mobile-related results manually for demo
     non_mobile_results = [
         (bid, score, bug)
@@ -412,7 +412,7 @@ def demonstrate_triage_queries(bug_store: BugReportStore):
     # Critical bugs in auth component
     print("1. Critical Auth Security Issues:")
     results = bug_store.query_with_filters(
-        guard={"component": ":auth", "severity": ":critical"}, top_k=10
+        guard={"component": ":auth", "severity": ":critical"}, limit=10
     )
     if results:
         for bug_id, score, bug in results:
@@ -421,7 +421,7 @@ def demonstrate_triage_queries(bug_store: BugReportStore):
     else:
         # Show all critical bugs instead
         critical_results = bug_store.query_with_filters(
-            guard={"severity": ":critical"}, top_k=5
+            guard={"severity": ":critical"}, limit=5
         )
         print(
             f"  No critical auth bugs found. Here are all {len(critical_results)} critical bugs:"

@@ -314,7 +314,7 @@ def ingest_recipes(client, recipes):
 
 
 def query_recipes(
-    client, query, description, top_k=10, guard=None, negations=None
+    client, query, description, limit=10, guard=None, negations=None
 ):
     """Query recipes and display results."""
     print(f"\n🔍 {description}")
@@ -336,7 +336,7 @@ def query_recipes(
             query_dict,
             guard=guard,
             negations=negations,
-            top_k=top_k,
+            limit=limit,
             threshold=0.0,
         )
 
@@ -345,7 +345,7 @@ def query_recipes(
             return
 
         print(
-            f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):"
+            f"  ✅ Found {len(results)} matching recipes (showing top {min(limit, len(results))}):"
         )
 
         for i, result in enumerate(results):
@@ -391,7 +391,7 @@ def main():
         client,
         {"name": "classic lasagna", "cuisine": ":italian", "difficulty": ":medium"},
         "1. FUZZY SIMILARITY: Recipes similar to classic lasagna",
-        top_k=5
+        limit=5
     )
 
     # 2. Recipes similar to pad thai, but without shrimp
@@ -400,7 +400,7 @@ def main():
         {"name": "pad thai", "cuisine": ":asian", "difficulty": ":medium"},
         "2. SIMILARITY + NEGATION: Pad thai similar recipes, no shrimp",
         negations={"ingredients": [{"item": "shrimp"}]},
-        top_k=5
+        limit=5
     )
 
     # 3. What can replace tofu in mapo tofu recipe? (find structurally similar dishes
@@ -410,14 +410,14 @@ def main():
         {"name": "mapo tofu", "cuisine": ":asian", "difficulty": ":easy"},
         "3. SUBSTITUTION: Structurally similar to mapo tofu but with different main protein",
         negations={"ingredients": [{"item": "tofu"}]},
-        top_k=3
+        limit=3
     )
 
     # 4. Dishes with "curry" in tags
     query_recipes(
         client, {"tags": ["curry"], "cuisine": ":indian"},
         "4. TAG SIMILARITY: Indian curry dishes",
-        top_k=3
+        limit=3
     )
 
     # 5. Asian cuisine recipes
@@ -442,7 +442,7 @@ def main():
                 {"diet": ["vegan"]}
             ]
         },
-        top_k=8
+        limit=8
     )
 
     # 9. Complex guards: Easy difficulty recipes that are NOT spicy
@@ -452,7 +452,7 @@ def main():
         "9. COMPLEX GUARDS + NEGATION: Easy recipes NOT spicy",
         guard={"difficulty": ":easy"},
         negations={"tags": {"$not_contains": "spicy"}},
-        top_k=5
+        limit=5
     )
 
     # 10. Multi-criteria similarity: Asian or Indian curry dishes
@@ -466,7 +466,7 @@ def main():
                 {"cuisine": ":indian"}
             ]
         },
-        top_k=5
+        limit=5
     )
 
     print("\n" + "=" * 55)

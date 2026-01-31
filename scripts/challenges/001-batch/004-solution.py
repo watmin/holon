@@ -61,11 +61,11 @@ class MagicMemoryStore:
             return data
 
     def find_similar_magic(
-        self, probe: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
+        self, probe: Dict[str, Any], limit: int = 10, threshold: float = 0.0
     ) -> List[Tuple[str, float, Dict]]:
         """Find spells/items similar to the probe."""
         json_probe = self._prepare_for_json(probe)
-        results = self.client.search_json(json_probe, top_k=top_k, threshold=threshold)
+        results = self.client.search_json(json_probe, limit=limit, threshold=threshold)
 
         return [
             (result["id"], result["score"], self._get_magic_item(result["id"]))
@@ -77,7 +77,7 @@ class MagicMemoryStore:
         probe: Dict[str, Any] = None,
         guard: Dict[str, Any] = None,
         negations: Dict[str, Any] = None,
-        top_k: int = 10,
+        limit: int = 10,
     ) -> List[Tuple[str, float, Dict]]:
         """Advanced query with guards and negations."""
         json_probe = self._prepare_for_json(probe or {})
@@ -85,7 +85,7 @@ class MagicMemoryStore:
             json_probe,
             guard=guard,
             negations=negations,
-            top_k=top_k,
+            limit=limit,
             threshold=0.0,
         )
 
@@ -409,7 +409,7 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
 
     negations = {"duration": {"$contains": "concentration"}}  # Not concentration spells
 
-    results = magic_store.query_magic(probe=probe_spell, negations=negations, top_k=5)
+    results = magic_store.query_magic(probe=probe_spell, negations=negations, limit=5)
     print(f"Found {len(results)} similar non-concentration fire spells:")
     for i, (magic_id, score, magic) in enumerate(results[:3], 1):
         if magic.get("type") == "spell":
@@ -420,7 +420,7 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
     print("2. Cantrips useful for stealth and illusion")
     guard = {"level": "cantrip"}
 
-    results = magic_store.query_magic(guard=guard, top_k=20)  # Get more results
+    results = magic_store.query_magic(guard=guard, limit=20)  # Get more results
     stealth_cantrips = [
         (mid, score, magic)
         for mid, score, magic in results
@@ -439,7 +439,7 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
     print("3. Magic items with flight/teleportation, NOT legendary rarity")
     guard = {"type": "item"}
 
-    results = magic_store.query_magic(guard=guard, top_k=20)  # Get more results
+    results = magic_store.query_magic(guard=guard, limit=20)  # Get more results
     flight_items = [
         (mid, score, magic)
         for mid, score, magic in results
@@ -461,7 +461,7 @@ def demonstrate_spell_queries(magic_store: MagicMemoryStore):
 
     negations = {"tags": {"$contains": "humanoid"}}
 
-    results = magic_store.query_magic(probe=probe_magic, negations=negations, top_k=5)
+    results = magic_store.query_magic(probe=probe_magic, negations=negations, limit=5)
     print(f"Found {len(results)} charm-related magic (non-humanoid affecting):")
     for i, (magic_id, score, magic) in enumerate(results, 1):
         print(
