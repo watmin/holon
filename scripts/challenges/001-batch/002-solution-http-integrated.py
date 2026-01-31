@@ -43,10 +43,10 @@ def holon_service():
 
     try:
         # Test if server is responding
-        response = requests.get("http://127.0.0.1:8001/health", timeout=5)
+        response = requests.get("http://127.0.0.1:8001/api/v1/health", timeout=5)
         if response.status_code == 200:
             print("✅ Holon service started successfully")
-            yield "http://127.0.0.1:8001"
+            yield "http://127.0.0.1:8001/api/v1"
         else:
             print("❌ Holon service failed to start properly")
             yield None
@@ -79,16 +79,16 @@ def test_http_operations(base_url):
         health = response.json()
         print(f"   ✅ Health: {health['status']} | Backend: {health['backend']}")
 
-        # Test single insert
+        # Test single insert (v1 API: /items)
         print("2. Testing single insert...")
         recipe_data = '{"name": "Test Lasagna", "cuisine": "italian", "difficulty": "medium", "time": 90}'
         response = requests.post(
-            f"{base_url}/insert", json={"data": recipe_data, "data_type": "json"}
+            f"{base_url}/items", json={"data": recipe_data, "data_type": "json"}
         )
         result = response.json()
         print(f"   ✅ Inserted recipe with ID: {result['id']}")
 
-        # Test batch insert
+        # Test batch insert (v1 API: /items/batch)
         print("3. Testing batch insert...")
         recipes = [
             '{"name": "Pad Thai", "cuisine": "asian", "difficulty": "medium", "time": 30}',
@@ -96,7 +96,7 @@ def test_http_operations(base_url):
             '{"name": "Curry", "cuisine": "indian", "difficulty": "medium", "time": 45}',
         ]
         response = requests.post(
-            f"{base_url}/batch_insert", json={"items": recipes, "data_type": "json"}
+            f"{base_url}/items/batch", json={"items": recipes, "data_type": "json"}
         )
         result = response.json()
         print(f"   ✅ Batch inserted {len(result['ids'])} recipes")

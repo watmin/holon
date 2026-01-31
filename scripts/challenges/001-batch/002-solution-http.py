@@ -14,21 +14,22 @@ import requests
 
 # HTTP API Configuration
 BASE_URL = "http://localhost:8000"
+API_PREFIX = "/api/v1"
 
 
-def http_insert(data: str, data_type: str = "edn") -> str:
+def http_insert(data: str, data_type: str = "json") -> str:
     """Insert data via HTTP API."""
     response = requests.post(
-        f"{BASE_URL}/insert", json={"data": data, "data_type": data_type}
+        f"{BASE_URL}{API_PREFIX}/items", json={"data": data, "data_type": data_type}
     )
     response.raise_for_status()
     return response.json()["id"]
 
 
-def http_batch_insert(items: List[str], data_type: str = "edn") -> List[str]:
+def http_batch_insert(items: List[str], data_type: str = "json") -> List[str]:
     """Batch insert data via HTTP API."""
     response = requests.post(
-        f"{BASE_URL}/batch_insert", json={"items": items, "data_type": data_type}
+        f"{BASE_URL}{API_PREFIX}/items/batch", json={"items": items, "data_type": data_type}
     )
     response.raise_for_status()
     return response.json()["ids"]
@@ -36,7 +37,7 @@ def http_batch_insert(items: List[str], data_type: str = "edn") -> List[str]:
 
 def http_query(
     probe: str,
-    data_type: str = "edn",
+    data_type: str = "json",
     top_k: int = 10,
     threshold: float = 0.0,
     guard: str = None,
@@ -54,7 +55,7 @@ def http_query(
     if negations:
         query_data["negations"] = negations
 
-    response = requests.post(f"{BASE_URL}/query", json=query_data)
+    response = requests.post(f"{BASE_URL}{API_PREFIX}/search", json=query_data)
     response.raise_for_status()
     return response.json()["results"]
 
@@ -396,10 +397,10 @@ def main():
 
     # Test server connection
     try:
-        response = requests.get(f"{BASE_URL}/health")
+        response = requests.get(f"{BASE_URL}{API_PREFIX}/health")
         response.raise_for_status()
         health = response.json()
-        print(f"🔗 Connected to Holon service at {BASE_URL}")
+        print(f"🔗 Connected to Holon service at {BASE_URL}{API_PREFIX}")
         print(
             f"   Status: {health['status']} | Backend: {health['backend']} | Items: {health['items_count']}"
         )
