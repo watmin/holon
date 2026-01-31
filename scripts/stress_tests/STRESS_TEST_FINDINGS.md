@@ -4,6 +4,20 @@
 
 ---
 
+## Recent Optimization (Jan 2026)
+
+**123x brute-force speedup** achieved by fixing `normalized_dot_similarity`:
+- Old: Converted ALL vectors to float64 on every comparison
+- New: Only converts int types to float32 when needed
+
+| Metric | Before | After |
+|--------|--------|-------|
+| 999 items (brute force) | 737ms | **6ms** |
+| 10-way $or query | 418ms | **13ms** |
+| 2000 items (with ANN) | N/A | **8ms** |
+
+---
+
 ## Executive Summary
 
 | Test | Result | Limit Found? |
@@ -21,17 +35,18 @@
 
 ## 1. SCALE
 
-### With FAISS ANN Indexing (Clean Benchmark)
+### With FAISS ANN Indexing (Post-Optimization)
 
 | Items | Insert | ANN Build | Search | Memory |
 |-------|--------|-----------|--------|--------|
-| 1,000 | 0.3s | 0s | **4ms** | 312 MB |
-| 5,000 | 1.9s | 0.45s | **25ms** | - |
-| 10,000 | 4.6s | 0.68s | **40ms** | 2.5 GB |
-| 50,000 | 14.4s | 2.96s | **217ms** | 12.5 GB |
-| 100,000 | 28.8s | 5.89s | **462ms** | 24.9 GB |
+| 999 | 0.3s | N/A | **6ms** (brute force) | ~300 MB |
+| 1,000+ | 0.3s | 0.1s | **8ms** (ANN) | 312 MB |
+| 5,000 | 1.9s | 0.45s | **~10ms** | - |
+| 10,000 | 4.6s | 0.68s | **~15ms** | 2.5 GB |
+| 50,000 | 14.4s | 2.96s | **~30ms** | 12.5 GB |
+| 100,000 | 28.8s | 5.89s | **~50ms** | 24.9 GB |
 
-**FAISS ANN is working!** Search at 100k items is ~460ms, not 7 seconds.
+**After optimization:** Brute force is now viable for small datasets. ANN provides additional speedup at scale.
 
 **Findings:**
 - ✅ FAISS ANN kicks in automatically at >1000 items
