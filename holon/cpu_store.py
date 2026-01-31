@@ -149,11 +149,26 @@ class CPUStore(Store):
         if "$or" in parsed_probe and isinstance(parsed_probe["$or"], list):
             or_branches = parsed_probe["$or"]
             if or_branches:
-                # Encode each branch
+                # Helper to strip $any markers from a branch before encoding
+                def clean_branch(branch):
+                    if not isinstance(branch, dict):
+                        return branch
+                    cleaned = {}
+                    for k, v in branch.items():
+                        if isinstance(v, dict) and any_marker in v:
+                            continue  # Skip $any fields
+                        elif isinstance(v, dict):
+                            cleaned[k] = clean_branch(v)  # Recurse
+                        else:
+                            cleaned[k] = v
+                    return cleaned
+
+                # Encode each branch (after cleaning)
                 branch_vectors = []
                 for branch in or_branches:
                     try:
-                        vec = self.encoder.encode_data(branch)
+                        clean = clean_branch(branch)
+                        vec = self.encoder.encode_data(clean)
                         branch_vectors.append(vec)
                     except Exception:
                         continue  # Skip branches that fail to encode
