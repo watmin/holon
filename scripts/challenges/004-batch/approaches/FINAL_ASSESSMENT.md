@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 24 Approaches Explored
+### 25 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -44,6 +44,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching = BEST** |
 | 23 | Deep nesting | Simpler wins | Nested structure adds noise |
 | 24 | Batshit ideas | Validated | Multi-scale confirms template matching |
+| 25 | **Quantum-inspired** | 849 backtracks | Beautiful theory, doesn't beat template |
 
 ---
 
@@ -95,6 +96,16 @@ We weren't exploiting Holon's recursive data encoding properly!
 **What we did wrong**: Flat encoding `bundle([bind(pos, digit) for all cells])`
 
 **What works**: Encode digit SETS for each constraint unit, measure similarity to complete template.
+
+### 8. Quantum-Inspired: Beautiful But Not Better
+Tested quantum computing concepts:
+- **Superposition**: Bundle all possible digits → collapses like standard propagation
+- **Interference**: 57x discrimination between valid/invalid pairs!
+- **Grover amplification**: Successfully amplifies valid digits
+- **Entanglement**: Can encode all-different constraints
+
+BUT: 849 backtracks vs template matching's 52. The quantum metaphor doesn't
+capture global consistency as well as simple template scoring.
 
 | Solver | Backtracks | Improvement |
 |--------|-----------|-------------|
