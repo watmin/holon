@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Any, List, Sequence, Union
 
@@ -6,6 +7,16 @@ import numpy as np
 from edn_format.immutable_dict import ImmutableDict
 
 from .vector_manager import VectorManager
+
+
+class TimeResolution(str, Enum):
+    """Resolution levels for time encoding."""
+
+    SECOND = "second"  # High-frequency logs, events
+    MINUTE = "minute"  # Transactions, API calls
+    HOUR = "hour"  # Business data, orders (default)
+    DAY = "day"  # Reports, aggregates
+
 
 try:
     import cupy as cp
@@ -84,12 +95,24 @@ class Encoder:
         if not data:
             return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
 
+        # Check for $time marker at top level of this dict
+        if "$time" in data:
+            return self._encode_time(data)
+
         bound_vectors = []
         for key, value in data.items():
             # Check for encoding mode and config hints
             effective_list_mode = list_mode
             encode_config = {}
             if isinstance(value, dict):
+                # Check for $time marker in nested value
+                if "$time" in value:
+                    value_vector = self._encode_time(value)
+                    key_vector = self._encode_scalar(key)
+                    bound = key_vector * value_vector
+                    bound_vectors.append(bound)
+                    continue
+
                 if "_encode_mode" in value:
                     mode_str = value["_encode_mode"]
                     if mode_str in [m.value for m in ListEncodeMode]:
@@ -735,6 +758,122 @@ class Encoder:
         else:
             # Fallback for unknown types
             return self.vector_manager.get_vector(str(data))
+
+    # ==================== TIME ENCODING ====================
+
+    def _encode_time(self, value: dict) -> np.ndarray:
+        """
+        Encode a $time marked value with circular + positional components.
+
+        Circular encoding captures periodic patterns:
+        - Hour of day (24-hour cycle)
+        - Day of week (7-day cycle)
+        - Month of year (12-month cycle)
+
+        Positional encoding captures linear time progression.
+
+        Usage:
+            {"$time": 1706500000}  # Unix timestamp
+            {"$time": "2024-01-29T10:30:00Z"}  # ISO string
+            {"$time": 1706500000, "$time_resolution": "minute"}
+        """
+        timestamp = value["$time"]
+        resolution_str = value.get("$time_resolution", "hour")
+        resolution = TimeResolution(resolution_str)
+
+        # Parse timestamp if string
+        if isinstance(timestamp, str):
+            # Handle ISO format strings
+            ts_clean = timestamp.replace("Z", "+00:00")
+            try:
+                dt = datetime.fromisoformat(ts_clean)
+                timestamp = dt.timestamp()
+            except ValueError:
+                # Fallback: try parsing common formats
+                for fmt in ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%Y/%m/%d"]:
+                    try:
+                        dt = datetime.strptime(timestamp, fmt)
+                        timestamp = dt.timestamp()
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    # Can't parse, encode as string
+                    return self._encode_scalar(str(timestamp))
+
+        dt = datetime.fromtimestamp(timestamp)
+        dim = self.vector_manager.dimensions
+        components = []
+
+        # Circular components (periodic patterns)
+        # Hour of day with fractional minutes
+        hour_frac = dt.hour + dt.minute / 60 + dt.second / 3600
+        components.append(("hour", self._encode_circular(hour_frac, 24, dim)))
+
+        # Day of week (0=Monday, 6=Sunday)
+        components.append(("dow", self._encode_circular(dt.weekday(), 7, dim)))
+
+        # Month of year with fractional days
+        month_frac = (dt.month - 1) + (dt.day - 1) / 30
+        components.append(("month", self._encode_circular(month_frac, 12, dim)))
+
+        # Positional component (linear time)
+        if resolution == TimeResolution.SECOND:
+            position = timestamp
+        elif resolution == TimeResolution.MINUTE:
+            position = timestamp / 60
+        elif resolution == TimeResolution.HOUR:
+            position = timestamp / 3600
+        else:  # DAY
+            position = timestamp / 86400
+
+        components.append(("position", self._encode_positional(position, dim)))
+
+        # Bind each component with its role vector and bundle
+        result = np.zeros(dim, dtype=np.float64)
+        for role_name, vec in components:
+            role_vec = self.vector_manager.get_vector(f"__time_role_{role_name}__")
+            result += role_vec.astype(np.float64) * vec.astype(np.float64)
+
+        return self._threshold_bipolar(result)
+
+    def _encode_circular(
+        self, value: float, period: float, dim: int, seed: int = 42
+    ) -> np.ndarray:
+        """
+        Encode a value on a circle with given period.
+
+        Values that are close on the circle will have similar encodings.
+        The encoding wraps: value 0 is similar to value `period`.
+        """
+        rng = np.random.default_rng(seed + int(period * 1000))
+        angle = 2 * np.pi * value / period
+
+        # Random phase offsets for each dimension
+        phases = rng.uniform(0, 2 * np.pi, dim)
+
+        # Project angle onto random directions
+        return np.sign(np.cos(angle + phases)).astype(np.int8)
+
+    def _encode_positional(
+        self, position: float, dim: int, scale: float = 10000
+    ) -> np.ndarray:
+        """
+        Transformer-style positional encoding for linear time.
+
+        Nearby positions have similar encodings, with gradual decay.
+        """
+        indices = np.arange(dim)
+        freqs = 1 / (scale ** (indices / dim))
+
+        # Alternate sin/cos
+        values = np.where(
+            indices % 2 == 0,
+            np.sin(position * freqs),
+            np.cos(position * freqs),
+        )
+
+        return np.sign(values).astype(np.int8)
 
     def _threshold_bipolar(self, vector) -> Union[np.ndarray, "cp.ndarray"]:
         """Threshold summed vector to bipolar {-1, 0, 1}."""
