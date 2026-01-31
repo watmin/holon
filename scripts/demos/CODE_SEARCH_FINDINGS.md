@@ -57,8 +57,8 @@ Every result includes verified `file:line:col` that points to actual source.
 | Ingestion speed | ~800 nodes/sec |
 | Structure size | ~180 bytes/node (flat encoding) |
 | Holon codebase | 2,127 nodes from 12 files |
-| Single probe query | ~300ms (brute force, no ANN) |
-| **Bundled $or query** | **148ms for 3-way OR (23x faster than naive loop)** |
+| **Query with ANN (5k items)** | **23ms single, 28ms for 10-way $or** |
+| Brute force (no ANN) | ~8000ms - use ANN for datasets >1000 items |
 
 ### $or Uses VSA Superposition
 

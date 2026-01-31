@@ -15,6 +15,7 @@
 | Dimensionality | ✅ 1000 dims is enough | Memory scaling |
 | Query Complexity | ✅ Works | None found |
 | Noise Tolerance | ✅ Excellent | Case sensitivity (minor) |
+| **$or Queries** | ✅ **O(1) branches** | None - uses superposition |
 
 ---
 
@@ -169,7 +170,45 @@ At 1k dimensions:
 
 ---
 
-## 7. NOISE TOLERANCE
+## 7. $or QUERY PERFORMANCE
+
+Uses **VSA superposition** - all OR branches bundled into a single probe vector.
+
+| Query Type | Time (5k items, ANN) | Notes |
+|------------|---------------------|-------|
+| Single probe | 23ms | Baseline |
+| 2-way $or | 29ms | ~Same as single |
+| 5-way $or | 29ms | ~Same as single |
+| 10-way $or | 28ms | ~Same as single |
+
+**Without ANN (brute force):**
+
+| Query Type | Time | Speedup with ANN |
+|------------|------|------------------|
+| Single probe | 8681ms | 373x |
+| 5-way $or | 7632ms | 263x |
+
+**How it works:**
+
+```python
+# Old (WRONG): N separate queries
+for branch in or_branches:
+    results += query(branch)  # O(N) queries
+
+# New (VSA WAY): Superposition bundling
+bundled = sum(encode(branch) for branch in or_branches)
+bundled = bundled / norm(bundled)  # Single vector!
+results = query(bundled)  # O(1) query
+```
+
+**Findings:**
+- ✅ $or is O(1) with respect to number of branches
+- ✅ Combined with ANN: 23-29ms for any number of OR branches on 5k items
+- ✅ Returns mixed results from all matching types
+
+---
+
+## 8. NOISE TOLERANCE
 
 | Query Type | Found | Rank |
 |------------|-------|------|
