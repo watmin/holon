@@ -199,8 +199,13 @@ class TestMathematicalAPIIntegration:
         # Check that mathematical properties are preserved
         found_matrix = None
         for result in results:
-            if result["data"].get("matrix-id") == "api_test_matrix":
-                found_matrix = result["data"]
+            data = (
+                json.loads(result["data"])
+                if isinstance(result["data"], str)
+                else result["data"]
+            )
+            if data.get("matrix-id") == "api_test_matrix":
+                found_matrix = data
                 break
 
         assert found_matrix is not None

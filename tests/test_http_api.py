@@ -81,7 +81,10 @@ class TestHTTPAPI:
         # Should return only the success result
         assert len(result["results"]) >= 1
         for res in result["results"]:
-            assert res["data"]["status"] == "success"
+            data = (
+                json.loads(res["data"]) if isinstance(res["data"], str) else res["data"]
+            )
+            assert data["status"] == "success"
 
     def test_query_with_negations(self):
         # Insert data
@@ -111,7 +114,10 @@ class TestHTTPAPI:
         # Should exclude failed
         assert len(result["results"]) >= 1
         for res in result["results"]:
-            assert res["data"]["status"] != "failed"
+            data = (
+                json.loads(res["data"]) if isinstance(res["data"], str) else res["data"]
+            )
+            assert data["status"] != "failed"
 
     def test_query_invalid_guard(self):
         probe = {"user": "alice"}
