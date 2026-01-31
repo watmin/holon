@@ -95,7 +95,12 @@ class CPUStore(Store):
         encode_time = time.time() - start
 
         data_id = str(uuid.uuid4())
-        self.stored_data[data_id] = parsed
+        # Store original string and type for accurate retrieval
+        self.stored_data[data_id] = {
+            "_raw": data,
+            "_type": data_type,
+            "_parsed": parsed,
+        }
         self.stored_vectors[data_id] = encoded_vector
 
         # Invalidate ANN index if it exists (unless in bulk mode)
@@ -293,14 +298,23 @@ class CPUStore(Store):
 
         results = []
         for data_id, score in similar_ids_scores:
-            data_dict = self.stored_data[data_id]
+            stored = self.stored_data[data_id]
+            # Handle new storage format with _raw, _type, _parsed
+            if isinstance(stored, dict) and "_parsed" in stored:
+                data_dict = stored["_parsed"]
+                # Return raw string for HTTP serialization
+                return_data = stored["_raw"]
+            else:
+                # Legacy format
+                data_dict = stored
+                return_data = stored
             # Apply negations
             if negation_filters and matches_negation(data_dict, negation_filters):
                 continue
             # Apply guard if provided (data structure matching)
             if guard and not is_subset(guard, data_dict):
                 continue  # Skip if guard fails
-            results.append((data_id, score, data_dict))
+            results.append((data_id, score, return_data))
         return results
 
     def get(self, data_id: str) -> Dict[str, Any]:
@@ -309,7 +323,23 @@ class CPUStore(Store):
                 f"Data ID '{data_id}' not found. "
                 "Make sure the data was previously inserted and not deleted."
             )
-        return self.stored_data[data_id]
+        stored = self.stored_data[data_id]
+        # Handle new storage format with _raw, _type, _parsed
+        if isinstance(stored, dict) and "_parsed" in stored:
+            return stored["_parsed"]
+        return stored
+
+    def get_raw(self, data_id: str) -> tuple:
+        """Get raw data string and type for a stored item."""
+        if data_id not in self.stored_data:
+            raise KeyError(f"Data ID '{data_id}' not found.")
+        stored = self.stored_data[data_id]
+        if isinstance(stored, dict) and "_raw" in stored:
+            return stored["_raw"], stored["_type"]
+        # Legacy format - return as JSON
+        import json
+
+        return json.dumps(stored), "json"
 
     def delete(self, data_id: str) -> bool:
         if data_id in self.stored_data:

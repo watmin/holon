@@ -17,7 +17,7 @@ BASE_URL = "http://localhost:8000"
 API_PREFIX = "/api/v1"
 
 
-def http_insert(data: str, data_type: str = "json") -> str:
+def http_insert(data: str, data_type: str = "edn") -> str:
     """Insert data via HTTP API."""
     response = requests.post(
         f"{BASE_URL}{API_PREFIX}/items", json={"data": data, "data_type": data_type}
@@ -26,7 +26,7 @@ def http_insert(data: str, data_type: str = "json") -> str:
     return response.json()["id"]
 
 
-def http_batch_insert(items: List[str], data_type: str = "json") -> List[str]:
+def http_batch_insert(items: List[str], data_type: str = "edn") -> List[str]:
     """Batch insert data via HTTP API."""
     response = requests.post(
         f"{BASE_URL}{API_PREFIX}/items/batch", json={"items": items, "data_type": data_type}
@@ -37,7 +37,7 @@ def http_batch_insert(items: List[str], data_type: str = "json") -> List[str]:
 
 def http_query(
     probe: str,
-    data_type: str = "json",
+    data_type: str = "edn",
     top_k: int = 10,
     threshold: float = 0.0,
     guard: str = None,
@@ -373,18 +373,13 @@ def query_recipes_http(probe, description, top_k=10, guard=None, negations=None)
             f"  ✅ Found {len(results)} matching recipes (showing top {min(top_k, len(results))}):"
         )
 
-        for i, result in enumerate(results):
-            recipe = result["data"]
-            print(f"  {i+1}. [{result['score']:.3f}] {recipe.get('name', 'Unknown')}")
-            print(
-                f"     Cuisine: {recipe.get('cuisine', 'Unknown')} | Difficulty: {recipe.get('difficulty', 'Unknown')} | Time: {recipe.get('time', 'Unknown')} min"
-            )
-            if (
-                recipe.get("diet") and recipe["diet"] != []
-            ):  # EDN sets become lists in JSON
-                print(f"     Diet: {recipe['diet']}")
-            if recipe.get("tags") and recipe["tags"] != []:
-                print(f"     Tags: {recipe['tags']}")
+        for i, result in enumerate(results[:5]):  # Show top 5
+            recipe_data = result["data"]
+            score = result["score"]
+            # Data is returned as raw EDN string - display directly
+            # Truncate long EDN for readability
+            display = recipe_data if len(recipe_data) < 80 else recipe_data[:77] + "..."
+            print(f"  {i+1}. [{score:.3f}] {display}")
 
     except Exception as e:
         print(f"  ❌ HTTP query failed: {e}")
