@@ -469,12 +469,171 @@ def main():
         limit=5
     )
 
+    # ========================================
+    # NEW: Demonstrate new VSA primitives
+    # ========================================
+    print("\n" + "=" * 55)
+    print("🆕 NEW VSA PRIMITIVE DEMONSTRATIONS")
+    print("=" * 55)
+
+    demonstrate_new_primitives(store, client, recipes)
+
     print("\n" + "=" * 55)
     print("🎉 Recipe Memory Demo Complete!")
     print(
-        "Holon successfully demonstrated recipe similarity, substitution, advanced OR logic, and complex querying"
+        "Holon demonstrated recipe similarity, substitution, advanced OR logic, "
+        "complex querying, AND new VSA primitives (prototype, difference, blend)"
     )
     print("=" * 55)
+
+
+def demonstrate_new_primitives(store, client, recipes):
+    """Demonstrate the new VSA primitives for recipe operations."""
+    import numpy as np
+    from holon.similarity import normalized_dot_similarity as cosine_similarity
+
+    print("\n🧬 1. PROTOTYPE: Extract cuisine style patterns")
+    print("-" * 55)
+
+    # Group recipes by cuisine
+    cuisines = {}
+    for recipe in recipes:
+        cuisine = recipe.get("cuisine", "unknown")
+        if cuisine not in cuisines:
+            cuisines[cuisine] = []
+        cuisines[cuisine].append(store.encoder.encode_data(recipe))
+
+    # Create prototypes for each cuisine
+    cuisine_protos = {}
+    for cuisine, vecs in cuisines.items():
+        if len(vecs) >= 1:
+            cuisine_protos[cuisine] = store.prototype(vecs)
+            print(f"  Created {cuisine} prototype from {len(vecs)} recipes")
+
+    # Test classification of a new recipe query
+    test_recipe = {"name": "stir fry noodles", "tags": ["noodles", "quick"]}
+    test_vec = store.encoder.encode_data(test_recipe)
+
+    print(f"\n  Classifying: {test_recipe['name']}")
+    for cuisine, proto in cuisine_protos.items():
+        sim = cosine_similarity(test_vec, proto)
+        print(f"    → {cuisine}: {sim:.4f}")
+
+    print("\n🔄 2. DIFFERENCE: Ingredient substitution finder")
+    print("-" * 55)
+
+    # Find two similar recipes with different key ingredients
+    # e.g., mapo tofu vs butter chicken (both are curried/saucy but different protein)
+    tofu_recipe = next((r for r in recipes if "tofu" in r.get("name", "").lower()), None)
+    chicken_recipe = next((r for r in recipes if "chicken" in r.get("name", "").lower()), None)
+
+    if tofu_recipe and chicken_recipe:
+        tofu_vec = store.encoder.encode_data(tofu_recipe)
+        chicken_vec = store.encoder.encode_data(chicken_recipe)
+
+        # Compute what makes chicken different from tofu dish
+        diff = store.difference(chicken_vec, tofu_vec)
+
+        print(f"  Comparing: '{tofu_recipe['name']}' vs '{chicken_recipe['name']}'")
+        print(f"  Difference vector norm: {np.linalg.norm(diff):.1f}")
+
+        # Use difference to find "substitution candidates"
+        # Things similar to the difference are "what you'd add to make tofu more like chicken"
+        print("\n  Recipes most aligned with the 'tofu→chicken' transformation:")
+        scored = []
+        for i, recipe in enumerate(recipes):
+            vec = store.encoder.encode_data(recipe)
+            sim = cosine_similarity(diff, vec)
+            scored.append((sim, i, recipe))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        for sim, _, recipe in scored[:3]:
+            print(f"    [{sim:.4f}] {recipe['name']}")
+
+    print("\n🎨 3. BLEND: Create fusion recipe queries")
+    print("-" * 55)
+
+    # Blend Italian and Asian cuisine styles
+    italian_proto = cuisine_protos.get(":italian")
+    asian_proto = cuisine_protos.get(":asian")
+
+    if italian_proto is not None and asian_proto is not None:
+        # 50/50 blend of Italian and Asian
+        fusion = store.blend(italian_proto, asian_proto, alpha=0.5)
+
+        print("  Blending: 50% Italian + 50% Asian (fusion cuisine)")
+        print("\n  Recipes closest to Italian-Asian fusion:")
+
+        scored = []
+        for i, recipe in enumerate(recipes):
+            vec = store.encoder.encode_data(recipe)
+            sim = cosine_similarity(fusion, vec)
+            scored.append((sim, i, recipe))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        for sim, _, recipe in scored[:3]:
+            cuisine = recipe.get("cuisine", "?")
+            print(f"    [{sim:.4f}] {recipe['name']} ({cuisine})")
+
+    print("\n📢 4. AMPLIFY: Boost health-conscious features")
+    print("-" * 55)
+
+    # Create a base query and amplify "healthy" characteristics
+    base_query = {"cuisine": ":asian"}
+    base_vec = store.encoder.encode_data(base_query)
+
+    healthy_features = {"diet": ["vegan", "gluten-free"], "tags": ["healthy"]}
+    healthy_vec = store.encoder.encode_data(healthy_features)
+
+    amplified = store.amplify(base_vec, healthy_vec, strength=3.0)
+
+    print("  Base query: Asian recipes")
+    print("  Amplifying: vegan, gluten-free, healthy with strength=3.0")
+    print("\n  Top 3 health-amplified Asian matches:")
+
+    scored = []
+    for i, recipe in enumerate(recipes):
+        vec = store.encoder.encode_data(recipe)
+        score = cosine_similarity(amplified, vec)
+        scored.append((score, i, recipe))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    for score, _, recipe in scored[:3]:
+        diet = recipe.get("diet", [])
+        diet_str = ", ".join(diet) if diet else "none"
+        print(f"    [{score:.4f}] {recipe['name']} (diet: {diet_str})")
+
+    print("\n🚫 5. NEGATE: Exclude unwanted characteristics")
+    print("-" * 55)
+
+    # Start with comfort food, negate "heavy" dishes
+    comfort_query = {"tags": ["comfort"]}
+    comfort_vec = store.encoder.encode_data(comfort_query)
+
+    # Negate characteristics of "heavy" dishes (e.g., lasagna, baking)
+    heavy_features = {"tags": ["baking", "family"], "time": 90}
+    heavy_vec = store.encoder.encode_data(heavy_features)
+
+    negated = store.negate(comfort_vec, heavy_vec)
+
+    print("  Query: Comfort food")
+    print("  Negating: baking, family-style, long cooking time")
+    print("\n  Light comfort food (after negation):")
+
+    scored = []
+    for i, recipe in enumerate(recipes):
+        vec = store.encoder.encode_data(recipe)
+        score_before = cosine_similarity(comfort_vec, vec)
+        score_after = cosine_similarity(negated, vec)
+        if "comfort" in recipe.get("tags", []):
+            scored.append((score_after, score_before, i, recipe))
+
+    if scored:
+        scored.sort(key=lambda x: x[0], reverse=True)
+        for score_after, score_before, _, recipe in scored[:3]:
+            delta = score_after - score_before
+            time = recipe.get("time", "?")
+            print(f"    [{score_after:.4f}] (Δ{delta:+.4f}) {recipe['name']} ({time}min)")
 
 
 if __name__ == "__main__":
