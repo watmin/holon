@@ -337,9 +337,57 @@ class CPUStore(Store):
                 )
 
             for key, value in guard.items():
+                # Handle $exists operator
+                if key == "$exists":
+                    if isinstance(value, dict):
+                        for field, should_exist in value.items():
+                            exists = field in data
+                            if exists != should_exist:
+                                return False
+                    continue
+
                 if key not in data:
                     return False
+
+                data_value = data[key]
+
                 if isinstance(value, dict):
+                    # Handle comparison operators
+                    if "$gt" in value:
+                        if not (
+                            isinstance(data_value, (int, float))
+                            and data_value > value["$gt"]
+                        ):
+                            return False
+                    if "$gte" in value:
+                        if not (
+                            isinstance(data_value, (int, float))
+                            and data_value >= value["$gte"]
+                        ):
+                            return False
+                    if "$lt" in value:
+                        if not (
+                            isinstance(data_value, (int, float))
+                            and data_value < value["$lt"]
+                        ):
+                            return False
+                    if "$lte" in value:
+                        if not (
+                            isinstance(data_value, (int, float))
+                            and data_value <= value["$lte"]
+                        ):
+                            return False
+                    # Handle $contains for substring matching
+                    if "$contains" in value:
+                        if not (
+                            isinstance(data_value, str)
+                            and value["$contains"] in data_value
+                        ):
+                            return False
+                    # Handle $in for membership
+                    if "$in" in value:
+                        if data_value not in value["$in"]:
+                            return False
                     # Handle nested $or
                     if "$or" in value and isinstance(value["$or"], list):
                         # For nested $or, any of the conditions for this key must match
@@ -347,6 +395,13 @@ class CPUStore(Store):
                             is_subset({key: or_val}, data) for or_val in value["$or"]
                         ):
                             return False
+                    # Skip if we handled special operators
+                    elif any(
+                        k.startswith("$")
+                        for k in value.keys()
+                        if k in ("$gt", "$gte", "$lt", "$lte", "$contains", "$in")
+                    ):
+                        pass  # Already handled above
                     elif not isinstance(data[key], dict) or not is_subset(
                         value, data[key]
                     ):

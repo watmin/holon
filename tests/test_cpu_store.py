@@ -269,3 +269,99 @@ class TestCPUStore:
 
         # Vectors should be different (with high probability in high dimensions)
         assert not all(v1 == v2 for v1, v2 in zip(vector, vector2))
+
+    def test_comparison_operators(self):
+        """Test $gt, $gte, $lt, $lte comparison operators in guards"""
+        store = CPUStore(dimensions=1000)
+
+        # Insert test data with numeric values
+        test_data = [
+            '{"name": "Alice", "age": 30}',
+            '{"name": "Bob", "age": 25}',
+            '{"name": "Charlie", "age": 35}',
+        ]
+        for data in test_data:
+            store.insert(data)
+
+        # Test $gt
+        results = store.query(probe="{}", guard={"age": {"$gt": 28}}, top_k=10)
+        assert len(results) == 2  # Alice (30) and Charlie (35)
+
+        # Test $gte
+        results = store.query(probe="{}", guard={"age": {"$gte": 30}}, top_k=10)
+        assert len(results) == 2  # Alice (30) and Charlie (35)
+
+        # Test $lt
+        results = store.query(probe="{}", guard={"age": {"$lt": 30}}, top_k=10)
+        assert len(results) == 1  # Bob (25)
+
+        # Test $lte
+        results = store.query(probe="{}", guard={"age": {"$lte": 30}}, top_k=10)
+        assert len(results) == 2  # Alice (30) and Bob (25)
+
+        # Test combined range
+        results = store.query(
+            probe="{}", guard={"age": {"$gte": 25, "$lt": 35}}, top_k=10
+        )
+        assert len(results) == 2  # Alice (30) and Bob (25)
+
+    def test_contains_operator(self):
+        """Test $contains for substring matching"""
+        store = CPUStore(dimensions=1000)
+
+        test_data = [
+            '{"name": "Alice", "bio": "Python developer"}',
+            '{"name": "Bob", "bio": "JavaScript expert"}',
+            '{"name": "Charlie", "bio": "Python and Rust enthusiast"}',
+        ]
+        for data in test_data:
+            store.insert(data)
+
+        # Test $contains
+        results = store.query(
+            probe="{}", guard={"bio": {"$contains": "Python"}}, top_k=10
+        )
+        assert len(results) == 2  # Alice and Charlie
+
+        results = store.query(
+            probe="{}", guard={"bio": {"$contains": "expert"}}, top_k=10
+        )
+        assert len(results) == 1  # Bob
+
+    def test_exists_operator(self):
+        """Test $exists for field presence"""
+        store = CPUStore(dimensions=1000)
+
+        test_data = [
+            '{"name": "Alice", "email": "alice@example.com"}',
+            '{"name": "Bob"}',
+            '{"name": "Charlie", "email": "charlie@example.com", "phone": "123"}',
+        ]
+        for data in test_data:
+            store.insert(data)
+
+        # Test $exists: true
+        results = store.query(probe="{}", guard={"$exists": {"email": True}}, top_k=10)
+        assert len(results) == 2  # Alice and Charlie
+
+        # Test $exists: false
+        results = store.query(probe="{}", guard={"$exists": {"phone": False}}, top_k=10)
+        assert len(results) == 2  # Alice and Bob
+
+    def test_in_operator(self):
+        """Test $in for membership"""
+        store = CPUStore(dimensions=1000)
+
+        test_data = [
+            '{"name": "Alice", "role": "admin"}',
+            '{"name": "Bob", "role": "user"}',
+            '{"name": "Charlie", "role": "moderator"}',
+        ]
+        for data in test_data:
+            store.insert(data)
+
+        # Test $in
+        results = store.query(
+            probe="{}", guard={"role": {"$in": ["admin", "moderator"]}}, top_k=10
+        )
+        assert len(results) == 2  # Alice and Charlie
