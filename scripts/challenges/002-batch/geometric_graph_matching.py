@@ -12,6 +12,15 @@ from typing import Dict, List, Set, Any
 from holon import CPUStore, HolonClient
 
 
+def parse_result_data(data):
+    """Parse result data from string to dict."""
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, str):
+        return json.loads(data)
+    return data
+
+
 class GeometricGraphEncoder:
     """Optimized VSA/HDC geometric graph encoder using effective encoding strategy"""
 
@@ -243,7 +252,13 @@ class GeometricGraphEncoder:
 
     def geometric_similarity(self, vec1, vec2) -> float:
         """Compute geometric similarity using Holon's normalized dot product similarity"""
+        import numpy as np
         from holon.similarity import normalized_dot_similarity
+        # Convert lists to numpy arrays if needed
+        if isinstance(vec1, list):
+            vec1 = np.array(vec1)
+        if isinstance(vec2, list):
+            vec2 = np.array(vec2)
         return normalized_dot_similarity(vec1, vec2)
 
 
@@ -293,7 +308,7 @@ class GeometricGraphMatcher:
         # Store the graph structure (geometric vectors computed on demand)
         self.client.insert_json(graph_data)
 
-    def find_similar_graphs(self, query_graph: Dict[str, Any], top_k: int = 5, use_topological_similarity: bool = False) -> List[Dict[str, Any]]:
+    def find_similar_graphs(self, query_graph: Dict[str, Any], limit: int = 5, use_topological_similarity: bool = False) -> List[Dict[str, Any]]:
         """Find geometrically similar graphs using advanced VSA/HDC similarity"""
         # Encode query graph geometrically
         query_vector = self.encoder.encode_graph_geometrically(query_graph)
@@ -305,12 +320,12 @@ class GeometricGraphMatcher:
         # In a production system, you'd want more efficient similarity search
         all_results = self.client.search_json(
             {"metadata": {"type": "undirected"}},  # Get all graphs
-            top_k=100,  # Get all stored graphs
+            limit=100,  # Get all stored graphs
             threshold=0.0
         )
 
         for result in all_results:
-            stored_data = result["data"]
+            stored_data = parse_result_data(result["data"])
             graph_id = stored_data["graph_id"]
             stored_graph = stored_data["graph_structure"]
 
@@ -329,12 +344,12 @@ class GeometricGraphMatcher:
                 "graph": stored_graph
             })
 
-        # Sort by similarity and return top_k
+        # Sort by similarity and return top results
         similarities.sort(key=lambda x: x["similarity"], reverse=True)
 
         # Format results
         similar_graphs = []
-        for result in similarities[:top_k]:
+        for result in similarities[:limit]:
             similar_graphs.append({
                 "graph": result["graph"],
                 "geometric_similarity": result["similarity"],
@@ -481,7 +496,7 @@ class GeometricGraphMatcher:
 
         return similarity / 4.0  # Average over 4 role types
 
-    def find_subgraph_matches(self, subgraph_edges: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
+    def find_subgraph_matches(self, subgraph_edges: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
         """Find graphs containing specific subgraph patterns"""
         # Encode subgraph as a mini-graph
         subgraph = {
@@ -496,7 +511,7 @@ class GeometricGraphMatcher:
             subgraph["nodes"].add(edge.get("to", ""))
 
         # Find similar graphs (those containing the subgraph pattern)
-        return self.find_similar_graphs(subgraph, top_k=top_k)
+        return self.find_similar_graphs(subgraph, limit=limit)
 
 
 def create_test_graphs():
@@ -569,7 +584,7 @@ def run_geometric_graph_demo():
     # Test 1: Star graphs should be similar
     star_4 = next(g for g in graphs if g["name"] == "star_4")
     print("\n🔍 Finding graphs similar to 4-node star:")
-    similar_to_star = matcher.find_similar_graphs(star_4, top_k=3)
+    similar_to_star = matcher.find_similar_graphs(star_4, limit=3)
     for i, result in enumerate(similar_to_star):
         graph = result["graph"]
         similarity = result["geometric_similarity"]
@@ -577,7 +592,7 @@ def run_geometric_graph_demo():
     # Test 2: Cycle graphs should be similar
     cycle_3 = next(g for g in graphs if g["name"] == "cycle_3")
     print("\n🔍 Finding graphs similar to 3-node cycle:")
-    similar_to_cycle = matcher.find_similar_graphs(cycle_3, top_k=3)
+    similar_to_cycle = matcher.find_similar_graphs(cycle_3, limit=3)
     for i, result in enumerate(similar_to_cycle):
         graph = result["graph"]
         similarity = result["geometric_similarity"]
@@ -586,7 +601,7 @@ def run_geometric_graph_demo():
     print("\n🔍 Finding graphs containing A→B edge pattern:")
     subgraph_matches = matcher.find_subgraph_matches([
         {"from": "A", "to": "B", "label": "connects"}
-    ], top_k=3)
+    ], limit=3)
     for i, result in enumerate(subgraph_matches):
         graph = result["graph"]
         similarity = result["geometric_similarity"]

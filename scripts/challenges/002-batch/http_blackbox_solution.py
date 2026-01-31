@@ -44,7 +44,7 @@ class HolonHTTPClient:
         response.raise_for_status()
         return response.json()["ids"]
 
-    def query(self, probe: str, data_type: str = "json", top_k: int = 10,
+    def query(self, probe: str, data_type: str = "json", limit: int = 10,
               threshold: float = 0.0, guard: Optional[Dict] = None,
               negations: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """Query the store."""
@@ -163,7 +163,7 @@ class HTTP_RPM_Solver:
         # Find matrices with missing panels
         incomplete_results = self.client.query(
             '{"missing-position": "row3-col3"}',
-            top_k=5
+            limit=5
         )
 
         print(f"\n🔍 Found {len(incomplete_results)} matrices with missing panels")
@@ -182,7 +182,7 @@ class HTTP_RPM_Solver:
             complete_results = self.client.query(
                 json.dumps({"rule": rule}),
                 guard={"missing-position": {"$any": False}},  # No missing position
-                top_k=3
+                limit=3
             )
 
             if complete_results:
@@ -208,13 +208,13 @@ class HTTP_RPM_Solver:
         print("\n🧪 HTTP Query Demonstrations:")
 
         # 1. Rule filtering
-        progression_results = self.client.query('{"rule": "progression"}', top_k=3)
+        progression_results = self.client.query('{"rule": "progression"}', limit=3)
         print(f"✅ Found {len(progression_results)} progression matrices")
 
         # 2. Guard query (matrices with specific attributes)
         guard_results = self.client.query(
             '{"attributes": ["shape", "count", "color"]}',
-            top_k=3
+            limit=3
         )
         print(f"✅ Found {len(guard_results)} matrices with all three attributes")
 
@@ -222,7 +222,7 @@ class HTTP_RPM_Solver:
         negation_results = self.client.query(
             '{"rule": "progression"}',
             negations={"rule": {"$not": "xor"}},
-            top_k=3
+            limit=3
         )
         print(f"✅ Found {len(negation_results)} progression matrices (excluding XOR)")
 
@@ -360,7 +360,7 @@ class HTTP_Graph_Matching_Solver:
             # Find the query graph
             query_results = self.client.query(
                 json.dumps({"name": query_name}),
-                top_k=1
+                limit=1
             )
 
             if not query_results:
@@ -374,7 +374,7 @@ class HTTP_Graph_Matching_Solver:
             # Find similar graphs
             similar_results = self.client.query(
                 probe_json,
-                top_k=5,
+                limit=5,
                 threshold=0.0
             )
 
@@ -400,7 +400,7 @@ class HTTP_Graph_Matching_Solver:
         # 1. Find all star graphs
         star_results = self.client.query(
             '{"topology": "star"}',
-            top_k=5
+            limit=5
         )
         print(f"✅ Found {len(star_results)} star topology graphs")
 
@@ -408,7 +408,7 @@ class HTTP_Graph_Matching_Solver:
         undirected_results = self.client.query(
             '{"type": "undirected"}',
             guard={"nodes": {"$any": "A"}},  # Must contain node A
-            top_k=5
+            limit=5
         )
         print(f"✅ Found {len(undirected_results)} undirected graphs containing node A")
 
@@ -416,7 +416,7 @@ class HTTP_Graph_Matching_Solver:
         non_cycle_results = self.client.query(
             '{"type": "undirected"}',
             negations={"topology": {"$not": "cycle"}},
-            top_k=5
+            limit=5
         )
         print(f"✅ Found {len(non_cycle_results)} undirected graphs (excluding cycles)")
 

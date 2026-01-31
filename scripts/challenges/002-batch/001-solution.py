@@ -18,6 +18,36 @@ import edn_format
 from holon import CPUStore, HolonClient
 
 
+def edn_to_dict(obj):
+    """Convert EDN objects to Python dicts with string keys."""
+    if isinstance(obj, edn_format.Keyword):
+        return f":{obj.name}"
+    elif isinstance(obj, (dict, edn_format.immutable_dict.ImmutableDict)):
+        return {
+            (k.name if isinstance(k, edn_format.Keyword) else str(k)): edn_to_dict(v)
+            for k, v in obj.items()
+        }
+    elif isinstance(obj, (list, tuple, frozenset, set)):
+        return [edn_to_dict(item) for item in obj]
+    else:
+        return obj
+
+
+def parse_result_data(data):
+    """Parse result data from string (EDN or JSON) to dict."""
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, str):
+        try:
+            # Try JSON first
+            return json.loads(data)
+        except json.JSONDecodeError:
+            # Try EDN
+            parsed = edn_format.loads(data)
+            return edn_to_dict(parsed)
+    return data
+
+
 def generate_rpm_matrix(matrix_id, rule_type, attributes=None, missing_position=None):
     """
     Generate a synthetic RPM matrix with specified rule and attributes.
@@ -236,7 +266,7 @@ def ingest_matrices(client, matrices):
     print("✅ All matrices ingested successfully!")
 
 
-def query_matrices(client, query, description, top_k=5, guard=None, negations=None):
+def query_matrices(client, query, description, limit=5, guard=None, negations=None):
     """Query matrices and display results."""
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
@@ -257,7 +287,7 @@ def query_matrices(client, query, description, top_k=5, guard=None, negations=No
             query_dict,
             guard=guard,
             negations=negations,
-            top_k=top_k,
+            limit=limit,
             threshold=0.0,
         )
 
@@ -266,12 +296,14 @@ def query_matrices(client, query, description, top_k=5, guard=None, negations=No
             return
 
         print(
-            f"  ✅ Found {len(results)} matching matrices (showing top {min(top_k, len(results))}):"
+            f"  ✅ Found {len(results)} matching matrices (showing top {min(limit, len(results))}):"
         )
 
         for i, result in enumerate(results):
-            matrix = result["data"]
+            data = result["data"]
             score = result["score"]
+            # Parse data (could be EDN or JSON string)
+            matrix = parse_result_data(data)
             print(f"\n  {i+1}. [{score:.3f}] Matrix: {matrix['matrix-id']}")
             print(f"     Rule: {matrix['rule']} | Attributes: {matrix['attributes']}")
 
@@ -484,7 +516,7 @@ def demonstrate_missing_panel_completion(client):
 
     # Get matrices with missing panels
     incomplete_results = client.search_json(
-        {"missing-position": "row3-col3"}, top_k=3
+        {"missing-position": "row3-col3"}, limit=3
     )
 
     if not incomplete_results:
@@ -495,7 +527,7 @@ def demonstrate_missing_panel_completion(client):
     print("-" * 50)
 
     for i, result in enumerate(incomplete_results):
-        matrix = result["data"]
+        matrix = parse_result_data(result["data"])
         missing_pos = matrix.get("missing-position", "")
         rule = matrix.get("rule", "")
 
@@ -544,14 +576,14 @@ def demonstrate_missing_panel_completion(client):
         complete_results = client.search(probe=edn_probe,
             data_type="edn",
             negations={"missing-position": {"$any": True}},
-            top_k=3,
+            limit=3,
         )
 
         print("\n🔮 Geometric similarity search results:")
         found_correct = False
 
         for j, comp_result in enumerate(complete_results):
-            comp_matrix = comp_result["data"]
+            comp_matrix = parse_result_data(comp_result["data"])
             comp_score = comp_result["score"]
             actual_missing = comp_matrix.get("panels", {}).get(missing_pos, {})
 

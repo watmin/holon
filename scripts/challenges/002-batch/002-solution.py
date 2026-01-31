@@ -42,7 +42,7 @@ def ingest_graphs(matcher, graphs):
 
 
 def query_graphs_geometric(
-    matcher, query_graph, description, top_k=5, use_topological=True
+    matcher, query_graph, description, limit=5, use_topological=True
 ):
     """Query graphs using geometric similarity and display results."""
     print(f"\n🔍 {description}")
@@ -51,7 +51,7 @@ def query_graphs_geometric(
 
     try:
         results = matcher.find_similar_graphs(
-            query_graph, top_k=top_k, use_topological_similarity=use_topological
+            query_graph, limit=limit, use_topological_similarity=use_topological
         )
 
         if not results:
@@ -103,7 +103,7 @@ def main():
         matcher,
         star_4,
         "1. TOPOLOGICAL SIMILARITY: Star graphs (4-node vs 5-node star)",
-        top_k=5,
+        limit=5,
         use_topological=True,
     )
 
@@ -113,7 +113,7 @@ def main():
         matcher,
         cycle_3,
         "2. CYCLE TOPOLOGY: Cycle graphs (3-node vs 4-node cycle)",
-        top_k=5,
+        limit=5,
         use_topological=True,
     )
 
@@ -123,7 +123,7 @@ def main():
         matcher,
         tree_binary,
         "3. TREE STRUCTURES: Binary tree vs chain tree topology",
-        top_k=5,
+        limit=5,
         use_topological=True,
     )
 
@@ -131,7 +131,7 @@ def main():
     print("\n🔍 4. SUBGRAPH MATCHING: Graphs containing A→B edge pattern")
     subgraph_matches = matcher.find_subgraph_matches([
         {"from": "A", "to": "B", "label": "connects"}
-    ], top_k=5)
+    ], limit=5)
     for i, result in enumerate(subgraph_matches):
         graph = result["graph"]
         similarity = result["geometric_similarity"]
