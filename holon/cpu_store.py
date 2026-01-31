@@ -378,7 +378,7 @@ class CPUStore(Store):
         if (
             FAISS_AVAILABLE
             and self.ann_enabled
-            and len(self.stored_vectors) > ANN_THRESHOLD
+            and len(self.stored_vectors) >= ANN_THRESHOLD
         ):
             if self.ann_index is None:
                 self._build_ann_index()

@@ -38,11 +38,21 @@ def normalized_dot_similarity(
 
     # Handle mixed CPU/GPU arrays
     if CUPY_AVAILABLE and isinstance(vec1, cp.ndarray):
-        dot = cp.dot(vec1.astype(cp.float32), vec2.astype(cp.float32))
+        # GPU path: convert to float32 if needed
+        if vec1.dtype != cp.float32:
+            vec1 = vec1.astype(cp.float32)
+        if vec2.dtype != cp.float32:
+            vec2 = vec2.astype(cp.float32)
+        dot = cp.dot(vec1, vec2)
         return float(cp.asnumpy(dot) / D)
     else:
-        dot = np.dot(vec1.astype(float), vec2.astype(float))
-        return dot / D
+        # CPU path: convert to float32 if int (avoids overflow) but reuse if already float
+        if vec1.dtype.kind == "i":  # integer type
+            vec1 = vec1.astype(np.float32)
+        if vec2.dtype.kind == "i":
+            vec2 = vec2.astype(np.float32)
+        dot = np.dot(vec1, vec2)
+        return float(dot) / D
 
 
 def find_similar_vectors(
