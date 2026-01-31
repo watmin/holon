@@ -378,8 +378,10 @@ class HTTP_Graph_Matching_Solver:
                 continue
 
             # Use the graph data as probe for similarity search
+            # Data is already a JSON string from the server
             query_graph = query_results[0]["data"]
-            probe_json = json.dumps(query_graph)
+            # Don't double-encode - it's already a string
+            probe_json = query_graph if isinstance(query_graph, str) else json.dumps(query_graph)
 
             # Find similar graphs
             similar_results = self.client.query(
