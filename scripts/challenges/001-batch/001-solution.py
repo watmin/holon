@@ -357,6 +357,8 @@ def ingest_tasks(client, tasks):
 
 def query_tasks(client, query, description, top_k=10, guard=None, negations=None, threshold=0.0):
     """Query tasks and display results."""
+    import json as json_mod  # Local import for JSON parsing
+
     print(f"\n🔍 {description}")
     print(f"Query: {query}")
     if guard:
@@ -369,8 +371,7 @@ def query_tasks(client, query, description, top_k=10, guard=None, negations=None
     try:
         # Parse query if it's a JSON string, otherwise use as dict
         if isinstance(query, str):
-            import json
-            query_dict = json.loads(query)
+            query_dict = json_mod.loads(query)
         else:
             query_dict = query
 
@@ -387,8 +388,11 @@ def query_tasks(client, query, description, top_k=10, guard=None, negations=None
         )
 
         for i, result in enumerate(results):
+            # Handle JSON string or dict
             task = result["data"]
-            score = result["score"]
+            if isinstance(task, str):
+                task = json_mod.loads(task)
+            score = result.get("score", result.get("similarity", 0))
             print(f"\n  {i+1}. [{score:.3f}] {task['title']}")
             print(
                 f"     Project: {task['project']} | Priority: {task['priority']} | "
