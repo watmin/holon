@@ -9,6 +9,7 @@ import time
 import requests
 
 BASE_URL = "http://localhost:8000"
+API_PREFIX = "/api/v1"
 
 
 def test_http_connection():
@@ -16,7 +17,7 @@ def test_http_connection():
     print("🔗 Testing Holon HTTP Service Connection...")
 
     try:
-        response = requests.get(f"{BASE_URL}/health", timeout=5)
+        response = requests.get(f"{BASE_URL}{API_PREFIX}/health", timeout=5)
         response.raise_for_status()
         health = response.json()
         print(
@@ -35,11 +36,13 @@ def test_http_insert():
     """Test HTTP insert operations."""
     print("\n📥 Testing HTTP Insert Operations...")
 
-    # Test single insert
-    data = '{"name": "Test Recipe", "cuisine": "test", "difficulty": "easy"}'
+    # Test single insert - API expects data as a JSON string
+    data = json.dumps({"name": "Test Recipe", "cuisine": "test", "difficulty": "easy"})
     try:
         response = requests.post(
-            f"{BASE_URL}/insert", json={"data": data, "data_type": "json"}, timeout=10
+            f"{BASE_URL}{API_PREFIX}/items",
+            json={"data": data, "data_type": "json"},
+            timeout=10
         )
         response.raise_for_status()
         result = response.json()
@@ -54,15 +57,16 @@ def test_http_batch_insert():
     """Test HTTP batch insert operations."""
     print("\n📦 Testing HTTP Batch Insert Operations...")
 
+    # API expects list of JSON strings
     recipes = [
-        '{"name": "Recipe A", "cuisine": "italian", "difficulty": "easy"}',
-        '{"name": "Recipe B", "cuisine": "asian", "difficulty": "medium"}',
-        '{"name": "Recipe C", "cuisine": "mexican", "difficulty": "hard"}',
+        json.dumps({"name": "Recipe A", "cuisine": "italian", "difficulty": "easy"}),
+        json.dumps({"name": "Recipe B", "cuisine": "asian", "difficulty": "medium"}),
+        json.dumps({"name": "Recipe C", "cuisine": "mexican", "difficulty": "hard"}),
     ]
 
     try:
         response = requests.post(
-            f"{BASE_URL}/batch_insert",
+            f"{BASE_URL}{API_PREFIX}/items/batch",
             json={"items": recipes, "data_type": "json"},
             timeout=15,
         )
@@ -72,6 +76,29 @@ def test_http_batch_insert():
         return result["ids"]
     except Exception as e:
         print(f"❌ Batch insert failed: {e}")
+        return []
+
+
+def test_http_search():
+    """Test HTTP search operations."""
+    print("\n🔍 Testing HTTP Search Operations...")
+
+    # API expects probe as a JSON string
+    probe = json.dumps({"cuisine": "italian"})
+    try:
+        response = requests.post(
+            f"{BASE_URL}{API_PREFIX}/search",
+            json={"probe": probe, "data_type": "json", "top_k": 5},
+            timeout=10
+        )
+        response.raise_for_status()
+        result = response.json()
+        print(f"✅ Search successful: Found {len(result['results'])} results")
+        for r in result['results'][:3]:
+            print(f"   [{r['score']:.3f}] {r['data']}")
+        return result["results"]
+    except Exception as e:
+        print(f"❌ Search failed: {e}")
         return []
 
 
@@ -113,13 +140,12 @@ def main():
     # Test basic operations
     single_id = test_http_insert()
     batch_ids = test_http_batch_insert()
+    search_results = test_http_search()
 
     if single_id or batch_ids:
         print("\n✅ HTTP operations successful!")
-        print("✅ Our solutions CAN work with network services!")
+        print("✅ Our solutions work with the HTTP network service!")
         print("✅ Architecture supports production deployment!")
-    # Note: Query endpoint has issues but that's a server implementation detail
-    # The important thing is we've proven the client-side works and the architecture is sound
 
     demonstrate_network_architecture()
 

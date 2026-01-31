@@ -18,6 +18,7 @@ class HTTPBugReportStore:
 
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
+        self.api_prefix = "/api/v1"
         self.bug_reports = (
             {}
         )  # Local cache for demo (in production, server would store this)
@@ -27,9 +28,9 @@ class HTTPBugReportStore:
         # Prepare data for JSON serialization
         json_ready_bug = self._prepare_for_json(bug_report)
 
-        # HTTP POST to /insert endpoint
+        # HTTP POST to /api/v1/items endpoint
         response = requests.post(
-            f"{self.base_url}/insert",
+            f"{self.base_url}{self.api_prefix}/items",
             json={"data": json.dumps(json_ready_bug), "data_type": "json"},
         )
 
@@ -45,18 +46,18 @@ class HTTPBugReportStore:
         return vector_id
 
     def find_similar_bugs(
-        self, probe_bug: Dict[str, Any], top_k: int = 10, threshold: float = 0.0
+        self, probe_bug: Dict[str, Any], limit: int = 10, threshold: float = 0.0
     ) -> List[Tuple[str, float, Dict]]:
         """Find bugs similar to the probe via HTTP API."""
         json_probe = json.dumps(self._prepare_for_json(probe_bug))
 
-        # HTTP POST to /query endpoint
+        # HTTP POST to /api/v1/search endpoint
         response = requests.post(
-            f"{self.base_url}/query",
+            f"{self.base_url}{self.api_prefix}/search",
             json={
                 "probe": json_probe,
                 "data_type": "json",
-                "top_k": top_k,
+                "top_k": limit,
                 "threshold": threshold,
             },
         )
@@ -98,7 +99,7 @@ class HTTPBugReportStore:
         if negations:
             print(f"⚠️  Negations not yet supported in HTTP API: {negations}")
 
-        response = requests.post(f"{self.base_url}/query", json=query_payload)
+        response = requests.post(f"{self.base_url}{self.api_prefix}/search", json=query_payload)
 
         if response.status_code != 200:
             raise Exception(f"HTTP query failed: {response.text}")
@@ -130,9 +131,10 @@ def demo_http_bug_reports():
     print()
 
     # Check if server is running
+    store = HTTPBugReportStore()
     try:
         health_response = requests.get(
-            f"{HTTPBugReportStore().base_url}/health", timeout=2
+            f"{store.base_url}{store.api_prefix}/health", timeout=2
         )
         if health_response.status_code != 200:
             print(
@@ -142,12 +144,12 @@ def demo_http_bug_reports():
         print("✅ Holon server is running")
     except Exception:
         print(
-            "❌ Cannot connect to Holon server. Start with: python scripts/server/holon_server.py"
+            "❌ Holon server not running. Start with: python scripts/server/holon_server.py"
         )
         return
 
-    # Initialize HTTP client
-    bug_store = HTTPBugReportStore()
+    # Use existing HTTP client instance
+    bug_store = store
 
     # Insert sample bug report via HTTP
     sample_bug = {
@@ -173,7 +175,7 @@ def demo_http_bug_reports():
         "environment": {"browser": ":safari"},
     }
 
-    results = bug_store.find_similar_bugs(probe, top_k=3)
+    results = bug_store.find_similar_bugs(probe, limit=3)
     print(f"📥 Found {len(results)} similar bugs:")
     for i, (bug_id, score, bug) in enumerate(results[:3], 1):
         print(f"  {i}. Score: {score:.3f}")
