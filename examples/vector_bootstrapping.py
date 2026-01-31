@@ -69,7 +69,7 @@ def main():
         # Note: In practice, you'd search for similar items using the stored data
         similar_results = client.search_json(
             probe={"type": concept.split("_")[0] if "_" in concept else concept},
-            top_k=2,
+            limit=2,
         )
 
         for i, result in enumerate(similar_results):

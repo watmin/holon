@@ -29,7 +29,7 @@ def main():
 
     # Query for similar data (convenience method for JSON)
     probe = {"name": "Alice", "city": "New York"}
-    results = client.search_json(probe, top_k=5, threshold=0.0)
+    results = client.search_json(probe, limit=5, threshold=0.0)
 
     print("Query results:")
     for result in results:

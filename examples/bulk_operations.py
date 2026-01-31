@@ -80,7 +80,7 @@ def main():
     print("   Querying different activities:")
     for activity in activities:
         start_time = time.time()
-        results = client.search_json(probe={"activity": activity}, top_k=10)
+        results = client.search_json(probe={"activity": activity}, limit=10)
         query_time = time.time() - start_time
         print(f"   {activity}: {query_time:.4f}s")
 
@@ -91,7 +91,7 @@ def main():
     results = client.search_json(
         probe={"activity": "login"},
         guard={"status": "success", "device": "mobile"},
-        top_k=5,
+        limit=5,
     )
 
     print(f"   Successful mobile logins: {len(results)}")
@@ -104,7 +104,7 @@ def main():
 
     # Find all activities except failed ones
     results = client.search_json(
-        probe={}, negations={"status": {"$not": "failed"}}, top_k=10
+        probe={}, negations={"status": {"$not": "failed"}}, limit=10
     )
 
     print(f"   Non-failed activities: {len(results)}")

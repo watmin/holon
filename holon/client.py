@@ -246,10 +246,16 @@ class HolonClient:
                 negations=negations,
             )
             # Convert to same format as HTTP API
-            basic_results = [
-                {"id": item_id, "score": score, "data": data}
-                for item_id, score, data in basic_results
-            ]
+            # Parse JSON strings to dicts for local mode consistency
+            parsed_results = []
+            for item_id, score, data in basic_results:
+                if isinstance(data, str):
+                    try:
+                        data = json.loads(data)
+                    except (json.JSONDecodeError, TypeError):
+                        pass  # Keep as string if not valid JSON
+                parsed_results.append({"id": item_id, "score": score, "data": data})
+            basic_results = parsed_results
 
         # For Qdrant-native similarity methods, results are already computed with the correct metric
         # No client-side enhancement needed - similarity parameter controls Qdrant distance metric

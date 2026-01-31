@@ -120,7 +120,8 @@ def hierarchical_similarity_example():
     print("\n📊 Results with Custom Hierarchical Enhancement:")
     for result in enhanced_results[:3]:
         boost = result.get("hierarchical_boost", 0)
-        print(".3f")
+        text = result["data"].get("text", "N/A")
+        print(f"   {text}: score={result['score']:.3f} (boost={boost:.2f})")
 
 
 if __name__ == "__main__":
