@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 36 Approaches Explored
+### 40 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -56,6 +56,10 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 34 | $any wildcards | ✅ Works | Wildcards match correctly |
 | 35 | Row-by-row query solver | Failed | Query limits truncate valid solutions |
 | 36 | Cell-level query | 839 backtracks | Query overhead > direct computation |
+| 37 | **Hyperspace manifold** | 444 backtracks | **Invalid states cluster TIGHTER than valid!** |
+| 38 | Orthogonal spaces | 108 backtracks | Binding too orthogonal - no gradient |
+| 39 | Multi-scale encoding | 371 backtracks | Band scale misleading, chain collapsed |
+| 40 | Band + chain scoring | 108 backtracks | Band adds noise, CHAINED symmetric |
 
 ---
 
@@ -172,20 +176,106 @@ the puzzle is already partially constrained.
 
 ---
 
-### 8. What We Did That's Truly Different
+### 8. CRITICAL DISCOVERY: Invalid States Cluster Tighter (Approach 37)
+
+**Counterintuitive finding**:
+```
+Invalid-Invalid pairwise similarity: 0.8843
+Valid-Valid pairwise similarity:     0.6094
+Invalid states to centroid:          0.7855
+Valid states to centroid:            0.7413
+```
+
+**Invalid states are MORE similar to each other than valid states!**
+
+Why? Invalid states share violation patterns (duplicates, conflicts).
+Valid states are more diverse (many different correct configurations).
+
+**Implication**: We can't just "cluster toward valid" because valid is dispersed.
+
+---
+
+### 9. The Violation Manifold Collapse (Approach 37)
+
+```
+sim(valid_template, violation_template) = 1.0000
+```
+
+Bundle(8 digits) ≈ Bundle(9 digits) - they're almost identical!
+
+**The valid and violation manifolds collapsed together** because bundling
+doesn't create enough separation between "almost complete" and "complete".
+
+---
+
+### 10. The VSA Tension: Gradient vs Separation
+
+| Goal | Technique | Problem |
+|------|-----------|---------|
+| Gradual scoring | Bundling | 8 digits ≈ 9 digits (poor separation) |
+| Clean separation | Binding | Complete ⊥ partial (no gradient!) |
+
+**We can't have BOTH gradient AND separation in the same representation!**
+
+Template matching navigates this by measuring the DELTA:
+```
+Δsim = sim(current ∪ {new}, goal) - sim(current, goal)
+```
+
+This IS the "projection toward goal" - the user's intuition is correct,
+just expressed as similarity gradient rather than orthogonal projection.
+
+---
+
+### 11. Multi-Scale Encoding Findings (Approaches 39-40)
+
+| Scale | Similarity (puzzle→solution) | Signal Quality |
+|-------|------------------------------|----------------|
+| Cell | 0.3960 | Moderate |
+| Constraint | 0.3250 | Best for solving |
+| Band | 0.6523 | Misleading (see below) |
+| Grid | 0.0019 | None |
+
+**Band scale is misleading**: High similarity because puzzles already contain
+most digits in each band. Not useful for discrimination.
+
+Adding band-level scoring HURT performance:
+- band_weight=0.0: 108 backtracks
+- band_weight=1.0: 472 backtracks
+
+**Constraint level (row/col/block) is the right granularity** for Sudoku.
+
+---
+
+### 12. Chain Encoding Findings (Approaches 39-40)
+
+- Sequential binding collapsed to zero (numerical instability)
+- Holon's CHAINED mode is symmetric (reversed = same similarity)
+- Bundled with order markers works but doesn't help solving
+
+**Chain encoding captures PROCESS, not STATE** - valuable for learning
+across puzzles, not for single-puzzle solving.
+
+---
+
+## What We Did That's Truly Different
 
 1. **Hierarchical template matching** - Using VSA to directly measure
    "progress toward constraint satisfaction" via digit set similarity
 
 2. **New VSA primitives** - Extended VSA beyond AND/OR to include NOT
-   and other operations
+   and 5 other operations
 
-3. **Systematic exploration** - 36 approaches with clear negative results
+3. **Systematic exploration** - 40 approaches with clear negative results
    documenting what DOESN'T work
 
 4. **Query + vector hybrid** - Understanding when to use each
 
 5. **The 93% barrier** - Empirically establishing the limit of pure geometry
+
+6. **Invalid cluster discovery** - Found that invalid states cluster tighter
+
+7. **Manifold collapse** - Showed that valid/invalid manifolds overlap
 
 ---
 
@@ -200,10 +290,11 @@ the puzzle is already partially constrained.
 
 ### For VSA/HDC Research
 
-1. **Documented what doesn't work** - 20+ negative results
+1. **Documented what doesn't work** - 30+ negative results
 2. **Found what does work** - Template matching, simulation rejection
 3. **Theoretical grounding** - Connected to NP-completeness
 4. **Novel encoding insight** - Match encoding to constraint structure
+5. **Invalid clustering paradox** - New understanding of VSA geometry
 
 ---
 
@@ -217,10 +308,10 @@ the puzzle is already partially constrained.
 - Adding complexity hurts, not helps
 
 **Unexplored territories**:
-1. **Learning from solutions** - Use `prototype` to learn good path patterns
-2. **Multi-puzzle training** - Transfer learned patterns
-3. **Hybrid with constraint propagation** - Arc consistency + geometric scoring
-4. **Different problems** - Where constraint structure differs from Sudoku
+1. **Cross-puzzle learning** - Use `prototype` to learn good path patterns from solved puzzles
+2. **Violation pre-computation** - Store patterns that LED TO backtrack
+3. **Different constraint problems** - Where structure differs from Sudoku
+4. **Sequence learning** - Chain encoding for learning, not solving
 
 ---
 
@@ -238,9 +329,37 @@ This works because:
 2. Similarity to complete template = progress toward satisfaction
 3. Simple structure = clean signal
 
+We also discovered:
+- Invalid states cluster tighter than valid states
+- Valid/violation manifolds collapse in bundle space
+- Constraint-level is the optimal encoding granularity
+- Chain encoding is for learning, not solving
+
 The "radical perspective" succeeded in revealing the BOUNDARY
 between what geometry can and cannot do.
 
 **The geometry doesn't replace search. It accelerates it.**
 
 And that acceleration is REAL: 52 backtracks vs 249 baseline.
+
+---
+
+## Appendix: All 40 Approaches by Category
+
+### Pure Geometric (Failed to Solve)
+1-9, 11-14: Various pure geometric methods, all hit 93% barrier
+
+### Backtracking + Geometry (Successful)
+10, 19, 22: Simulation-guided, opportunistic, template matching
+
+### Encoding Variations (Mostly Noise)
+16, 20, 23-24, 31-33, 39-40: Different encodings, simpler wins
+
+### New Primitives (Extended Holon)
+26-27: Added negate, amplify, prototype, difference, blend, resonance
+
+### Query-Based (Overhead Too High)
+30, 34-36: $any works but queries too slow for solving
+
+### Hyperspace Geometry (Key Insights)
+37-38: Invalid clusters tighter, manifolds collapse, binding too orthogonal
