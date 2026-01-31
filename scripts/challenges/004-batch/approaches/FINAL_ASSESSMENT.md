@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 40 Approaches Explored
+### 43 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -60,6 +60,9 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 38 | Orthogonal spaces | 108 backtracks | Binding too orthogonal - no gradient |
 | 39 | Multi-scale encoding | 371 backtracks | Band scale misleading, chain collapsed |
 | 40 | Band + chain scoring | 108 backtracks | Band adds noise, CHAINED symmetric |
+| 41 | Cross-puzzle learning | +47.9% on new | Prototype class imbalance (29 vs 16K) |
+| 42 | Violation pre-computation | No improvement | Constraints already prevent violations |
+| 43 | Template + simulation combo | 52 backtracks | No improvement over template alone |
 
 ---
 
@@ -344,7 +347,7 @@ And that acceleration is REAL: 52 backtracks vs 249 baseline.
 
 ---
 
-## Appendix: All 40 Approaches by Category
+## Appendix: All 43 Approaches by Category
 
 ### Pure Geometric (Failed to Solve)
 1-9, 11-14: Various pure geometric methods, all hit 93% barrier
@@ -363,3 +366,8 @@ And that acceleration is REAL: 52 backtracks vs 249 baseline.
 
 ### Hyperspace Geometry (Key Insights)
 37-38: Invalid clusters tighter, manifolds collapse, binding too orthogonal
+
+### Learning-Based (Partial Success)
+41: Cross-puzzle learning - 47.9% improvement on NEW puzzles but class imbalance issues
+42: Violation pre-computation - constraints already prevent violations
+43: Template + simulation combo - no improvement over template alone
