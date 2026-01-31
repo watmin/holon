@@ -359,3 +359,101 @@ class TestEncoderModes:
         result2 = encoder.remove_component(AB, B)
 
         np.testing.assert_array_equal(result1, result2)
+
+    # ==========================================================================
+    # Additional Primitive Tests
+    # ==========================================================================
+
+    def test_amplify_increases_similarity(self, encoder):
+        """Test that amplify increases similarity to target component."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+        C = encoder.vector_manager.get_vector("C")
+
+        ABC = encoder.bundle([A, B, C])
+        amplified = encoder.amplify(ABC, B, strength=2.0)
+
+        sim_before = np.dot(ABC.astype(float), B.astype(float))
+        sim_after = np.dot(amplified.astype(float), B.astype(float))
+
+        assert sim_after > sim_before, "Amplify should increase similarity"
+
+    def test_prototype_extracts_common(self, encoder):
+        """Test that prototype extracts common pattern."""
+        common = encoder.vector_manager.get_vector("common")
+        u1 = encoder.vector_manager.get_vector("unique1")
+        u2 = encoder.vector_manager.get_vector("unique2")
+        u3 = encoder.vector_manager.get_vector("unique3")
+
+        v1 = encoder.bundle([common, u1])
+        v2 = encoder.bundle([common, u2])
+        v3 = encoder.bundle([common, u3])
+
+        proto = encoder.prototype([v1, v2, v3])
+
+        sim_common = np.dot(proto.astype(float), common.astype(float))
+        sim_unique = np.dot(proto.astype(float), u1.astype(float))
+
+        assert (
+            sim_common > sim_unique
+        ), "Prototype should be more similar to common pattern"
+
+    def test_prototype_empty_list(self, encoder):
+        """Test prototype with empty list."""
+        result = encoder.prototype([])
+        assert np.all(result == 0)
+
+    def test_difference_identifies_added(self, encoder):
+        """Test that difference identifies added components."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+        C = encoder.vector_manager.get_vector("C")
+
+        before = encoder.bundle([A, B])
+        after = encoder.bundle([A, B, C])
+
+        delta = encoder.difference(before, after)
+
+        sim_C = np.dot(delta.astype(float), C.astype(float))
+        sim_A = np.dot(delta.astype(float), A.astype(float))
+
+        assert sim_C > sim_A, "Difference should highlight added component"
+
+    def test_blend_interpolates(self, encoder):
+        """Test that blend interpolates between vectors."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        # At alpha=0, should be similar to A
+        blend_0 = encoder.blend(A, B, alpha=0.0)
+        np.testing.assert_array_equal(blend_0, A)
+
+        # At alpha=1, should be similar to B
+        blend_1 = encoder.blend(A, B, alpha=1.0)
+        np.testing.assert_array_equal(blend_1, B)
+
+        # At alpha=0.5, should be similar to both
+        blend_half = encoder.blend(A, B, alpha=0.5)
+        sim_A = np.dot(blend_half.astype(float), A.astype(float))
+        sim_B = np.dot(blend_half.astype(float), B.astype(float))
+        assert abs(sim_A - sim_B) < 0.1 * max(
+            sim_A, sim_B
+        ), "Midpoint should be similar to both"
+
+    def test_resonance_extracts_relevant(self, encoder):
+        """Test that resonance extracts relevant part."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        AB = encoder.bundle([A, B])
+        a_part = encoder.resonance(AB, A)
+
+        # Resonance should preserve or increase similarity to reference
+        sim_to_A = np.dot(a_part.astype(float), A.astype(float))
+        sim_to_B = np.dot(a_part.astype(float), B.astype(float))
+
+        # The resonance with A should keep more of A than B
+        # (relative similarity to A should be higher than to B)
+        assert sim_to_A >= sim_to_B, "Resonance should favor the reference pattern"
+        assert isinstance(a_part, np.ndarray)
+        assert np.all(np.isin(a_part, [-1, 0, 1]))

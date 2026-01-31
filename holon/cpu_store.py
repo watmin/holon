@@ -413,3 +413,49 @@ class CPUStore(Store):
         """
         # For bipolar vectors, unbinding is the same as binding (self-inverse)
         return self.encoder.bind(bound, key)
+
+    def amplify(
+        self, superposition: np.ndarray, component: np.ndarray, strength: float = 1.0
+    ) -> np.ndarray:
+        """
+        Strengthen a component's presence in a superposition.
+
+        Boosts the specified component's influence.
+        """
+        return self.encoder.amplify(superposition, component, strength)
+
+    def prototype(
+        self, vectors: List[np.ndarray], threshold: float = 0.5
+    ) -> np.ndarray:
+        """
+        Extract the common pattern from a set of vectors.
+
+        Returns what's shared across all examples.
+        """
+        return self.encoder.prototype(vectors, threshold)
+
+    def difference(self, before: np.ndarray, after: np.ndarray) -> np.ndarray:
+        """
+        Compute what changed between two states.
+
+        Returns a vector highlighting additions and removals.
+        """
+        return self.encoder.difference(before, after)
+
+    def blend(
+        self, vec1: np.ndarray, vec2: np.ndarray, alpha: float = 0.5
+    ) -> np.ndarray:
+        """
+        Weighted interpolation between two vectors.
+
+        Creates smooth transitions between concepts.
+        """
+        return self.encoder.blend(vec1, vec2, alpha)
+
+    def resonance(self, vec: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """
+        Extract the part of vec that resonates with reference.
+
+        Keeps only dimensions where both agree.
+        """
+        return self.encoder.resonance(vec, reference)

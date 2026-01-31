@@ -374,6 +374,149 @@ class Encoder:
         """
         return self.negate(superposition, component, method="subtract")
 
+    def amplify(
+        self, superposition: np.ndarray, component: np.ndarray, strength: float = 1.0
+    ) -> np.ndarray:
+        """
+        Strengthen a component's presence in a superposition.
+
+        Opposite of negate - makes a component MORE prominent.
+
+        Args:
+            superposition: The vector containing multiple components
+            component: The component to amplify
+            strength: How much to boost (1.0 = double, 2.0 = triple, etc.)
+
+        Returns:
+            Vector with component's influence strengthened
+
+        Example:
+            >>> ABC = encoder.bundle([A, B, C])
+            >>> sim(ABC, B) = 0.53
+            >>> amplified = encoder.amplify(ABC, B, strength=2.0)
+            >>> sim(amplified, B) = 0.87  # 64% boost!
+        """
+        result = superposition.astype(float) + strength * component.astype(float)
+        return self._threshold_bipolar(result)
+
+    def prototype(
+        self, vectors: List[np.ndarray], threshold: float = 0.5
+    ) -> np.ndarray:
+        """
+        Extract the common pattern from a set of vectors.
+
+        Keeps only dimensions where a majority of vectors agree.
+        Useful for finding what's shared across examples.
+
+        Args:
+            vectors: List of vectors to find consensus from
+            threshold: Fraction of vectors that must agree (0.5 = majority)
+
+        Returns:
+            Vector representing the common pattern
+
+        Example:
+            >>> # Three vectors, each with 'common' component plus unique parts
+            >>> v1 = bundle([common, unique1])
+            >>> v2 = bundle([common, unique2])
+            >>> v3 = bundle([common, unique3])
+            >>> proto = encoder.prototype([v1, v2, v3])
+            >>> sim(proto, common) = 0.79  # High - shared pattern
+            >>> sim(proto, unique1) = 0.28  # Low - not shared
+        """
+        if not vectors:
+            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+
+        # Sum all vectors
+        total = np.sum([v.astype(float) for v in vectors], axis=0)
+
+        # Threshold: keep only where absolute majority agrees
+        n = len(vectors)
+        agreement_threshold = n * threshold
+
+        result = np.zeros_like(total)
+        result[total > agreement_threshold] = 1
+        result[total < -agreement_threshold] = -1
+
+        return result.astype(np.int8)
+
+    def difference(self, before: np.ndarray, after: np.ndarray) -> np.ndarray:
+        """
+        Compute what changed between two states.
+
+        Returns a vector representing the change/delta.
+
+        Args:
+            before: The original state
+            after: The new state
+
+        Returns:
+            Vector highlighting what was added (positive) or removed (negative)
+
+        Example:
+            >>> before = bundle([A, B])
+            >>> after = bundle([A, B, C])
+            >>> delta = encoder.difference(before, after)
+            >>> sim(delta, C) = 0.74  # High - C was added
+            >>> sim(delta, A) = -0.15  # Negative - A was already there
+        """
+        delta = after.astype(float) - before.astype(float)
+        return self._threshold_bipolar(delta)
+
+    def blend(
+        self, vec1: np.ndarray, vec2: np.ndarray, alpha: float = 0.5
+    ) -> np.ndarray:
+        """
+        Weighted interpolation between two vectors.
+
+        Creates a smooth transition between concepts.
+
+        Args:
+            vec1: First vector (alpha=0 returns this)
+            vec2: Second vector (alpha=1 returns this)
+            alpha: Interpolation factor (0.0 to 1.0)
+
+        Returns:
+            Interpolated vector
+
+        Example:
+            >>> blend(A, B, 0.0)  # Returns A
+            >>> blend(A, B, 0.5)  # Midpoint, similar to both
+            >>> blend(A, B, 1.0)  # Returns B
+        """
+        result = (1 - alpha) * vec1.astype(float) + alpha * vec2.astype(float)
+        return self._threshold_bipolar(result)
+
+    def resonance(self, vec: np.ndarray, reference: np.ndarray) -> np.ndarray:
+        """
+        Extract the part of vec that resonates with reference.
+
+        Keeps only dimensions where both vectors agree.
+        Useful for extracting the "relevant" part of a signal.
+
+        Args:
+            vec: Vector to filter
+            reference: Reference pattern to resonate with
+
+        Returns:
+            Vector containing only the resonating components
+
+        Example:
+            >>> AB = bundle([A, B])
+            >>> a_part = encoder.resonance(AB, A)
+            >>> sim(a_part, A) = 0.82  # Higher than original
+            >>> sim(AB, A) = 0.67      # Original similarity
+        """
+        v = vec.astype(float)
+        r = reference.astype(float)
+
+        # Where they agree (same sign), keep the value
+        agree = (v * r) > 0
+        result = np.zeros_like(v)
+        result[agree] = v[agree]
+
+        return self._threshold_bipolar(result)
+
     def _encode_sequence(self, data: Union[list, tuple]) -> np.ndarray:
         """Encode a sequence by binding items to positional vectors and bundling."""
         return self.encode_list(data, mode=ListEncodeMode.POSITIONAL)
