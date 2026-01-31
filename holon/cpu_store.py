@@ -144,24 +144,41 @@ class CPUStore(Store):
     ) -> List[Tuple[str, float, Dict[str, Any]]]:
         parsed_probe = parse_data(probe, data_type)
 
-        # Handle $or disjunctions
+        # Handle $or disjunctions using VSA superposition (bundling)
+        # Instead of N separate queries, encode all branches and bundle into one probe
         if "$or" in parsed_probe and isinstance(parsed_probe["$or"], list):
-            all_results = []
-            seen_ids = set()
-            for sub_probe in parsed_probe["$or"]:
-                sub_results = self.query(
-                    probe=json.dumps(sub_probe),
-                    data_type=data_type,
-                    top_k=top_k,
-                    threshold=threshold,
-                    guard=guard,
-                    negations=negations,
-                )
-                for res in sub_results:
-                    if res[0] not in seen_ids:
-                        all_results.append(res)
-                        seen_ids.add(res[0])
-            return all_results[:top_k]  # Limit to top_k
+            or_branches = parsed_probe["$or"]
+            if or_branches:
+                # Encode each branch
+                branch_vectors = []
+                for branch in or_branches:
+                    try:
+                        vec = self.encoder.encode_data(branch)
+                        branch_vectors.append(vec)
+                    except Exception:
+                        continue  # Skip branches that fail to encode
+
+                if branch_vectors:
+                    # Bundle via superposition (sum + normalize) - the VSA way!
+                    bundled = sum(branch_vectors)
+                    bundled = bundled / (np.linalg.norm(bundled) + 1e-10)
+
+                    # Now search with single bundled probe
+                    # Build a modified parsed_probe for guard matching
+                    # (guards still need the original structure for filtering)
+                    parsed_probe = {"_bundled_or": True}  # Mark as bundled
+
+                    # Continue with normal query flow using bundled vector
+                    probe_vector = bundled
+
+                    # Skip the normal encoding below
+                    skip_encoding = True
+                else:
+                    return []
+            else:
+                return []
+        else:
+            skip_encoding = False
 
         # Handle user-specified any wildcards
         clean_probe = {}
@@ -170,13 +187,15 @@ class CPUStore(Store):
                 continue  # Skip for encoding
             clean_probe[k] = v
 
-        try:
-            probe_vector = self.encoder.encode_data(clean_probe)
-        except Exception as e:
-            raise ValueError(
-                f"Failed to encode query probe: {e}. "
-                "Check that your query structure matches the expected data format (JSON or EDN)."
-            )
+        # Skip encoding if we already bundled $or branches above
+        if not skip_encoding:
+            try:
+                probe_vector = self.encoder.encode_data(clean_probe)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to encode query probe: {e}. "
+                    "Check that your query structure matches the expected data format (JSON or EDN)."
+                )
 
         # Parse user-specified $not markers in negations
         negation_specs = []
@@ -354,8 +373,6 @@ class CPUStore(Store):
         if isinstance(stored, dict) and "_raw" in stored:
             return stored["_raw"], stored["_type"]
         # Legacy format - return as JSON
-        import json
-
         return json.dumps(stored), "json"
 
     def delete(self, data_id: str) -> bool:
