@@ -50,7 +50,8 @@ def main():
         results = response.json()["results"]
         print(f"   Query: Alice events → {len(results)} results")
         for r in results:
-            print(f"   - {r['data']['event']}")
+            data = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+            print(f"   - {data['event']}")
     else:
         print(f"   Query failed: {response.status_code}")
 
