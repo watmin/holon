@@ -21,6 +21,15 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+
+def parse_result_data(data):
+    """Parse result data from string to dict."""
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, str):
+        return json.loads(data)
+    return data
+
 try:
     import PyPDF2
     HAS_PYPDF2 = True
@@ -353,9 +362,10 @@ class CalculusQuoteFinder:
         print("\n🔍 Verifying stored data...")
         sample_items = self.client.search_json(probe={}, limit=3)
         if sample_items:
-            print(f"   → Sample stored item: {sample_items[0]['data'].keys()}")
-            if 'words' in sample_items[0]['data']:
-                print(f"   → Words structure: {sample_items[0]['data']['words']}")
+            sample_data = parse_result_data(sample_items[0]['data'])
+            print(f"   → Sample stored item: {sample_data.keys()}")
+            if 'words' in sample_data:
+                print(f"   → Words structure: {sample_data['words']}")
         else:
             print("   → No items found in store!")
 
@@ -370,7 +380,8 @@ class CalculusQuoteFinder:
             print(f"   Found {len(results)} matches:")
 
             for i, result in enumerate(results[:3]):
-                metadata = result["data"]["metadata"]
+                result_data = parse_result_data(result["data"])
+                metadata = result_data["metadata"]
                 score = result["score"]
                 print(f"     {i+1}. Chapter {metadata['chapter']}, Page {metadata['page']} (score: {score:.4f})")
         # Fuzzy search demo
@@ -389,7 +400,8 @@ class CalculusQuoteFinder:
             if results:
                 print(f"   → Found {len(results)} matches:")
                 for i, result in enumerate(results):
-                    metadata = result["data"]["metadata"]
+                    result_data = parse_result_data(result["data"])
+                    metadata = result_data["metadata"]
                     score = result["score"]
                     print(f"     {i+1}. Chapter {metadata['chapter']}, Page {metadata['page']} (score: {score:.4f})")
             else:
