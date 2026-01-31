@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 43 Approaches Explored
+### 44 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -63,6 +63,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 41 | Cross-puzzle learning | +47.9% on new | Prototype class imbalance (29 vs 16K) |
 | 42 | Violation pre-computation | No improvement | Constraints already prevent violations |
 | 43 | Template + simulation combo | 52 backtracks | No improvement over template alone |
+| 44 | Online learning | 108 backtracks | Pattern imbalance persists (10 vs 108) |
 
 ---
 
@@ -347,7 +348,7 @@ And that acceleration is REAL: 52 backtracks vs 249 baseline.
 
 ---
 
-## Appendix: All 43 Approaches by Category
+## Appendix: All 44 Approaches by Category
 
 ### Pure Geometric (Failed to Solve)
 1-9, 11-14: Various pure geometric methods, all hit 93% barrier
@@ -371,3 +372,4 @@ And that acceleration is REAL: 52 backtracks vs 249 baseline.
 41: Cross-puzzle learning - 47.9% improvement on NEW puzzles but class imbalance issues
 42: Violation pre-computation - constraints already prevent violations
 43: Template + simulation combo - no improvement over template alone
+44: Online learning - pattern imbalance persists within single puzzle
