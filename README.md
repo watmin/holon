@@ -110,6 +110,42 @@ results = client.search_json(probe={
 })
 ```
 
+### Time Encoding
+
+Holon can encode timestamps with circular (periodic) and positional (linear) components:
+
+```python
+# Use $time marker for temporal awareness
+client.insert_json({
+    "order_id": "12345",
+    "customer": {"tier": "platinum"},
+    "created_at": {"$time": 1706500000}  # Unix timestamp
+})
+
+# ISO strings also work
+client.insert_json({
+    "event": "login",
+    "occurred_at": {"$time": "2024-01-29T10:30:00Z"}
+})
+
+# Control resolution (second, minute, hour, day)
+client.insert_json({
+    "log": {"$time": 1706500000, "$time_resolution": "minute"}
+})
+
+# Query with time similarity
+results = client.search_json(probe={
+    "customer": {"tier": "platinum"},
+    "created_at": {"$time": 1706503600}  # ~1 hour later
+})
+# → Finds platinum orders from around the same time
+```
+
+Time encoding captures:
+- **Circular patterns**: Same hour different days are similar, December wraps to January
+- **Positional proximity**: Recent times score higher than old times
+- **Combined queries**: Structure + time in one query
+
 ### EDN Support
 
 ```python

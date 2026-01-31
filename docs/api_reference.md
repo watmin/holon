@@ -166,6 +166,57 @@ Advanced neural similarity search with guards, negations, and compound condition
 }
 ```
 
+### Time Encoding
+
+The `$time` marker enables temporal similarity search with circular and positional encoding.
+
+**Basic Usage**:
+```json
+{
+  "data": {
+    "order_id": "12345",
+    "customer": {"tier": "platinum"},
+    "created_at": {"$time": 1706500000}
+  }
+}
+```
+
+**Supported Formats**:
+| Format | Example |
+|--------|---------|
+| Unix timestamp | `{"$time": 1706500000}` |
+| ISO 8601 string | `{"$time": "2024-01-29T10:30:00Z"}` |
+| With resolution | `{"$time": 1706500000, "$time_resolution": "minute"}` |
+
+**Resolution Levels**:
+| Resolution | Use Case | Positional Granularity |
+|------------|----------|------------------------|
+| `second` | High-frequency logs | Per-second |
+| `minute` | Transactions, API calls | Per-minute |
+| `hour` | Business data (default) | Per-hour |
+| `day` | Reports, aggregates | Per-day |
+
+**What Time Encoding Captures**:
+- **Circular (periodic)**: Hour of day, day of week, month of year
+- **Positional (linear)**: Recent times more similar than old times
+
+**Example Query with Time**:
+```json
+{
+  "probe": {
+    "customer": {"tier": "platinum"},
+    "created_at": {"$time": 1706503600}
+  },
+  "top_k": 10
+}
+```
+Returns platinum orders from around that time, with both structure and time similarity.
+
+**Quality at Scale** (tested at 1M records):
+- Structure + Time precision: 100%
+- False positive separation: Strong (0.26 score gap)
+- Time ranking: ~54% accuracy (captures "roughly same time")
+
 ### Vector Operations (VSA/HDC Primitives)
 
 #### POST /api/v1/vectors/encode
