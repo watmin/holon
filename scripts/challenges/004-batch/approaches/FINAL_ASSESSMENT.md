@@ -16,7 +16,7 @@ But geometry provides powerful HEURISTICS that accelerate search.
 
 ## What We Built and Tested
 
-### 26 Approaches Explored
+### 36 Approaches Explored
 
 | # | Approach | Result | Key Insight |
 |---|----------|--------|-------------|
@@ -41,129 +41,151 @@ But geometry provides powerful HEURISTICS that accelerate search.
 | 19 | **Opportunistic racing** | **-11.6% backtracks** | **Chain length = good ordering** |
 | 20 | Chained encoding | 65.6% accuracy | Modest prototype transfer |
 | 21 | Constraint landscape | Redundant | Delta = chain length (same signal) |
-| 22 | **HIERARCHICAL ENCODING** | **-79% backtracks** | **Template matching = BEST** |
+| 22 | **HIERARCHICAL ENCODING** | **-79% backtracks (52)** | **Template matching = BEST** |
 | 23 | Deep nesting | Simpler wins | Nested structure adds noise |
 | 24 | Batshit ideas | Validated | Multi-scale confirms template matching |
 | 25 | Quantum-inspired | 849 backtracks | Beautiful theory, doesn't beat template |
 | 26 | **NEGATION PRIMITIVE** | **NEW HOLON FEATURE** | **Extends VSA with NOT operation** |
+| 27 | **5 NEW PRIMITIVES** | **NEW HOLON FEATURES** | **amplify, prototype, difference, blend, resonance** |
+| 28 | Revisit with primitives | No improvement | Template matching already optimal |
+| 29 | Ultimate combo | 83 backtracks | Adding complexity hurts |
+| 30 | Query-based | 444 backtracks | Query overhead too high for tight loops |
+| 31 | Semantic vectors | 444 backtracks | Rich structure adds noise |
+| 32 | Structured composition | 418 backtracks | Position keys irrelevant for constraints |
+| 33 | Candidate encoding | Various | Impact encoding shows promise |
+| 34 | $any wildcards | ✅ Works | Wildcards match correctly |
+| 35 | Row-by-row query solver | Failed | Query limits truncate valid solutions |
+| 36 | Cell-level query | 839 backtracks | Query overhead > direct computation |
 
 ---
 
-## The Key Discoveries
+## THE CORE LEARNINGS
 
-### 1. The 93% Barrier
-Pure geometric methods plateau at ~93% (54/58 cells).
-The remaining cells require global consistency that local geometry cannot provide.
+### 1. Template Matching Is Our Breakthrough (Approach 22)
 
-### 2. Wrong Can Be More Similar
+**The key insight**: Encode digit SETS, not position-digit pairs.
+
+```python
+# WRONG (what we tried first):
+bundle([bind(pos, digit) for all cells])
+
+# RIGHT (the breakthrough):
+for each constraint (row/col/block):
+    current_digits = bundle([digit_vecs[d] for d in present_digits])
+    complete_template = bundle([digit_vecs[d] for d in range(1,10)])
+    score = similarity(current_digits ∪ {new_digit}, complete_template)
+```
+
+**Result**: 52 backtracks (79% reduction from 249 baseline)
+
+**Why it works**: Constraints only care about WHICH digits are present,
+not WHERE they are within the unit. Bundling captures membership.
+
+---
+
+### 2. Encoding Structure Matters More Than Complexity
+
+| What We Tried | Result | Lesson |
+|---------------|--------|--------|
+| Rich semantic dicts | 444 backtracks | More fields = more noise |
+| Position-value dicts | 418 backtracks | Positions irrelevant for constraints |
+| Deep nesting | Simpler wins | Hierarchy adds overhead |
+| Simple digit bundles | **52 backtracks** | Match the problem structure |
+
+**Principle**: The encoding should mirror what the CONSTRAINT cares about.
+For "all digits 1-9", we need set membership, not positions.
+
+---
+
+### 3. Query System vs Vector Operations
+
+| Use Case | Best Tool | Why |
+|----------|-----------|-----|
+| Retrieval/discovery | Queries with $any | Pattern matching |
+| Real-time scoring | Direct vector ops | O(1) per candidate |
+| Validation | Queries | Pre-computed valid sets |
+| Search guidance | Template similarity | Geometric signal |
+
+**Finding**: We stored 362,880 valid row permutations and queried with $any wildcards.
+It WORKS for retrieval but adds overhead for solving (tight loops need direct ops).
+
+---
+
+### 4. New VSA Primitives We Added to Holon
+
+| Primitive | Operation | Use Case |
+|-----------|-----------|----------|
+| `negate` | Remove component | Elimination, constraints |
+| `amplify` | Boost component | Reinforce good signals |
+| `prototype` | Extract common | Learn patterns |
+| `difference` | After - before | Track changes |
+| `blend` | Weighted mix | Interpolation |
+| `resonance` | Match reference | Filter to relevant |
+
+**Key**: `prototype` and `difference` CAN distinguish good/bad paths:
+```
+sim(diff, good_proto) = 0.44
+sim(diff, bad_proto) = -0.45
+```
+This suggests learning-based approaches could work.
+
+---
+
+### 5. The NP-Hardness Boundary
+
+**What geometry CAN do**:
+- 93% accuracy on greedy filling (54/58 cells)
+- 10x backtrack reduction (simulation rejection)
+- 79% backtrack reduction (template matching)
+- Detect contradictions via interference
+- Transfer abstract features across puzzles (0.76 similarity)
+
+**What geometry CANNOT do**:
+- Replace search entirely (NP-complete)
+- Provide global consistency from local signals
+- Universal ordering that works across all puzzles
+
+---
+
+### 6. The "Wrong Is More Similar" Paradox
+
 ```
 Similarity(puzzle → correct_solution) = 0.2118
 Similarity(puzzle → wrong_solution)   = 0.2521  ← HIGHER!
 ```
-Local similarity is MISLEADING for global correctness.
 
-### 3. Signal Is Depth-Dependent
-| Grid Fullness | Detection Rate |
-|---------------|----------------|
+**Why**: Local geometric similarity doesn't capture GLOBAL constraint satisfaction.
+A "wrong" solution might share more surface structure while violating deep constraints.
+
+---
+
+### 7. Signal Emerges Late (The Bootstrap Problem)
+
+| Grid Fullness | Contradiction Detection |
+|---------------|------------------------|
 | Start (0 cells) | 0% |
 | 13 cells filled | ~10% |
 | 25 cells filled | 85% |
 
-Contradiction detection only works LATER, not at the start.
-
-### 4. Abstract Features Transfer
-| Encoding | Cross-Puzzle Similarity |
-|----------|------------------------|
-| Raw (position, digit) | 0.20 |
-| Abstract features | **0.76** |
-
-But transfer doesn't help with ordering - only detection.
-
-### 5. What Works: Rejection, Not Selection
-- **Rejection (simulation)**: Detecting bad paths → 10x speedup
-- **Selection (ordering)**: Puzzle-specific, doesn't transfer
-
-### 6. Opportunistic Guessing Works!
-The "lucky chain" insight: choices that force more moves are better bets.
-
-| Solver | Backtracks | Improvement |
-|--------|-----------|-------------|
-| Standard (sim-guided) | 249 | baseline |
-| Hybrid (sim + chain) | 220 | -11.6% |
-
-### 7. BREAKTHROUGH: Hierarchical Encoding
-We weren't exploiting Holon's recursive data encoding properly!
-
-**What we did wrong**: Flat encoding `bundle([bind(pos, digit) for all cells])`
-
-**What works**: Encode digit SETS for each constraint unit, measure similarity to complete template.
-
-### 8. Quantum-Inspired: Beautiful But Not Better
-Tested quantum computing concepts:
-- **Superposition**: Bundle all possible digits → collapses like standard propagation
-- **Interference**: 57x discrimination between valid/invalid pairs!
-- **Grover amplification**: Successfully amplifies valid digits
-- **Entanglement**: Can encode all-different constraints
-
-BUT: 849 backtracks vs template matching's 52. The quantum metaphor doesn't
-capture global consistency as well as simple template scoring.
-
-### 9. NEW PRIMITIVE: VSA Negation
-Traditional VSA only has AND (bind) and OR (bundle). We added NOT (negate):
-
-```
-sim(A+B+C, B) = 0.53
-sim(negate(A+B+C, B), B) = -0.40  ← NEGATIVE!
-```
-
-**Implementation**: `negate(superposition, component) = superposition - component`
-
-**Results**:
-- Eliminated components get negative similarity
-- Other components preserved
-- Composes through nested structures
-- Added to Holon as `store.negate()` and `encoder.negate()`
-
-| Solver | Backtracks | Improvement |
-|--------|-----------|-------------|
-| Standard (sim-guided) | 249 | baseline |
-| **Template Matching** | **52** | **-79%** |
-
-Key insight: Choices that add NEW digits to a constraint unit score 0.70 similarity to complete,
-while duplicates score only 0.63. This 11% gap is enough to dramatically improve ordering.
+**Implication**: Early decisions are nearly random; geometry helps most when
+the puzzle is already partially constrained.
 
 ---
 
-## The Theoretical Understanding
+### 8. What We Did That's Truly Different
 
-### Why Pure Geometric Fails
+1. **Hierarchical template matching** - Using VSA to directly measure
+   "progress toward constraint satisfaction" via digit set similarity
 
-1. **NP-Completeness**: Sudoku solving is NP-complete. Any polynomial-time
-   method that works would prove P=NP.
+2. **New VSA primitives** - Extended VSA beyond AND/OR to include NOT
+   and other operations
 
-2. **Information Gap**: At decision points, ~66 bits of information are needed
-   to specify the correct path. This information is not in local geometry.
+3. **Systematic exploration** - 36 approaches with clear negative results
+   documenting what DOESN'T work
 
-3. **Non-Convex Landscape**: Iterative methods converge to local minima,
-   not the global solution.
+4. **Query + vector hybrid** - Understanding when to use each
 
-### What Geometry CAN Do
-
-| Capability | How It Helps |
-|------------|--------------|
-| Fast similarity | Score candidates in O(1) |
-| Pattern detection | Detect duplicates, violations |
-| Constraint encoding | Represent rules compactly |
-| Contradiction prediction | Filter bad choices via simulation |
-
-### What Geometry CANNOT Do
-
-| Limitation | Why |
-|------------|-----|
-| Replace search | NP-completeness |
-| Provide global consistency | Information not local |
-| Universal ordering | Puzzle-specific |
-| Guarantee solutions | Requires backtracking |
+5. **The 93% barrier** - Empirically establishing the limit of pure geometry
 
 ---
 
@@ -171,50 +193,34 @@ while duplicates score only 0.63. This 11% gap is enough to dramatically improve
 
 ### For Holon
 
-1. **Validated limits**: Know what NOT to promise
-2. **Proven approach**: Simulation-guided backtracking (10x speedup)
-3. **Abstract features**: Compression and transfer framework
-4. **Documentation**: 18 approaches with detailed analysis
+1. **Template matching heuristic** - Proven 79% backtrack reduction
+2. **6 new VSA primitives** - Extended the kernel
+3. **Query system validation** - $any, negations work for retrieval
+4. **Clear limits** - Know what NOT to promise
 
 ### For VSA/HDC Research
 
-1. **Documented what doesn't work**: Higher-order, fixed-point, spectral
-2. **Found what does work**: Contradiction detection via simulation
-3. **Identified transfer**: Abstract features compress across puzzles
-4. **Theoretical grounding**: Connected to NP-completeness
+1. **Documented what doesn't work** - 20+ negative results
+2. **Found what does work** - Template matching, simulation rejection
+3. **Theoretical grounding** - Connected to NP-completeness
+4. **Novel encoding insight** - Match encoding to constraint structure
 
 ---
 
-## Recommendations for Holon
+## Where We Are Now
 
-### DO Offer
+**Champion**: Approach 22 (Template Matching) - 52 backtracks
 
-1. **Geometric heuristics** for search guidance
-2. **Similarity-based retrieval** (approximate matching)
-3. **Constraint encoding** for compact representation
-4. **Simulation primitives** for contradiction detection
+**Why we can't beat it easily**:
+- It directly measures what constraints care about
+- Simpler encoding = less noise = better signal
+- Adding complexity hurts, not helps
 
-### DON'T Promise
-
-1. Pure geometric solutions to NP-hard problems
-2. Universal ordering heuristics
-3. Guaranteed exact solutions without search
-
-### API Design Implications
-
-```python
-# Good: Geometric heuristics that guide search
-holon.score_candidates(partial_grid, candidates) → scores
-
-# Good: Similarity-based retrieval
-holon.find_similar(query, database) → matches
-
-# Good: Contradiction detection
-holon.simulate_and_detect(grid, choice) → contradicts?
-
-# Bad: Pure geometric solving (impossible)
-holon.solve_exactly(puzzle) → solution  # Can't guarantee
-```
+**Unexplored territories**:
+1. **Learning from solutions** - Use `prototype` to learn good path patterns
+2. **Multi-puzzle training** - Transfer learned patterns
+3. **Hybrid with constraint propagation** - Arc consistency + geometric scoring
+4. **Different problems** - Where constraint structure differs from Sudoku
 
 ---
 
@@ -223,17 +229,18 @@ holon.solve_exactly(puzzle) → solution  # Can't guarantee
 We set out to find if geometry could solve Sudoku without search.
 We found it cannot - and understood deeply WHY.
 
-But we also found that geometry provides POWERFUL heuristics:
-- 93% accuracy for greedy filling
-- 10x backtrack reduction with simulation rejection
-- **79% backtrack reduction with hierarchical template matching** (Approach 22)
-- 0.76 transfer of abstract features across puzzles
+But we discovered something valuable:
 
-The breakthrough came from properly exploiting Holon's hierarchical encoding:
-encode digit SETS, not position-digit pairs, and match against complete templates.
+**Template matching using bundled digit sets achieves 79% backtrack reduction.**
+
+This works because:
+1. The encoding MATCHES what constraints check (set membership)
+2. Similarity to complete template = progress toward satisfaction
+3. Simple structure = clean signal
 
 The "radical perspective" succeeded in revealing the BOUNDARY
-between what geometry can and cannot do. That boundary is real,
-and understanding it is valuable.
+between what geometry can and cannot do.
 
 **The geometry doesn't replace search. It accelerates it.**
+
+And that acceleration is REAL: 52 backtracks vs 249 baseline.
