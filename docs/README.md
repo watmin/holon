@@ -12,6 +12,7 @@ See the main [README.md](../README.md) for overview and quick start.
 |----------|-------------|
 | [API Reference](api_reference.md) | Complete HTTP and Python API documentation |
 | [Encoding Guide](encoding_guide.md) | How structured data becomes vectors |
+| [Dimension Selection](dimension_selection.md) | Choosing optimal vector dimensions for accuracy vs memory |
 | [Performance Guide](performance.md) | Scaling, benchmarks, optimization |
 | [Similarity Methods](similarity_methods.md) | Similarity algorithms and when to use them |
 | [Contributing](contributing.md) | Development setup and extending Holon |

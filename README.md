@@ -35,8 +35,8 @@ Inspired by [Carin Meier's VSA talk](https://www.youtube.com/watch?v=j7ygjfbBJD0
 ```python
 from holon import CPUStore, HolonClient
 
-# Create store and client
-store = CPUStore(dimensions=16000)
+# Create store and client (4096 dimensions recommended for most use cases)
+store = CPUStore(dimensions=4096)
 client = HolonClient(local_store=store)
 
 # Insert data
@@ -63,6 +63,20 @@ python -m venv holon_env
 source holon_env/bin/activate
 pip install -e .
 ```
+
+## Configuration
+
+### Dimension Selection
+
+| Use Case | Dimensions | Records/GB |
+|----------|------------|------------|
+| Simple documents (<20 fields) | 1024 | ~817K |
+| Complex documents, time encoding | 4096 | ~233K |
+| Very complex (100+ fields) | 8192 | ~119K |
+
+**Key finding**: 512 dimensions fail at 100+ field documents. Use 1024+ for production.
+
+See [Dimension Selection Guide](docs/dimension_selection.md) for benchmarks and capacity planning.
 
 ## Core Features
 
