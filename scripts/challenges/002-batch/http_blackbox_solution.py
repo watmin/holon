@@ -18,29 +18,39 @@ from typing import Dict, List, Any, Optional
 import uuid
 
 
+def parse_result_data(data):
+    """Parse result data from string to dict."""
+    if isinstance(data, dict):
+        return data
+    if isinstance(data, str):
+        return json.loads(data)
+    return data
+
+
 class HolonHTTPClient:
     """HTTP client for Holon server - treats it as complete black box."""
 
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
+        self.api_prefix = "/api/v1"
 
     def health_check(self) -> Dict[str, Any]:
         """Check server health."""
-        response = requests.get(f"{self.base_url}/health")
+        response = requests.get(f"{self.base_url}{self.api_prefix}/health")
         response.raise_for_status()
         return response.json()
 
     def insert(self, data: str, data_type: str = "json") -> str:
         """Insert single data item."""
         payload = {"data": data, "data_type": data_type}
-        response = requests.post(f"{self.base_url}/insert", json=payload)
+        response = requests.post(f"{self.base_url}{self.api_prefix}/items", json=payload)
         response.raise_for_status()
         return response.json()["id"]
 
     def batch_insert(self, items: List[str], data_type: str = "json") -> List[str]:
         """Insert multiple data items."""
         payload = {"items": items, "data_type": data_type}
-        response = requests.post(f"{self.base_url}/batch_insert", json=payload)
+        response = requests.post(f"{self.base_url}{self.api_prefix}/items/batch", json=payload)
         response.raise_for_status()
         return response.json()["ids"]
 
@@ -51,7 +61,7 @@ class HolonHTTPClient:
         payload = {
             "probe": probe,
             "data_type": data_type,
-            "top_k": top_k,
+            "top_k": limit,
             "threshold": threshold,
             "any_marker": "$any"
         }
@@ -60,14 +70,14 @@ class HolonHTTPClient:
         if negations:
             payload["negations"] = negations
 
-        response = requests.post(f"{self.base_url}/query", json=payload)
+        response = requests.post(f"{self.base_url}{self.api_prefix}/search", json=payload)
         response.raise_for_status()
         return response.json()["results"]
 
     def encode(self, data: str, data_type: str = "json") -> List[float]:
         """Encode data to vector."""
         payload = {"data": data, "data_type": data_type}
-        response = requests.post(f"{self.base_url}/encode", json=payload)
+        response = requests.post(f"{self.base_url}{self.api_prefix}/vectors/encode", json=payload)
         response.raise_for_status()
         return response.json()["vector"]
 
@@ -172,7 +182,7 @@ class HTTP_RPM_Solver:
         total_tests = len(incomplete_results)
 
         for result in incomplete_results:
-            matrix_data = result["data"]
+            matrix_data = parse_result_data(result["data"])
             matrix_id = matrix_data["matrix-id"]
             rule = matrix_data["rule"]
 
@@ -191,7 +201,7 @@ class HTTP_RPM_Solver:
 
                 found_correct = False
                 for comp_result in complete_results:
-                    comp_matrix = comp_result["data"]
+                    comp_matrix = parse_result_data(comp_result["data"])
                     actual_missing = comp_matrix["panels"].get("row3-col3")
 
                     if actual_missing and self._panels_match(expected_panel, actual_missing):
@@ -381,7 +391,8 @@ class HTTP_Graph_Matching_Solver:
             # Check if expected similar graph is in results (excluding self)
             found_similar = False
             for result in similar_results[1:]:  # Skip self-match
-                if result["data"]["name"] == expected_similar:
+                result_data = parse_result_data(result["data"])
+                if result_data["name"] == expected_similar:
                     found_similar = True
                     similarity_score = result["score"]
                     print(f"   ✅ Found {expected_similar} (similarity: {similarity_score:.3f})")
