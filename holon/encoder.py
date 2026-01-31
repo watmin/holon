@@ -306,6 +306,74 @@ class Encoder:
         bundled = np.sum(vectors, axis=0)
         return self._threshold_bipolar(bundled)
 
+    def negate(
+        self, superposition: np.ndarray, component: np.ndarray, method: str = "subtract"
+    ) -> np.ndarray:
+        """
+        Remove a component's influence from a superposition (NOT operation).
+
+        This extends VSA with negation capability. Traditional VSA only has:
+        - Binding (AND): A ⊙ B
+        - Bundling (OR): A + B
+
+        Negation provides:
+        - NOT: A - B (removes B's influence from A)
+
+        Args:
+            superposition: The vector to remove from (e.g., bundle([A, B, C]))
+            component: The vector to remove (e.g., B)
+            method: "subtract" (default), "project", or "flip"
+                - subtract: Simple subtraction, fast, effective
+                - project: Orthogonal projection, mathematically cleaner
+                - flip: Flip signs where component is strong
+
+        Returns:
+            Vector with component's influence removed
+
+        Example:
+            >>> A, B, C = [encoder.vector_manager.get_vector(x) for x in "ABC"]
+            >>> ABC = encoder.bundle([A, B, C])
+            >>> AC = encoder.negate(ABC, B)  # Removes B's influence
+            >>> similarity(AC, B) < 0  # B now has negative similarity
+            >>> similarity(AC, A) > 0  # A is preserved
+        """
+        sup = superposition.astype(float)
+        comp = component.astype(float)
+
+        if method == "subtract":
+            # Simple subtraction - most effective for VSA
+            result = sup - comp
+
+        elif method == "project":
+            # Orthogonal projection - mathematically cleaner
+            comp_norm = np.linalg.norm(comp)
+            if comp_norm < 1e-10:
+                return superposition
+            comp_unit = comp / comp_norm
+            projection = np.dot(sup, comp_unit) * comp_unit
+            result = sup - projection
+
+        elif method == "flip":
+            # Flip signs where component is strong
+            result = sup.copy()
+            mask = comp > 0
+            result[mask] = -result[mask]
+
+        else:
+            raise ValueError(f"Unknown negation method: {method}")
+
+        return self._threshold_bipolar(result)
+
+    def remove_component(
+        self, superposition: np.ndarray, component: np.ndarray
+    ) -> np.ndarray:
+        """
+        Alias for negate() with default subtract method.
+
+        Removes a component from a superposition.
+        """
+        return self.negate(superposition, component, method="subtract")
+
     def _encode_sequence(self, data: Union[list, tuple]) -> np.ndarray:
         """Encode a sequence by binding items to positional vectors and bundling."""
         return self.encode_list(data, mode=ListEncodeMode.POSITIONAL)

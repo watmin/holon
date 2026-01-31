@@ -278,3 +278,84 @@ class TestEncoderModes:
         result = encoder.encode_data(data)
         assert isinstance(result, np.ndarray)
         assert np.all(np.isin(result, [-1, 0, 1]))
+
+    # ==========================================================================
+    # Negation Primitive Tests
+    # ==========================================================================
+
+    def test_negate_subtract_basic(self, encoder):
+        """Test basic negation via subtraction."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+        C = encoder.vector_manager.get_vector("C")
+
+        ABC = encoder.bundle([A, B, C])
+        AC = encoder.negate(ABC, B, method="subtract")
+
+        # B should now have negative similarity
+        sim_B = np.dot(AC.astype(float), B.astype(float))
+        sim_A = np.dot(AC.astype(float), A.astype(float))
+        sim_C = np.dot(AC.astype(float), C.astype(float))
+
+        assert sim_B < 0, "Negated component should have negative similarity"
+        assert sim_A > 0, "Non-negated component A should remain positive"
+        assert sim_C > 0, "Non-negated component C should remain positive"
+
+    def test_negate_project_method(self, encoder):
+        """Test negation via orthogonal projection."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        AB = encoder.bundle([A, B])
+        result = encoder.negate(AB, B, method="project")
+
+        assert isinstance(result, np.ndarray)
+        assert np.all(np.isin(result, [-1, 0, 1]))
+
+    def test_negate_flip_method(self, encoder):
+        """Test negation via sign flipping."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        AB = encoder.bundle([A, B])
+        result = encoder.negate(AB, B, method="flip")
+
+        assert isinstance(result, np.ndarray)
+        assert np.all(np.isin(result, [-1, 0, 1]))
+
+    def test_negate_invalid_method(self, encoder):
+        """Test negation with invalid method raises error."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        with pytest.raises(ValueError, match="Unknown negation method"):
+            encoder.negate(A, B, method="invalid")
+
+    def test_negate_preserves_other_components(self, encoder):
+        """Test that negation preserves similarity to other components."""
+        vecs = [encoder.vector_manager.get_vector(f"v{i}") for i in range(5)]
+        superpos = encoder.bundle(vecs)
+
+        # Negate v2
+        result = encoder.negate(superpos, vecs[2])
+
+        # v2 should be diminished
+        sim_v2_before = np.dot(superpos.astype(float), vecs[2].astype(float))
+        sim_v2_after = np.dot(result.astype(float), vecs[2].astype(float))
+        assert sim_v2_after < sim_v2_before, "Negated component should be diminished"
+
+        # Other vectors should still have positive similarity
+        for i in [0, 1, 3, 4]:
+            sim = np.dot(result.astype(float), vecs[i].astype(float))
+            assert sim > 0, f"v{i} should still have positive similarity"
+
+    def test_remove_component_alias(self, encoder):
+        """Test remove_component is alias for negate with subtract."""
+        A = encoder.vector_manager.get_vector("A")
+        B = encoder.vector_manager.get_vector("B")
+
+        AB = encoder.bundle([A, B])
+        result1 = encoder.negate(AB, B, method="subtract")
+        result2 = encoder.remove_component(AB, B)
+
+        np.testing.assert_array_equal(result1, result2)

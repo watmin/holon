@@ -356,3 +356,60 @@ class CPUStore(Store):
             ids.append(id_)
         self.end_bulk_insert()
         return ids
+
+    # ==========================================================================
+    # VSA Kernel Primitives - Direct Access
+    # ==========================================================================
+
+    def bind(self, vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
+        """
+        Bind two vectors (AND-like operation).
+
+        Creates an association between two concepts.
+        bind(A, B) is similar to neither A nor B individually.
+        """
+        return self.encoder.bind(vec1, vec2)
+
+    def bundle(self, vectors: List[np.ndarray]) -> np.ndarray:
+        """
+        Bundle multiple vectors (OR-like operation).
+
+        Creates a superposition representing all input concepts.
+        bundle([A, B, C]) is similar to A, B, and C.
+        """
+        return self.encoder.bundle(vectors)
+
+    def negate(
+        self, superposition: np.ndarray, component: np.ndarray, method: str = "subtract"
+    ) -> np.ndarray:
+        """
+        Remove a component's influence from a superposition (NOT operation).
+
+        This is a novel VSA primitive that extends traditional VSA operations.
+
+        Args:
+            superposition: The vector to remove from
+            component: The vector to remove
+            method: "subtract" (default), "project", or "flip"
+
+        Returns:
+            Vector with component's influence diminished
+
+        Example:
+            >>> A = store.vector_manager.get_vector("A")
+            >>> B = store.vector_manager.get_vector("B")
+            >>> C = store.vector_manager.get_vector("C")
+            >>> ABC = store.bundle([A, B, C])
+            >>> AC = store.negate(ABC, B)  # Removes B
+            >>> similarity(AC, B) < 0  # B has negative similarity now
+        """
+        return self.encoder.negate(superposition, component, method)
+
+    def unbind(self, bound: np.ndarray, key: np.ndarray) -> np.ndarray:
+        """
+        Unbind to retrieve associated value (inverse of bind).
+
+        If bound = bind(key, value), then unbind(bound, key) ≈ value.
+        """
+        # For bipolar vectors, unbinding is the same as binding (self-inverse)
+        return self.encoder.bind(bound, key)
