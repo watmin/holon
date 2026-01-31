@@ -107,6 +107,9 @@ def extract_searchable_nodes(tree: ast.AST, filepath: str) -> List[Tuple[Dict, C
 
         def visit_FunctionDef(self, node):
             structure = ast_to_simple_structure(node)
+            # Add class context to structure (not just location)
+            if self.current_class:
+                structure["_in_class"] = self.current_class
             loc = self._make_location(node, self.current_class, None)
             nodes.append((structure, loc))
 
