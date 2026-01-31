@@ -375,7 +375,7 @@ def query_tasks(client, query, description, top_k=10, guard=None, negations=None
             query_dict = query
 
         results = client.search_json(
-            query_dict, guard=guard, negations=negations, top_k=top_k, threshold=threshold
+            query_dict, guard=guard, negations=negations, limit=top_k, threshold=threshold
         )
 
         if not results:
@@ -527,12 +527,183 @@ def main():
         top_k=5
     )
 
+    # ========================================
+    # NEW: Demonstrate new VSA primitives
+    # ========================================
+    print("\n" + "=" * 50)
+    print("🆕 NEW VSA PRIMITIVE DEMONSTRATIONS")
+    print("=" * 50)
+
+    demonstrate_new_primitives(store, client, tasks)
+
     print("\n" + "=" * 50)
     print("🎉 Task Memory Demo Complete!")
     print(
-        "Holon successfully demonstrated fuzzy retrieval, guards, negations, wildcards, and advanced OR logic"
+        "Holon successfully demonstrated fuzzy retrieval, guards, negations, wildcards, "
+        "advanced OR logic, AND new VSA primitives (prototype, difference, negate, amplify)"
     )
     print("=" * 50)
+
+
+def demonstrate_new_primitives(store, client, tasks):
+    """Demonstrate the new VSA primitives added during Challenge 004."""
+    import numpy as np
+    from holon.similarity import normalized_dot_similarity as cosine_similarity
+
+    print("\n🧬 1. PROTOTYPE: Extract common patterns from task categories")
+    print("-" * 50)
+
+    # Encode all tasks and group by project
+    work_vecs = []
+    personal_vecs = []
+    side_vecs = []
+
+    for task in tasks:
+        vec = store.encoder.encode_data(task)
+        if task["project"] == "work":
+            work_vecs.append(vec)
+        elif task["project"] == "personal":
+            personal_vecs.append(vec)
+        elif task["project"] == "side":
+            side_vecs.append(vec)
+
+    # Create prototypes for each category
+    work_proto = store.prototype(work_vecs) if work_vecs else None
+    personal_proto = store.prototype(personal_vecs) if personal_vecs else None
+    side_proto = store.prototype(side_vecs) if side_vecs else None
+
+    print(f"  Created prototypes from: work={len(work_vecs)}, personal={len(personal_vecs)}, side={len(side_vecs)} tasks")
+
+    # Check how well prototypes separate categories
+    if work_proto is not None and personal_proto is not None:
+        sep = cosine_similarity(work_proto, personal_proto)
+        print(f"  Prototype separation (work vs personal): {sep:.4f}")
+        print(f"  (Lower = more distinct categories)")
+
+    # Use prototypes to classify new queries
+    test_query = {"title": "submit expense report", "tags": ["finance"]}
+    test_vec = store.encoder.encode_data(test_query)
+
+    if work_proto is not None and personal_proto is not None and side_proto is not None:
+        work_sim = cosine_similarity(test_vec, work_proto)
+        personal_sim = cosine_similarity(test_vec, personal_proto)
+        side_sim = cosine_similarity(test_vec, side_proto)
+
+        print(f"\n  Classifying query: {test_query}")
+        print(f"    → work similarity:     {work_sim:.4f}")
+        print(f"    → personal similarity: {personal_sim:.4f}")
+        print(f"    → side similarity:     {side_sim:.4f}")
+        best = max([("work", work_sim), ("personal", personal_sim), ("side", side_sim)], key=lambda x: x[1])
+        print(f"    → Best match: {best[0]}")
+
+    print("\n🔬 2. DIFFERENCE: Find what makes tasks unique")
+    print("-" * 50)
+
+    # Compare two similar tasks
+    task1 = tasks[0]  # First work task
+    task2 = tasks[5]  # First personal task
+
+    vec1 = store.encoder.encode_data(task1)
+    vec2 = store.encoder.encode_data(task2)
+
+    # Compute difference
+    diff = store.difference(vec1, vec2)
+
+    print(f"  Task 1: {task1['title'][:40]}... ({task1['project']})")
+    print(f"  Task 2: {task2['title'][:40]}... ({task2['project']})")
+    print(f"  Difference vector norm: {np.linalg.norm(diff):.1f}")
+
+    # The difference should be more similar to task1 than task2
+    sim_to_1 = cosine_similarity(diff, vec1)
+    sim_to_2 = cosine_similarity(diff, vec2)
+    print(f"  Difference → Task1 similarity: {sim_to_1:.4f}")
+    print(f"  Difference → Task2 similarity: {sim_to_2:.4f}")
+
+    print("\n📢 3. AMPLIFY: Boost specific attributes in search")
+    print("-" * 50)
+
+    # Amplify "urgent" attribute in a search
+    base_query = {"project": "work", "status": "todo"}
+    base_vec = store.encoder.encode_data(base_query)
+
+    urgent_vec = store.encoder.encode_data({"tags": ["urgent"]})
+    amplified = store.amplify(base_vec, urgent_vec, strength=2.0)
+
+    print(f"  Base query: {base_query}")
+    print(f"  Amplifying: 'urgent' tag with strength=2.0")
+
+    # Find tasks similar to amplified query
+    print("\n  Top 3 matches with amplified 'urgent':")
+    scored = []
+    for i, task in enumerate(tasks):
+        task_vec = store.encoder.encode_data(task)
+        score = cosine_similarity(amplified, task_vec)
+        scored.append((score, i, task))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    for score, _, task in scored[:3]:
+        urgent_marker = "🔴" if "urgent" in task.get("tags", []) else "  "
+        print(f"    {urgent_marker} [{score:.3f}] {task['title'][:50]}")
+
+    print("\n🚫 4. NEGATE: Remove unwanted components from search")
+    print("-" * 50)
+
+    # Start with a broad query
+    broad_query = {"project": "work"}
+    broad_vec = store.encoder.encode_data(broad_query)
+
+    # Negate "meeting" context
+    meeting_vec = store.encoder.encode_data({"context": ["meeting"]})
+    negated = store.negate(broad_vec, meeting_vec)
+
+    print(f"  Broad query: {broad_query}")
+    print(f"  Negating: 'meeting' context")
+
+    print("\n  Results after negation (should deprioritize meeting tasks):")
+    scored = []
+    for i, task in enumerate(tasks):
+        if task["project"] == "work":
+            task_vec = store.encoder.encode_data(task)
+            score_before = cosine_similarity(broad_vec, task_vec)
+            score_after = cosine_similarity(negated, task_vec)
+            scored.append((score_after, score_before, i, task))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    for score_after, score_before, _, task in scored[:5]:
+        has_meeting = "meeting" in task.get("context", [])
+        marker = "📅" if has_meeting else "  "
+        delta = score_after - score_before
+        print(f"    {marker} [{score_after:.3f}] (Δ{delta:+.3f}) {task['title'][:45]}")
+
+    print("\n🎨 5. BLEND: Create weighted combination of criteria")
+    print("-" * 50)
+
+    # Blend work priority with learning interest
+    work_high = store.encoder.encode_data({"project": "work", "priority": "high"})
+    learning = store.encoder.encode_data({"tags": ["learning"]})
+
+    # 70% work focus, 30% learning interest
+    blended = store.blend(work_high, learning, alpha=0.7)
+
+    print("  Blending: 70% (work + high priority) + 30% (learning)")
+    print("\n  Top 5 blended matches:")
+
+    scored = []
+    for i, task in enumerate(tasks):
+        task_vec = store.encoder.encode_data(task)
+        score = cosine_similarity(blended, task_vec)
+        scored.append((score, i, task))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    for score, _, task in scored[:5]:
+        is_work_high = task["project"] == "work" and task["priority"] == "high"
+        has_learning = "learning" in task.get("tags", [])
+        markers = ""
+        if is_work_high:
+            markers += "💼"
+        if has_learning:
+            markers += "📚"
+        print(f"    {markers:3} [{score:.3f}] {task['title'][:45]}")
 
 
 if __name__ == "__main__":
