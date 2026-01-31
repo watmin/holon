@@ -102,6 +102,8 @@
 
 ## 5. DIMENSIONALITY
 
+### Classification Accuracy (Simple Tasks)
+
 | Dimensions | Accuracy | Vector Size |
 |------------|----------|-------------|
 | 1,000 | 100% | 8 KB |
@@ -111,15 +113,39 @@
 | 16,000 | 100% | 125 KB |
 | 32,000 | 100% | 250 KB |
 
-**Findings:**
-- ✅ Even 1000 dimensions achieves 100% accuracy on 5-category classification
-- ✅ Diminishing returns above 4000 dimensions for simple classification
-- ⚠️ Memory scales linearly with dimensions
+### Theoretical Noise Floor
 
-**Recommendation**:
-- Simple use cases: 4000-8000 dimensions
-- Complex use cases: 16000 dimensions (current default)
-- Don't go above 16000 unless you have specific evidence it helps
+| Dimensions | Random Similarity Std | Max Random Sim | False Positives @0.1 |
+|------------|----------------------|----------------|---------------------|
+| 500 | 0.0455 | 0.136 | 1.6% |
+| 1,000 | 0.0316 | 0.112 | 0% |
+| 4,000 | 0.0153 | 0.051 | 0% |
+| 16,000 | 0.0078 | 0.033 | 0% |
+
+**Why 10k+ is Traditional Wisdom:**
+
+The 10k+ recommendation isn't about accuracy on simple tasks - it's about **headroom for operations**:
+
+1. **Noise accumulation**: Each binding (key × value) adds noise
+2. **Signal dilution**: Each bundling (sum of vectors) spreads signal
+3. **Operation chains**: Complex structures with many operations compound noise
+4. **Higher D = more room** before signal becomes indistinguishable from noise
+
+At 16k dimensions:
+- Random vector similarity std = 0.0078 (very tight)
+- Max random similarity = 0.033 (clear threshold)
+- Plenty of headroom for deep nesting and many bindings
+
+At 1k dimensions:
+- Random similarity std = 0.0316 (4x wider)
+- Max random similarity = 0.112 (danger zone)
+- Less margin for error with complex operations
+
+**Recommendation:**
+- **Keep 16000 as default** - provides headroom for complex data
+- 4000-8000 may work for simple, flat JSON structures
+- Never go below 4000 for production use
+- 32000 only if you have extreme nesting depth
 
 ---
 
@@ -179,10 +205,11 @@
 
 ### Recommendations
 1. **Chunk long documents** into 100-500 word segments
-2. **Use 4000-8000 dimensions** for simple use cases (saves 50-75% memory)
+2. **Keep 16000 dimensions** for production (the traditional wisdom is right)
 3. **Be specific in queries** - more fields = better results
 4. **Normalize case** on insertion if needed
 5. **Plan for memory** - budget 250KB per item at 16k dimensions
+6. **Use batch inserts** to amortize ANN rebuild cost
 
 ---
 
