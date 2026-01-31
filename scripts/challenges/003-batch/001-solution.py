@@ -284,6 +284,52 @@ class CalculusQuoteFinder:
 
         return results
 
+    def search_multi_phrase(self, phrases: List[str], chapter: Optional[int] = None,
+                           min_similarity: float = 0.1, limit: int = 10) -> List[Dict]:
+        """
+        Search for multiple phrases at once using $or superposition.
+
+        This is MUCH faster than running N separate searches because
+        Holon bundles all phrase vectors into a single superposition probe.
+
+        Args:
+            phrases: List of search phrases
+            chapter: Optional chapter filter
+            min_similarity: Minimum similarity threshold
+            limit: Maximum results to return
+
+        Returns:
+            List of matching quotes (may match any of the phrases)
+        """
+        if not phrases:
+            return []
+
+        # Build $or probe with all phrases
+        or_branches = []
+        for phrase in phrases:
+            words = self.normalize_text(phrase)
+            if words:
+                or_branches.append({"words": words})
+
+        if not or_branches:
+            return []
+
+        probe_data = {"$or": or_branches}
+
+        # Build guard for optional chapter filter
+        guard = None
+        if chapter is not None:
+            guard = {"chapter": chapter}
+
+        results = self.client.search_json(
+            probe=probe_data,
+            guard=guard,
+            threshold=min_similarity,
+            limit=limit
+        )
+
+        return results
+
     def benchmark_search(self, test_phrases: List[str], iterations: int = 10) -> Dict:
         """
         Benchmark search performance for optimization analysis.
@@ -422,6 +468,26 @@ class CalculusQuoteFinder:
 
         print(f"   → Average search time: {perf_results['avg_search_time']:.3f}s")
         print(f"   → Searches per second: {perf_results['searches_per_second']:.2f}")
+
+        # Multi-phrase search comparison (NEW - uses $or superposition)
+        print("\n🚀 Multi-Phrase Search (using \$or superposition)...")
+        start = time.time()
+        for _ in range(3):  # Match iterations
+            # Lower threshold for bundled queries (signal is diluted across branches)
+            multi_results = self.search_multi_phrase(benchmark_phrases, min_similarity=0.01, limit=20)
+        multi_time = (time.time() - start) / 3
+
+        # Compare to separate searches
+        start = time.time()
+        for _ in range(3):
+            for phrase in benchmark_phrases:
+                self.search_quotes(phrase, limit=20)
+        separate_time = (time.time() - start) / 3
+
+        print(f"   → 6 phrases, separate searches: {separate_time:.3f}s")
+        print(f"   → 6 phrases, single \$or query:  {multi_time:.3f}s")
+        print(f"   → Speedup: {separate_time/multi_time:.1f}x")
+        print(f"   → Multi-phrase results: {len(multi_results)} matches")
         # Detailed phrase performance
         print("\n   Per-phrase performance:")
         for phrase_result in perf_results["phrase_results"]:
