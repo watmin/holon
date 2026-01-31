@@ -126,6 +126,32 @@ Advanced neural similarity search with guards, negations, and compound condition
 }
 ```
 
+**Guard Operators**:
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `$gt` | Greater than | `{"age": {"$gt": 18}}` |
+| `$gte` | Greater than or equal | `{"age": {"$gte": 21}}` |
+| `$lt` | Less than | `{"age": {"$lt": 65}}` |
+| `$lte` | Less than or equal | `{"price": {"$lte": 100}}` |
+| `$contains` | Substring match | `{"bio": {"$contains": "python"}}` |
+| `$in` | Value in list | `{"role": {"$in": ["admin", "mod"]}}` |
+| `$exists` | Field presence | `{"$exists": {"email": true}}` |
+| `$or` | Match any condition | `{"$or": [{"a": 1}, {"b": 2}]}` |
+| List value | Implicit $in | `{"status": ["active", "pending"]}` |
+
+**Combined Example**:
+```json
+{
+  "guard": {
+    "age": {"$gte": 18, "$lt": 65},
+    "status": {"$in": ["active", "verified"]},
+    "bio": {"$contains": "developer"},
+    "$exists": {"email": true}
+  }
+}
+```
+
 **Response**:
 ```json
 {

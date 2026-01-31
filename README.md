@@ -80,6 +80,17 @@ client.search_json(probe={"$or": [{"role": "dev"}, {"role": "designer"}]})
 
 # Guards - exact post-query filtering
 client.search_json(probe={"name": "Alice"}, guard={"status": "active"})
+
+# Guard operators for complex filtering
+client.search_json(
+    probe={"type": "user"},
+    guard={
+        "age": {"$gte": 18, "$lt": 65},        # Numeric ranges
+        "bio": {"$contains": "developer"},     # Substring match
+        "role": {"$in": ["admin", "mod"]},     # Membership
+        "$exists": {"email": True}             # Field presence
+    }
+)
 ```
 
 ### N-gram Encoding for Text
