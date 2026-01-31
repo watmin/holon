@@ -225,6 +225,74 @@ Compose vectors using mathematical operations (bind/bundle).
 }
 ```
 
+### Advanced Kernel Primitives
+
+#### POST /api/v1/vectors/prototype
+Extract common pattern from a set of vectors (unsupervised learning).
+
+**Request**:
+```json
+{
+  "vectors": [[...], [...], [...]],
+  "threshold": 0.5
+}
+```
+
+**Response**:
+```json
+{
+  "vector": [...],
+  "source_count": 3,
+  "threshold": 0.5
+}
+```
+
+#### POST /api/v1/vectors/blend
+Weighted interpolation between two vectors (fuzzy queries).
+
+**Request**:
+```json
+{
+  "vec1": [...],
+  "vec2": [...],
+  "alpha": 0.5
+}
+```
+
+#### POST /api/v1/vectors/amplify
+Strengthen a component's presence in a superposition.
+
+**Request**:
+```json
+{
+  "base": [...],
+  "component": [...],
+  "strength": 2.0
+}
+```
+
+#### POST /api/v1/vectors/negate
+Remove a component's influence ("X but NOT Y" queries).
+
+**Request**:
+```json
+{
+  "base": [...],
+  "component": [...],
+  "method": "subtract"
+}
+```
+
+#### POST /api/v1/vectors/difference
+Compute what changed between two states.
+
+**Request**:
+```json
+{
+  "before": [...],
+  "after": [...]
+}
+```
 
 ## Python API
 
@@ -247,7 +315,7 @@ batch_ids = client.insert_batch_json([
 # Advanced queries with complex guards
 results = client.search_json(
     probe={"user": "alice"},  # Similarity probe
-    top_k=10,
+    limit=10,
     threshold=0.0,
     guard={
         "$or": [  # Complex compound conditions

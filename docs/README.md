@@ -2,30 +2,47 @@
 
 See the main [README.md](../README.md) for overview and quick start.
 
-## Challenge Solutions
-We've solved multiple complex challenges demonstrating Holon's VSA/HDC capabilities:
-- [Batch 1: Personal Task Memory](../scripts/challenges/001-batch/) - Fuzzy task retrieval system
-- [Batch 2: RPM Geometric Solver](../scripts/challenges/002-batch/) - Abstract reasoning with geometric learning
-- [Batch 3: Quote Finder (Geometric AI)](../scripts/challenges/003-batch/) - Pure Holon substring matching (*In Progress*)
-- [Batch 4: Sudoku Solver](../scripts/challenges/004-batch/) - Hyperspace-guided backtracking + HTTP API demo (see [honest assessment](challenges/004-batch/LEARNINGS.md))
+## Core Documentation
+
+| Document | Description |
+|----------|-------------|
+| [API Reference](api_reference.md) | Complete HTTP and Python API documentation |
+| [Encoding Guide](encoding_guide.md) | How structured data becomes vectors |
+| [Performance Guide](performance.md) | Scaling, benchmarks, optimization |
+| [Similarity Methods](similarity_methods.md) | Similarity algorithms and when to use them |
+| [Contributing](contributing.md) | Development setup and extending Holon |
 
 ## Architecture
-- [Architecture Decisions](architecture/decisions/) - Key design choices and rationale
-- [System Context](holon_context.md) - Overall architecture and data flow
 
-## Guides
-- [API Reference](api_reference.md) - Complete HTTP and Python API docs
-- [Performance Guide](performance.md) - Scaling, benchmarks, optimization
-- [Contributing](contributing.md) - Development setup and extending Holon
+| Document | Description |
+|----------|-------------|
+| [System Context](holon_context.md) | Overall architecture and data flow |
+| [Architecture Decisions](architecture/decisions/) | Key design choices (ADRs) |
+
+## Challenge Solutions
+
+Each batch contains problem statements and learnings:
+
+| Batch | Challenge | Status | Key Learning |
+|-------|-----------|--------|--------------|
+| [001](challenges/001-batch/) | Task Memory, Recipes, Bugs, D&D | Complete | Fuzzy retrieval with guards/negations |
+| [002](challenges/002-batch/) | RPM Reasoning, Graph Matching | Complete | 100% classification with prototypes |
+| [003](challenges/003-batch/) | Quote Finder | Complete | N-gram encoding, vector bootstrapping |
+| [004](challenges/004-batch/) | Sudoku | Complete | VSA as heuristic layer ([honest assessment](challenges/004-batch/LEARNINGS.md)) |
+| [005](challenges/005-batch/) | Additional challenges | Available | - |
+| [006](challenges/006-batch/) | Additional challenges | Available | - |
 
 ## Examples
-- [Basic Usage](../examples/basic_usage.py) - Getting started with JSON/EDN
-- [Advanced Queries](../examples/advanced_queries.py) - Complex guards, negations, $or logic
-- [Vector Bootstrapping](../examples/vector_bootstrapping.py) - Custom similarity operations
-- [Bulk Operations](../examples/bulk_operations.py) - Efficient large-scale data handling
-- [Geometric Reasoning](../examples/geometric_reasoning.py) - RPM-style pattern completion
-- [HTTP API Example](../examples/http_api_example.py) - REST API usage
-- [EDN Usage](../examples/edn_usage.py) - Rich data types and keywords
+
+| Example | Description |
+|---------|-------------|
+| [basic_usage.py](../examples/basic_usage.py) | Getting started with JSON/EDN |
+| [advanced_queries.py](../examples/advanced_queries.py) | Guards, negations, $or logic |
+| [bulk_operations.py](../examples/bulk_operations.py) | Efficient large-scale handling |
+| [geometric_reasoning.py](../examples/geometric_reasoning.py) | Pattern completion |
+| [http_api_example.py](../examples/http_api_example.py) | REST API usage |
+| [edn_usage.py](../examples/edn_usage.py) | Rich data types and keywords |
 
 ## Archive
-- [Legacy Docs](archive/) - Older documentation files
+
+[Legacy documentation](archive/) - Older files and working notes preserved for reference.
