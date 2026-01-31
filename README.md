@@ -170,14 +170,30 @@ See [docs/api_reference.md](docs/api_reference.md) for complete API documentatio
 
 ## Challenge Solutions
 
-Validated implementations demonstrating capabilities:
+Validated implementations with honest assessments:
 
 | Challenge | Description | Result |
 |-----------|-------------|--------|
-| **001-batch** | Task memory with fuzzy retrieval | Production-ready |
-| **002-batch** | RPM geometric reasoning + Graph matching | 100% accuracy |
-| **003-batch** | Quote finder with vector bootstrapping | 100% validation |
-| **004-batch** | Sudoku (VSA as heuristic layer) | [Honest assessment](docs/challenges/004-batch/LEARNINGS.md) |
+| **001-batch** | Task memory with fuzzy retrieval | ✅ Production-ready |
+| **002-batch** | RPM geometric reasoning + Graph matching | ✅ 100% accuracy |
+| **003-batch** | Quote finder with vector bootstrapping | ✅ 100% validation |
+| **004-batch** | Sudoku constraint satisfaction | ❌ [VSA fundamentally cannot solve](scripts/challenges/004-batch/approaches/FINAL_ASSESSMENT.md) |
+| **005-batch** | NP-hard optimization (3-coloring, SAT, TSP) | ⏳ Expected to fail (same reasons as Sudoku) |
+| **006-batch** | LLM memory augmentation | ✅ [Ideal use case - 82% token savings](docs/challenges/006-batch/LEARNINGS.md) |
+
+### What Works vs What Doesn't
+
+**Holon excels at:**
+- Fuzzy similarity search over structured data
+- Top-k retrieval with semantic ranking
+- Prototype learning and classification
+- "Find similar to X" and "X but not Y" queries
+
+**Holon cannot solve:**
+- Constraint satisfaction (Sudoku, SAT, graph coloring)
+- Problems requiring global coherence across all parts
+- Exact matching where "close enough" isn't acceptable
+- NP-hard optimization (despite creative attempts)
 
 ## Documentation
 
