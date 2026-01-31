@@ -126,6 +126,34 @@ class MathematicalComposeRequest(BaseModel):
     vectors: List[List[float]] = Field(..., description="Vectors for composition operations")
 
 
+class PrototypeRequest(BaseModel):
+    vectors: List[List[float]] = Field(..., description="Vectors to extract prototype from")
+    threshold: float = Field(0.5, description="Consistency threshold (0-1)")
+
+
+class DifferenceRequest(BaseModel):
+    before: List[float] = Field(..., description="Before state vector")
+    after: List[float] = Field(..., description="After state vector")
+
+
+class BlendRequest(BaseModel):
+    vec1: List[float] = Field(..., description="First vector")
+    vec2: List[float] = Field(..., description="Second vector")
+    alpha: float = Field(0.5, description="Blend weight (0=vec1, 1=vec2)")
+
+
+class AmplifyRequest(BaseModel):
+    base: List[float] = Field(..., description="Base superposition vector")
+    component: List[float] = Field(..., description="Component to amplify")
+    strength: float = Field(1.0, description="Amplification strength")
+
+
+class NegateRequest(BaseModel):
+    base: List[float] = Field(..., description="Base superposition vector")
+    component: List[float] = Field(..., description="Component to negate")
+    method: str = Field("subtract", description="Negation method: 'subtract' or 'orthogonalize'")
+
+
 class EncodeResponse(BaseModel):
     vector: List[float] = Field(..., description="Encoded vector as list of floats")
     encoding_type: str = Field(..., description="Type of encoding performed")
@@ -373,7 +401,125 @@ async def compose_vectors_v1(request: MathematicalComposeRequest):
 
 
 # ============================================================================
-# NEW API ENDPOINTS: Full black-box support for advanced VSA/HDC applications
+# NEW KERNEL PRIMITIVES: Advanced VSA/HDC operations
+# ============================================================================
+
+
+@app.post("/api/v1/vectors/prototype")
+async def compute_prototype_v1(request: PrototypeRequest):
+    """
+    Extract common pattern from a set of vectors (v1 API).
+
+    The prototype captures dimensions that are consistent across examples,
+    enabling unsupervised classification and pattern learning.
+    """
+    try:
+        import numpy as np
+
+        np_vectors = [np.array(v, dtype=np.float64) for v in request.vectors]
+        result = store.prototype(np_vectors, threshold=request.threshold)
+        cpu_result = store.vector_manager.to_cpu(result)
+
+        return {
+            "vector": cpu_result.tolist(),
+            "source_count": len(np_vectors),
+            "threshold": request.threshold,
+        }
+    except Exception as e:
+        logger.error(f"Prototype computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Prototype failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/difference")
+async def compute_difference_v1(request: DifferenceRequest):
+    """
+    Compute what changed between two states (v1 API).
+
+    Returns a vector highlighting additions and removals,
+    useful for understanding transformations.
+    """
+    try:
+        import numpy as np
+
+        before = np.array(request.before, dtype=np.float64)
+        after = np.array(request.after, dtype=np.float64)
+        result = store.difference(before, after)
+        cpu_result = store.vector_manager.to_cpu(result)
+
+        return {"vector": cpu_result.tolist()}
+    except Exception as e:
+        logger.error(f"Difference computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Difference failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/blend")
+async def compute_blend_v1(request: BlendRequest):
+    """
+    Weighted interpolation between two vectors (v1 API).
+
+    Creates a vector that combines characteristics of both inputs,
+    enabling fuzzy queries and hybrid patterns.
+    """
+    try:
+        import numpy as np
+
+        vec1 = np.array(request.vec1, dtype=np.float64)
+        vec2 = np.array(request.vec2, dtype=np.float64)
+        result = store.blend(vec1, vec2, alpha=request.alpha)
+        cpu_result = store.vector_manager.to_cpu(result)
+
+        return {"vector": cpu_result.tolist(), "alpha": request.alpha}
+    except Exception as e:
+        logger.error(f"Blend computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Blend failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/amplify")
+async def compute_amplify_v1(request: AmplifyRequest):
+    """
+    Strengthen a component's presence in a superposition (v1 API).
+
+    Boosts the signal of a specific pattern, improving
+    precision when searching for that pattern.
+    """
+    try:
+        import numpy as np
+
+        base = np.array(request.base, dtype=np.float64)
+        component = np.array(request.component, dtype=np.float64)
+        result = store.amplify(base, component, strength=request.strength)
+        cpu_result = store.vector_manager.to_cpu(result)
+
+        return {"vector": cpu_result.tolist(), "strength": request.strength}
+    except Exception as e:
+        logger.error(f"Amplify computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Amplify failed: {str(e)}")
+
+
+@app.post("/api/v1/vectors/negate")
+async def compute_negate_v1(request: NegateRequest):
+    """
+    Remove a component's influence from a superposition (v1 API).
+
+    Enables 'everything except X' queries and anomaly detection
+    by subtracting or orthogonalizing against a pattern.
+    """
+    try:
+        import numpy as np
+
+        base = np.array(request.base, dtype=np.float64)
+        component = np.array(request.component, dtype=np.float64)
+        result = store.negate(base, component, method=request.method)
+        cpu_result = store.vector_manager.to_cpu(result)
+
+        return {"vector": cpu_result.tolist(), "method": request.method}
+    except Exception as e:
+        logger.error(f"Negate computation failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Negate failed: {str(e)}")
+
+
+# ============================================================================
+# ITEM MANAGEMENT ENDPOINTS
 # ============================================================================
 
 @app.delete("/api/v1/items/{item_id}")
