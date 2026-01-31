@@ -2,12 +2,15 @@
 """
 Challenge 007-007: Scale & Noise Limit Experiments
 
-Systematically tests Holon's limits:
-1. Category Saturation - how many categories before overlap?
+Systematically tests Holon's limits using HTTP-compatible operations:
+1. Category Saturation - how many categories before k-NN fails?
 2. Similar Item Density - finding targets among near-duplicates
 3. Binding Depth - how deep can nesting go?
 4. Field Count Dilution - do many fields drown important ones?
 5. Sequence Length Limits - how long can sequences be?
+
+All operations use search_json() - no local vector operations.
+Works identically in local and HTTP modes.
 
 Usage:
     ./scripts/run_with_venv.sh python scripts/challenges/007-batch/007-scale-experiments-solution.py
@@ -15,18 +18,26 @@ Usage:
 """
 
 import argparse
+import json
 import random
 import time
-import uuid
-from typing import Any, Dict, List, Tuple
-
-import numpy as np
+from typing import Any, Dict, List
 
 from holon import CPUStore, HolonClient
 
 
+def parse_data(data):
+    """Parse data field - may be string in HTTP mode."""
+    if isinstance(data, str):
+        try:
+            return json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            return data
+    return data
+
+
 class ScaleExperiments:
-    """Run scale and limit experiments."""
+    """Run scale and limit experiments - HTTP compatible."""
 
     def __init__(self, use_http: bool = False, base_url: str = "http://localhost:8000"):
         if use_http:
@@ -37,92 +48,89 @@ class ScaleExperiments:
 
         self.results = {}
 
-    def experiment_1_category_saturation(
-        self, max_categories: int = 100, examples_per_category: int = 5
-    ) -> Dict:
-        """Test: At how many categories do prototypes start overlapping?"""
-        print("\n" + "=" * 70)
-        print("EXPERIMENT 1: Category Saturation")
-        print("=" * 70)
-        print(
-            f"\nTesting {max_categories} categories with {examples_per_category} examples each..."
-        )
+    def _reset_store(self):
+        """Reset store for next experiment (local mode only)."""
+        if hasattr(self, 'store'):
+            self.store = CPUStore()
+            self.client = HolonClient(local_store=self.store)
 
+    def experiment_1_category_saturation(
+        self, num_categories: int = 50, examples_per_category: int = 5
+    ) -> Dict:
+        """
+        Test: At how many categories does k-NN classification fail?
+
+        HTTP-Compatible: Uses search_json() to find nearest neighbors,
+        then votes based on their labels.
+        """
+        print("\n" + "=" * 70)
+        print("EXPERIMENT 1: Category Saturation (k-NN Classification)")
+        print("=" * 70)
+        print(f"\nTesting {num_categories} categories with {examples_per_category} examples each...")
+
+        self._reset_store()
         start_time = time.time()
 
-        # Generate categories
-        categories = []
-        prototypes = {}
-
-        for cat_id in range(max_categories):
-            # Create examples for this category
-            examples = []
+        # Insert training examples for each category
+        print("   Inserting training data...")
+        for cat_id in range(num_categories):
             for ex_id in range(examples_per_category):
                 example = {
-                    "category_id": cat_id,
-                    "features": {
-                        f"feature_{i}": random.random()
-                        for i in range(10)  # 10 features per example
-                    },
-                    "label": f"category_{cat_id}",
+                    "_category": cat_id,
+                    "cat_name": f"category_{cat_id}",
+                    "feature_a": cat_id * 10 + random.randint(0, 5),
+                    "feature_b": f"type_{cat_id % 10}",
+                    "feature_c": cat_id % 5,
+                    "noise": random.random(),
                 }
-                examples.append(example)
+                self.client.insert_json(example)
 
-            # Learn prototype
-            vectors = []
-            for example in examples:
-                vec = self.client.encode_vectors(example)
-                if isinstance(vec, list):
-                    vec = np.array(vec)
-                vectors.append(vec)
+        total_examples = num_categories * examples_per_category
+        print(f"   Inserted {total_examples} training examples")
 
-            prototype = np.mean(vectors, axis=0)
-            prototypes[cat_id] = prototype
-            categories.append({"id": cat_id, "examples": examples})
-
-        # Test classification accuracy
-        print("   Testing classification accuracy...")
+        # Test classification using k-NN
+        print("   Testing k-NN classification...")
+        k = 5
         correct = 0
         total = 0
 
-        # Test 5 random examples from each category
-        for category in categories[:20]:  # Test first 20 categories
-            cat_id = category["id"]
+        # Test 20 random categories
+        test_categories = random.sample(range(num_categories), min(20, num_categories))
+
+        for cat_id in test_categories:
+            # Create a test example for this category
             test_example = {
-                "category_id": cat_id,
-                "features": {
-                    f"feature_{i}": random.random() for i in range(10)
-                },
-                "label": f"category_{cat_id}",
+                "feature_a": cat_id * 10 + random.randint(0, 5),
+                "feature_b": f"type_{cat_id % 10}",
+                "feature_c": cat_id % 5,
+                "noise": random.random(),
             }
 
-            test_vec = self.client.encode_vectors(test_example)
-            if isinstance(test_vec, list):
-                test_vec = np.array(test_vec)
+            # Find k nearest neighbors via Holon search
+            results = self.client.search_json(probe=test_example, limit=k, threshold=0.0)
 
-            # Find closest prototype
-            best_match = -1
-            best_similarity = -1
+            # Vote based on neighbor labels
+            votes = {}
+            for r in results:
+                data = parse_data(r["data"])
+                label = data.get("_category") if isinstance(data, dict) else None
+                if label is not None:
+                    votes[label] = votes.get(label, 0) + 1
 
-            for proto_id, proto_vec in prototypes.items():
-                similarity = float(
-                    np.dot(test_vec, proto_vec)
-                    / (np.linalg.norm(test_vec) * np.linalg.norm(proto_vec) + 1e-10)
-                )
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = proto_id
-
-            if best_match == cat_id:
-                correct += 1
+            # Predict most common label
+            if votes:
+                predicted = max(votes, key=votes.get)
+                if predicted == cat_id:
+                    correct += 1
             total += 1
 
         accuracy = correct / total if total > 0 else 0
         elapsed = time.time() - start_time
 
         result = {
-            "categories": max_categories,
+            "categories": num_categories,
             "examples_per_category": examples_per_category,
+            "k_neighbors": k,
             "test_samples": total,
             "correct": correct,
             "accuracy": accuracy,
@@ -135,43 +143,45 @@ class ScaleExperiments:
         self.results["category_saturation"] = result
         return result
 
-    def experiment_2_similar_item_density(
-        self, num_similar: int = 1000
-    ) -> Dict:
+    def experiment_2_similar_item_density(self, num_similar: int = 500) -> Dict:
         """Test: Can we find a specific target among near-duplicates?"""
         print("\n" + "=" * 70)
         print("EXPERIMENT 2: Similar Item Density")
         print("=" * 70)
         print(f"\nTesting with {num_similar} items 95% similar to target...")
 
+        self._reset_store()
         start_time = time.time()
 
-        # Create target
+        # Create target with unique marker
         target = {
             "id": "TARGET",
             "unique_marker": "FIND_ME",
-            "data": list(range(50)),
+            "common_data": list(range(50)),
+            "description": "This is the target item we want to find",
         }
-        target_id = self.client.insert_json(target)
+        self.client.insert_json(target)
 
-        # Create similar items
+        # Create similar decoy items
         for i in range(num_similar):
-            similar = {
-                "id": f"similar_{i}",
+            decoy = {
+                "id": f"decoy_{i}",
                 "unique_marker": "decoy",
-                "data": list(range(50)),  # Same data
+                "common_data": list(range(50)),  # Same as target
+                "description": "This is a decoy item very similar to target",
             }
-            self.client.insert_json(similar)
+            self.client.insert_json(decoy)
 
-        # Search for target
+        # Search for target using its unique marker
         results = self.client.search_json(
-            probe={"unique_marker": "FIND_ME"}, limit=10
+            probe={"unique_marker": "FIND_ME"}, limit=10, threshold=0.0
         )
 
-        # Check if target is in top results
+        # Check if target is in results
         found_rank = None
         for rank, result in enumerate(results, 1):
-            if result["data"].get("id") == "TARGET":
+            data = parse_data(result["data"])
+            if isinstance(data, dict) and data.get("id") == "TARGET":
                 found_rank = rank
                 break
 
@@ -198,6 +208,7 @@ class ScaleExperiments:
         print("=" * 70)
         print(f"\nTesting nesting up to {max_depth} levels...")
 
+        self._reset_store()
         start_time = time.time()
 
         depth_scores = []
@@ -212,11 +223,11 @@ class ScaleExperiments:
             current["deepest_value"] = "FIND_THIS"
 
             # Insert
-            item_id = self.client.insert_json(nested)
+            self.client.insert_json(nested)
 
             # Query for deepest value
             query = {"deepest_value": "FIND_THIS"}
-            results = self.client.search_json(probe=query, limit=5)
+            results = self.client.search_json(probe=query, limit=5, threshold=0.0)
 
             # Get score
             score = results[0]["score"] if results else 0.0
@@ -226,12 +237,13 @@ class ScaleExperiments:
 
         elapsed = time.time() - start_time
 
-        # Find where degradation starts
+        # Find where degradation starts (30% drop from previous)
         degradation_depth = None
         for i, (depth, score) in enumerate(depth_scores):
-            if i > 0 and score < depth_scores[i - 1][1] * 0.7:  # 30% drop
-                degradation_depth = depth
-                break
+            if i > 0 and depth_scores[i - 1][1] > 0:
+                if score < depth_scores[i - 1][1] * 0.7:
+                    degradation_depth = depth
+                    break
 
         result = {
             "max_depth_tested": max_depth,
@@ -256,27 +268,26 @@ class ScaleExperiments:
         print("=" * 70)
         print(f"\nTesting up to {max_fields} fields per record...")
 
+        self._reset_store()
         start_time = time.time()
 
         field_count_scores = []
+        test_counts = [10, 20, 30, 50, 75, 100]
 
-        for field_count in [10, 20, 30, 50, 75, 100]:
+        for field_count in test_counts:
             if field_count > max_fields:
                 break
 
-            # Create record with many fields
+            # Create record with important field + noise
             record = {"important_field": "CRITICAL_VALUE"}
-
-            # Add noise fields
             for i in range(field_count - 1):
                 record[f"noise_field_{i}"] = f"noise_value_{random.randint(0, 1000)}"
 
-            # Insert
             self.client.insert_json(record)
 
             # Query for important field
             results = self.client.search_json(
-                probe={"important_field": "CRITICAL_VALUE"}, limit=5
+                probe={"important_field": "CRITICAL_VALUE"}, limit=5, threshold=0.0
             )
 
             score = results[0]["score"] if results else 0.0
@@ -286,10 +297,13 @@ class ScaleExperiments:
 
         elapsed = time.time() - start_time
 
-        # Calculate precision retention
+        # Calculate precision retention relative to baseline
         if field_count_scores:
-            baseline_score = field_count_scores[0][1]
-            retention = [(count, score / baseline_score if baseline_score > 0 else 0) for count, score in field_count_scores]
+            baseline = field_count_scores[0][1]
+            retention = [
+                (count, score / baseline if baseline > 0 else 0)
+                for count, score in field_count_scores
+            ]
         else:
             retention = []
 
@@ -309,16 +323,16 @@ class ScaleExperiments:
         return result
 
     def experiment_5_sequence_length(self, max_length: int = 1000) -> Dict:
-        """Test: How long can sequences be?"""
+        """Test: How long can sequences be before n-gram signal weakens?"""
         print("\n" + "=" * 70)
         print("EXPERIMENT 5: Sequence Length Limits")
         print("=" * 70)
         print(f"\nTesting sequences up to {max_length} elements...")
 
+        self._reset_store()
         start_time = time.time()
 
         sequence_scores = []
-
         test_lengths = [10, 50, 100, 200, 500, 1000]
 
         for length in test_lengths:
@@ -333,8 +347,6 @@ class ScaleExperiments:
             record = {
                 "sequence": {"_encode_mode": "ngram", "sequence": sequence}
             }
-
-            # Insert
             self.client.insert_json(record)
 
             # Query for subsequence containing marker
@@ -343,7 +355,7 @@ class ScaleExperiments:
                 "sequence": {"_encode_mode": "ngram", "sequence": query_seq}
             }
 
-            results = self.client.search_json(probe=query, limit=5)
+            results = self.client.search_json(probe=query, limit=5, threshold=0.0)
 
             score = results[0]["score"] if results else 0.0
             sequence_scores.append((length, score))
@@ -366,8 +378,8 @@ class ScaleExperiments:
 
 def main():
     parser = argparse.ArgumentParser(description="Scale & Noise Limit Experiments")
-    parser.add_argument("--http", action="store_true")
-    parser.add_argument("--url", default="http://localhost:8000")
+    parser.add_argument("--http", action="store_true", help="Use HTTP API")
+    parser.add_argument("--url", default="http://localhost:8000", help="Server URL")
     parser.add_argument(
         "--experiments",
         nargs="+",
@@ -378,7 +390,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 70)
-    print("SCALE & NOISE LIMIT EXPERIMENTS")
+    print("SCALE & NOISE LIMIT EXPERIMENTS (HTTP-Compatible)")
     print("=" * 70)
 
     mode = "HTTP" if args.http else "Local"
@@ -388,12 +400,10 @@ def main():
 
     start_time = time.time()
 
-    # Create experiment runner
     exp = ScaleExperiments(use_http=args.http, base_url=args.url)
 
-    # Run experiments
     if 1 in experiments_to_run:
-        exp.experiment_1_category_saturation(max_categories=50, examples_per_category=3)
+        exp.experiment_1_category_saturation(num_categories=50, examples_per_category=5)
 
     if 2 in experiments_to_run:
         exp.experiment_2_similar_item_density(num_similar=500)
@@ -409,7 +419,7 @@ def main():
 
     total_elapsed = time.time() - start_time
 
-    # Final summary
+    # Summary
     print("\n" + "=" * 70)
     print("SUMMARY OF ALL EXPERIMENTS")
     print("=" * 70)
@@ -422,18 +432,14 @@ def main():
 
     print(f"\n⏱️  Total time: {total_elapsed:.2f}s")
 
-    print(
-        """
-    ✅ Scale experiments reveal:
-       - Category limits (prototype overlap)
-       - Noise tolerance (finding needles in haystacks)
-       - Binding depth constraints
-       - Field dilution effects
-       - Sequence length handling
+    print("""
+    ✅ HTTP-Compatible Implementation:
+       - All similarity via search_json() (no local numpy)
+       - k-NN classification instead of local prototype math
+       - Works identically in local and HTTP modes
 
-    These findings guide optimal Holon usage patterns!
-    """
-    )
+    Scale experiments reveal Holon's practical limits!
+    """)
 
 
 if __name__ == "__main__":

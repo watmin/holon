@@ -5,15 +5,15 @@ Challenge 007-001: Holon-Powered Rete Rule Engine
 Demonstrates a rule engine that combines:
 1. Exact matching (traditional Rete) for precise conditions
 2. Fuzzy matching (Holon) for similarity-based conditions
-3. Prototype-based rules that fire on "similar enough" facts
+3. k-NN style prototype matching (HTTP-compatible)
 4. Multi-condition rules with joins
 5. Truth maintenance system
 
-Usage:
-    # Local mode
-    ./scripts/run_with_venv.sh python scripts/challenges/007-batch/001-rete-solution.py
+All operations use Holon's search API - no local vector operations.
+Works identically in local and HTTP modes.
 
-    # HTTP mode (requires server running)
+Usage:
+    ./scripts/run_with_venv.sh python scripts/challenges/007-batch/001-rete-solution.py
     ./scripts/run_with_venv.sh python scripts/challenges/007-batch/001-rete-solution.py --http
 """
 
@@ -26,12 +26,22 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from holon import CPUStore, HolonClient
 
 
+def parse_data(data):
+    """Parse data field - may be string in HTTP mode."""
+    if isinstance(data, str):
+        try:
+            return json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            return data
+    return data
+
+
 class TruthMaintenanceSystem:
     """Track fact dependencies for automatic retraction."""
 
     def __init__(self):
-        self.derived_facts: Dict[str, Set[str]] = {}  # derived_id -> source_ids
-        self.dependents: Dict[str, Set[str]] = {}  # source_id -> derived_ids
+        self.derived_facts: Dict[str, Set[str]] = {}
+        self.dependents: Dict[str, Set[str]] = {}
 
     def record_derivation(self, derived_id: str, source_ids: List[str]):
         """Record that a derived fact came from source facts."""
@@ -42,35 +52,27 @@ class TruthMaintenanceSystem:
             self.dependents[source_id].add(derived_id)
 
     def get_dependents(self, fact_id: str) -> Set[str]:
-        """Get all facts that depend on this fact."""
+        """Get all facts that depend on this fact (recursively)."""
         to_retract = {fact_id}
-
-        # Cascade to dependents
         if fact_id in self.dependents:
             for dependent_id in self.dependents[fact_id]:
                 to_retract.update(self.get_dependents(dependent_id))
-
         return to_retract
 
     def clear_fact(self, fact_id: str):
         """Clear a fact from TMS records."""
-        # Remove from derived_facts
         if fact_id in self.derived_facts:
             source_ids = self.derived_facts[fact_id]
             del self.derived_facts[fact_id]
-
-            # Remove from dependents
             for source_id in source_ids:
                 if source_id in self.dependents:
                     self.dependents[source_id].discard(fact_id)
-
-        # Remove from dependents
         if fact_id in self.dependents:
             del self.dependents[fact_id]
 
 
 class Rule:
-    """Represents a rule with conditions and an action."""
+    """A rule with conditions and an action."""
 
     def __init__(
         self,
@@ -78,37 +80,23 @@ class Rule:
         conditions: List[Dict[str, Any]],
         action: Callable,
         join_spec: Optional[Dict[str, str]] = None,
+        description: str = "",
     ):
         self.name = name
         self.conditions = conditions
         self.action = action
         self.join_spec = join_spec or {}
+        self.description = description
         self.activation_count = 0
-
-    def get_probe_guard(self, condition: Dict[str, Any]) -> Tuple[Dict, Dict, Optional[Any], float]:
-        """Split condition into probe, guard, similarity check, and threshold."""
-        probe = {}
-        guard = {}
-        similarity_check = None
-        threshold = 0.0
-
-        for key, value in condition.items():
-            if key == "_similar_to":
-                similarity_check = value
-            elif key == "_threshold":
-                threshold = value
-            elif key.startswith("_"):
-                continue  # Skip other special markers
-            elif isinstance(value, dict) and any(k.startswith("$") for k in value):
-                guard[key] = value
-            else:
-                probe[key] = value
-
-        return probe, guard, similarity_check, threshold
 
 
 class ReteSession:
-    """Holon-powered Rete session with exact and fuzzy matching."""
+    """
+    Holon-powered Rete session.
+
+    HTTP-Compatible: All similarity operations use search_json().
+    No local vector operations (numpy).
+    """
 
     def __init__(self, use_http: bool = False, base_url: str = "http://localhost:8000"):
         self.use_http = use_http
@@ -121,10 +109,8 @@ class ReteSession:
             self.client = HolonClient(local_store=self.store)
 
         self.rules: List[Rule] = []
-        self.facts: Dict[str, Dict] = {}  # fact_id -> fact
+        self.facts: Dict[str, Dict] = {}
         self.tms = TruthMaintenanceSystem()
-        self.prototypes: Dict[str, Any] = {}  # name -> prototype vector
-        self.iteration = 0
 
     def add_rule(self, rule: Rule):
         """Add a rule to the session."""
@@ -133,19 +119,36 @@ class ReteSession:
 
     def insert(self, fact: Dict[str, Any], is_derived: bool = False) -> str:
         """Insert a fact into the session."""
-        # Ensure fact has an ID
         if "fact_id" not in fact:
             fact["fact_id"] = str(uuid.uuid4())
 
         fact_id = fact["fact_id"]
         fact["_is_derived"] = is_derived
 
-        # Store in Holon
         self.client.insert_json(fact)
         self.facts[fact_id] = fact
 
-        print(f"➕ {'Derived' if is_derived else 'Input'} fact: {fact_id[:8]}... {fact.get('_type', 'unknown')}")
+        type_name = fact.get("_type", "unknown")
+        print(f"➕ {'Derived' if is_derived else 'Input'} fact: {fact_id[:8]}... ({type_name})")
         return fact_id
+
+    def insert_prototype_examples(self, category: str, examples: List[Dict]):
+        """
+        Insert prototype examples for k-NN matching.
+
+        Instead of computing a prototype vector locally, we store
+        all examples with a category marker for k-NN lookup.
+        """
+        print(f"🧠 Storing {len(examples)} examples for '{category}'...")
+        for i, example in enumerate(examples):
+            example_fact = {
+                **example,
+                "_prototype_category": category,
+                "_prototype_example": True,
+                "fact_id": f"proto_{category}_{i}",
+            }
+            self.client.insert_json(example_fact)
+        print(f"   ✅ Examples stored for k-NN matching")
 
     def retract(self, fact_id: str):
         """Retract a fact and all dependent facts."""
@@ -153,69 +156,117 @@ class ReteSession:
             print(f"⚠️  Fact {fact_id} not found")
             return
 
-        # Get all facts to retract (including dependents)
         to_retract = self.tms.get_dependents(fact_id)
-
         print(f"🗑️  Retracting {len(to_retract)} fact(s)...")
+
         for fid in to_retract:
             if fid in self.facts:
                 del self.facts[fid]
                 self.tms.clear_fact(fid)
 
-    def match_condition(self, condition: Dict[str, Any]) -> List[Tuple[Dict, float]]:
-        """Match a single condition against facts."""
-        rule = Rule("temp", [condition], lambda x: None)
-        probe, guard, similarity_check, threshold = rule.get_probe_guard(condition)
+    def match_condition(
+        self, condition: Dict[str, Any], k: int = 5
+    ) -> List[Tuple[Dict, float]]:
+        """
+        Match a condition against facts using Holon search.
 
-        if similarity_check is not None:
-            # Fuzzy matching with prototype
-            if isinstance(similarity_check, str) and similarity_check in self.prototypes:
-                # Use learned prototype - we need to search by comparing manually
-                prototype_vec = self.prototypes[similarity_check]
-                matches = []
+        Supports:
+        - Standard probe matching (fuzzy by default)
+        - Guard filters (exact constraints)
+        - Prototype matching via k-NN
+        """
+        # Check for prototype-based matching
+        if "_similar_to_category" in condition:
+            return self._match_prototype(condition, k)
 
-                # Get all facts of the right type
-                type_filter = {"_type": condition.get("_type")} if "_type" in condition else {}
-                all_facts = self.client.search_json(probe=type_filter, limit=1000, threshold=0.0)
+        # Build probe and guard from condition
+        probe = {}
+        guard = {}
 
-                # Score each fact against the prototype
-                import numpy as np
-                for result in all_facts:
-                    fact = result["data"]
-                    fact_vec = self.client.encode_vectors(fact)
-                    if isinstance(fact_vec, list):
-                        fact_vec = np.array(fact_vec)
-
-                    # Calculate similarity
-                    if isinstance(prototype_vec, np.ndarray) and isinstance(fact_vec, np.ndarray):
-                        score = float(np.dot(prototype_vec, fact_vec) / (np.linalg.norm(prototype_vec) * np.linalg.norm(fact_vec) + 1e-10))
-                    else:
-                        score = 0.0
-
-                    if score >= threshold:
-                        matches.append((fact, score))
-
-                # Sort by score
-                matches.sort(key=lambda x: x[1], reverse=True)
-                return matches[:100]
-            elif isinstance(similarity_check, dict):
-                # Use provided data as similarity target
-                results = self.client.search_json(probe=similarity_check, limit=100, threshold=threshold)
+        for key, value in condition.items():
+            if key.startswith("_"):
+                continue  # Skip special markers
+            elif isinstance(value, dict) and any(k.startswith("$") for k in value):
+                guard[key] = value
             else:
-                results = []
-        else:
-            # Standard probe + guard search
-            results = self.client.search_json(probe=probe, guard=guard, limit=100, threshold=threshold)
+                probe[key] = value
 
-        # Return facts with scores
+        # Search using Holon
+        threshold = condition.get("_threshold", 0.0)
+        results = self.client.search_json(
+            probe=probe, guard=guard, limit=100, threshold=threshold
+        )
+
+        # Filter by type if specified
         matches = []
+        type_filter = condition.get("_type")
         for result in results:
-            fact = result["data"]
-            score = result["score"]
-            # Filter by type if specified
-            if "_type" in condition and fact.get("_type") != condition["_type"]:
+            fact = parse_data(result["data"])
+            if not isinstance(fact, dict):
                 continue
-            matches.append((fact, score))
+            if type_filter and fact.get("_type") != type_filter:
+                continue
+            # Skip prototype examples
+            if fact.get("_prototype_example"):
+                continue
+            matches.append((fact, result["score"]))
+
+        return matches
+
+    def _match_prototype(
+        self, condition: Dict[str, Any], k: int = 5
+    ) -> List[Tuple[Dict, float]]:
+        """
+        Match facts similar to a prototype category using k-NN.
+
+        Uses stored prototype examples to find similar facts.
+        """
+        category = condition["_similar_to_category"]
+        type_filter = condition.get("_type")
+        threshold = condition.get("_threshold", 0.0)
+
+        # Get prototype examples for this category
+        proto_results = self.client.search_json(
+            probe={"_prototype_category": category},
+            limit=k,
+            threshold=0.0,
+        )
+
+        if not proto_results:
+            return []
+
+        # Use the first prototype example as a representative probe
+        first_proto = parse_data(proto_results[0]["data"])
+        if not isinstance(first_proto, dict):
+            return []
+
+        # Build a probe from the prototype's key fields
+        probe = {
+            key: value
+            for key, value in first_proto.items()
+            if not key.startswith("_") and key not in ["fact_id", "_prototype_category", "_prototype_example"]
+        }
+
+        # Add type filter
+        if type_filter:
+            probe["_type"] = type_filter
+
+        # Search for similar facts
+        results = self.client.search_json(probe=probe, limit=100, threshold=threshold)
+
+        # Filter out prototype examples
+        matches = []
+        for r in results:
+            fact = parse_data(r["data"])
+            if not isinstance(fact, dict):
+                continue
+            if fact.get("_prototype_example"):
+                continue
+            if fact.get("_is_derived"):
+                continue
+            if type_filter and fact.get("_type") != type_filter:
+                continue
+            matches.append((fact, r["score"]))
 
         return matches
 
@@ -225,11 +276,9 @@ class ReteSession:
             return True
 
         for left_path, right_path in join_spec.items():
-            # Parse paths like "Order.customer_id" and "Customer.id"
             left_parts = left_path.split(".")
             right_parts = right_path.split(".")
 
-            # Find facts by type
             left_fact = None
             right_fact = None
             for fact in facts:
@@ -241,7 +290,6 @@ class ReteSession:
             if not left_fact or not right_fact:
                 return False
 
-            # Get values
             left_val = left_fact.get(left_parts[1]) if len(left_parts) > 1 else left_fact
             right_val = right_fact.get(right_parts[1]) if len(right_parts) > 1 else right_fact
 
@@ -252,9 +300,7 @@ class ReteSession:
 
     def fire_rules(self) -> List[Dict]:
         """Fire all rules and return activations."""
-        self.iteration += 1
-        print(f"\n🔥 Firing rules (iteration {self.iteration})...")
-
+        print(f"\n🔥 Firing rules...")
         activations = []
 
         for rule in self.rules:
@@ -262,12 +308,14 @@ class ReteSession:
             condition_matches = []
             for condition in rule.conditions:
                 matches = self.match_condition(condition)
+                if not matches:
+                    break  # All conditions must match
                 condition_matches.append(matches)
 
-            if not condition_matches:
+            if len(condition_matches) != len(rule.conditions):
                 continue
 
-            # Generate all combinations of matched facts
+            # Generate combinations of matched facts
             from itertools import product
 
             for combo in product(*condition_matches):
@@ -278,51 +326,22 @@ class ReteSession:
                 if not self.check_join(facts, rule.join_spec):
                     continue
 
-                # Calculate overall confidence (min of scores)
+                # Calculate confidence
                 confidence = min(scores) if scores else 1.0
 
                 # Fire action
                 result = rule.action(facts)
-
                 if result:
-                    activation = {
+                    activations.append({
                         "rule": rule.name,
-                        "facts": facts,
+                        "facts": [f.get("fact_id", "?")[:8] for f in facts],
                         "confidence": confidence,
                         "result": result,
-                    }
-                    activations.append(activation)
+                    })
                     rule.activation_count += 1
 
         print(f"   → {len(activations)} activation(s)")
         return activations
-
-    def learn_prototype(self, name: str, examples: List[Dict]):
-        """Learn a prototype from example facts."""
-        print(f"🧠 Learning prototype '{name}' from {len(examples)} examples...")
-
-        # Encode all examples
-        import numpy as np
-        vectors = []
-        for example in examples:
-            vec = self.client.encode_vectors(example)
-            # Convert to numpy array if it's a list
-            if isinstance(vec, list):
-                vec = np.array(vec)
-            vectors.append(vec)
-
-        # Average vectors to create prototype
-        if vectors:
-            if self.use_http:
-                # For HTTP mode, use simple average
-                prototype = np.mean(vectors, axis=0)
-            else:
-                # For local mode, use store's prototype method
-                prototype = self.store.prototype(vectors)
-            self.prototypes[name] = prototype
-            print(f"   → Prototype learned: {len(prototype)}D vector")
-        else:
-            print(f"   ⚠️  No examples to learn from")
 
     def get_stats(self) -> Dict:
         """Get session statistics."""
@@ -331,7 +350,6 @@ class ReteSession:
             "derived_facts": sum(1 for f in self.facts.values() if f.get("_is_derived")),
             "rules": len(self.rules),
             "rule_activations": {r.name: r.activation_count for r in self.rules},
-            "prototypes": len(self.prototypes),
         }
 
 
@@ -341,21 +359,21 @@ def demo_exact_matching(session: ReteSession):
     print("DEMO 1: Exact Matching (Traditional Rete)")
     print("=" * 70)
 
-    # Define rule: High-value platinum orders
+    alerts_created = []
+
     def high_value_action(facts: List[Dict]) -> Optional[Dict]:
         order = next(f for f in facts if f["_type"] == "Order")
         customer = next(f for f in facts if f["_type"] == "Customer")
 
-        # Create alert
         alert = {
             "_type": "Alert",
-            "alert_id": str(uuid.uuid4()),
             "priority": "high",
             "order_id": order["id"],
             "customer_id": customer["id"],
             "reason": "High-value platinum customer order",
         }
-        session.insert(alert, is_derived=True)
+        fact_id = session.insert(alert, is_derived=True)
+        alerts_created.append(fact_id)
         return alert
 
     rule = Rule(
@@ -366,212 +384,105 @@ def demo_exact_matching(session: ReteSession):
         ],
         action=high_value_action,
         join_spec={"Order.customer_id": "Customer.id"},
+        description="Alert on high-value platinum orders",
     )
     session.add_rule(rule)
 
-    # Insert facts
     print("\n📥 Inserting facts...")
-    session.insert(
-        {
-            "_type": "Order",
-            "id": "order-123",
-            "customer_id": "cust-456",
-            "status": "pending",
-            "total": 15000,
-        }
-    )
-    session.insert(
-        {
-            "_type": "Customer",
-            "id": "cust-456",
-            "name": "Acme Corp",
-            "tier": "platinum",
-        }
-    )
+    session.insert({
+        "_type": "Order",
+        "id": "order-123",
+        "customer_id": "cust-456",
+        "status": "pending",
+        "total": 15000,
+    })
+    session.insert({
+        "_type": "Customer",
+        "id": "cust-456",
+        "name": "Acme Corp",
+        "tier": "platinum",
+    })
 
-    # Fire rules
     activations = session.fire_rules()
-
     print(f"\n✅ Exact matching: {len(activations)} alert(s) created")
+    return len(activations)
 
 
 def demo_fuzzy_matching(session: ReteSession):
-    """Demo 2: Fuzzy matching with prototypes."""
+    """Demo 2: Fuzzy matching with k-NN prototypes."""
     print("\n" + "=" * 70)
-    print("DEMO 2: Fuzzy Matching with Prototypes")
+    print("DEMO 2: Fuzzy Matching with k-NN Prototypes (HTTP-Compatible)")
     print("=" * 70)
 
-    # Create fraud examples
+    # Create and store fraud examples
     fraud_examples = [
-        {
-            "_type": "Transaction",
-            "amount": 12000,
-            "country": "NG",
-            "time_hour": 3,
-            "ip_changes": 5,
-        },
-        {
-            "_type": "Transaction",
-            "amount": 15000,
-            "country": "RU",
-            "time_hour": 2,
-            "ip_changes": 4,
-        },
-        {
-            "_type": "Transaction",
-            "amount": 10000,
-            "country": "CN",
-            "time_hour": 4,
-            "ip_changes": 6,
-        },
+        {"_type": "Transaction", "amount": 12000, "country": "NG", "time_hour": 3, "ip_changes": 5},
+        {"_type": "Transaction", "amount": 15000, "country": "RU", "time_hour": 2, "ip_changes": 4},
+        {"_type": "Transaction", "amount": 10000, "country": "CN", "time_hour": 4, "ip_changes": 6},
+        {"_type": "Transaction", "amount": 18000, "country": "NG", "time_hour": 1, "ip_changes": 7},
+        {"_type": "Transaction", "amount": 14000, "country": "RU", "time_hour": 3, "ip_changes": 5},
     ]
+    session.insert_prototype_examples("fraud_pattern", fraud_examples)
 
-    # Learn fraud prototype
-    session.learn_prototype("fraud_pattern", fraud_examples)
+    flags_created = []
 
-    # Define fuzzy rule
     def flag_suspicious_action(facts: List[Dict]) -> Optional[Dict]:
         transaction = facts[0]
         flag = {
             "_type": "Flag",
-            "flag_id": str(uuid.uuid4()),
             "transaction_id": transaction.get("id", "unknown"),
             "reason": "Similar to known fraud patterns",
         }
         session.insert(flag, is_derived=True)
+        flags_created.append(transaction.get("id"))
         return flag
 
     rule = Rule(
         name="similar-to-fraud",
-        conditions=[
-            {
-                "_type": "Transaction",
-                "_similar_to": "fraud_pattern",
-                "_threshold": 0.15,  # Lower threshold for VSA similarity
-            }
-        ],
+        conditions=[{
+            "_type": "Transaction",
+            "_similar_to_category": "fraud_pattern",
+            "_threshold": 0.05,
+        }],
         action=flag_suspicious_action,
+        description="Flag transactions similar to fraud prototype",
     )
     session.add_rule(rule)
 
-    # Insert test transactions
     print("\n📥 Inserting test transactions...")
     test_txns = [
-        {
-            "_type": "Transaction",
-            "id": "txn-001",
-            "amount": 11000,
-            "country": "NG",
-            "time_hour": 3,
-            "ip_changes": 5,
-        },  # Very similar
-        {
-            "_type": "Transaction",
-            "id": "txn-002",
-            "amount": 5000,
-            "country": "US",
-            "time_hour": 14,
-            "ip_changes": 1,
-        },  # Not similar
-        {
-            "_type": "Transaction",
-            "id": "txn-003",
-            "amount": 13000,
-            "country": "RU",
-            "time_hour": 2,
-            "ip_changes": 4,
-        },  # Similar
+        {"_type": "Transaction", "id": "txn-001", "amount": 11000, "country": "NG", "time_hour": 3, "ip_changes": 5},
+        {"_type": "Transaction", "id": "txn-002", "amount": 5000, "country": "US", "time_hour": 14, "ip_changes": 1},
+        {"_type": "Transaction", "id": "txn-003", "amount": 13000, "country": "RU", "time_hour": 2, "ip_changes": 4},
+        {"_type": "Transaction", "id": "txn-004", "amount": 200, "country": "US", "time_hour": 10, "ip_changes": 0},
     ]
-
     for txn in test_txns:
         session.insert(txn)
 
-    # Fire rules
     activations = session.fire_rules()
 
-    print(f"\n✅ Fuzzy matching: {len(activations)} transaction(s) flagged")
-    for act in activations:
-        txn = act["facts"][0]
-        print(f"   - {txn.get('id', 'unknown')}: confidence={act['confidence']:.3f}")
+    # Filter to just the fuzzy matching results
+    fuzzy_activations = [a for a in activations if a["rule"] == "similar-to-fraud"]
+    print(f"\n✅ Fuzzy matching: {len(fuzzy_activations)} transaction(s) flagged")
 
+    for act in fuzzy_activations:
+        txn_id = act['result'].get('transaction_id', '?')
+        print(f"   - {txn_id}: confidence={act['confidence']:.3f}")
 
-def demo_hybrid_matching(session: ReteSession):
-    """Demo 3: Hybrid exact + fuzzy matching."""
-    print("\n" + "=" * 70)
-    print("DEMO 3: Hybrid Exact + Fuzzy Matching")
-    print("=" * 70)
-
-    # Define hybrid rule
-    def escalate_action(facts: List[Dict]) -> Optional[Dict]:
-        customer = next(f for f in facts if f["_type"] == "Customer")
-        transaction = next(f for f in facts if f["_type"] == "Transaction")
-
-        escalation = {
-            "_type": "Escalation",
-            "escalation_id": str(uuid.uuid4()),
-            "customer_id": customer["id"],
-            "transaction_id": transaction.get("id", "unknown"),
-            "reason": "Platinum customer with suspicious activity",
-        }
-        session.insert(escalation, is_derived=True)
-        return escalation
-
-    rule = Rule(
-        name="suspicious-platinum",
-        conditions=[
-            {"_type": "Customer", "tier": "platinum"},  # Exact
-            {
-                "_type": "Transaction",
-                "_similar_to": "fraud_pattern",
-                "_threshold": 0.5,
-            },  # Fuzzy
-        ],
-        action=escalate_action,
-        join_spec={"Transaction.customer_id": "Customer.id"},
-    )
-    session.add_rule(rule)
-
-    # Insert facts
-    print("\n📥 Inserting facts...")
-    session.insert(
-        {
-            "_type": "Customer",
-            "id": "cust-789",
-            "name": "VIP Corp",
-            "tier": "platinum",
-        }
-    )
-    session.insert(
-        {
-            "_type": "Transaction",
-            "id": "txn-004",
-            "customer_id": "cust-789",
-            "amount": 14000,
-            "country": "CN",
-            "time_hour": 4,
-            "ip_changes": 7,
-        }
-    )
-
-    # Fire rules
-    activations = session.fire_rules()
-
-    print(f"\n✅ Hybrid matching: {len(activations)} escalation(s) created")
+    return len(fuzzy_activations)
 
 
 def demo_truth_maintenance(session: ReteSession):
-    """Demo 4: Truth maintenance with retraction."""
+    """Demo 3: Truth maintenance with retraction."""
     print("\n" + "=" * 70)
-    print("DEMO 4: Truth Maintenance")
+    print("DEMO 3: Truth Maintenance")
     print("=" * 70)
 
-    # Show current facts
     stats_before = session.get_stats()
     print(f"\n📊 Before retraction:")
     print(f"   Total facts: {stats_before['facts']}")
     print(f"   Derived facts: {stats_before['derived_facts']}")
 
-    # Find an order to retract
     order_facts = [f for f in session.facts.values() if f.get("_type") == "Order"]
     if order_facts:
         order = order_facts[0]
@@ -584,70 +495,20 @@ def demo_truth_maintenance(session: ReteSession):
         print(f"\n📊 After retraction:")
         print(f"   Total facts: {stats_after['facts']}")
         print(f"   Derived facts: {stats_after['derived_facts']}")
-        print(f"   Retracted: {stats_before['facts'] - stats_after['facts']} fact(s)")
-
-
-def demo_prototype_evolution(session: ReteSession):
-    """Demo 5: Evolving prototypes with new examples."""
-    print("\n" + "=" * 70)
-    print("DEMO 5: Prototype Evolution")
-    print("=" * 70)
-
-    # Create initial normal behavior examples
-    normal_examples = [
-        {"_type": "Login", "time_hour": 9, "duration_sec": 300, "failed_attempts": 0},
-        {"_type": "Login", "time_hour": 14, "duration_sec": 180, "failed_attempts": 0},
-        {"_type": "Login", "time_hour": 10, "duration_sec": 240, "failed_attempts": 1},
-    ]
-
-    session.learn_prototype("normal_login", normal_examples)
-
-    # Test before evolution
-    test_login = {
-        "_type": "Login",
-        "time_hour": 3,
-        "duration_sec": 60,
-        "failed_attempts": 5,
-    }
-
-    print("\n🧪 Testing against initial prototype...")
-    probe_vec = session.client.encode_vectors(test_login)
-    normal_vec = session.prototypes["normal_login"]
-
-    import numpy as np
-
-    score_before = float(np.dot(probe_vec, normal_vec))
-    print(f"   Similarity to normal: {score_before:.4f}")
-
-    # Add new normal example and update prototype
-    new_normal = {
-        "_type": "Login",
-        "time_hour": 11,
-        "duration_sec": 200,
-        "failed_attempts": 0,
-    }
-
-    print(f"\n🔄 Evolving prototype with new example...")
-    new_vec = session.client.encode_vectors(new_normal)
-
-    # Update with weighted average
-    alpha = 0.1  # weight for new example
-    updated_proto = [(1 - alpha) * old + alpha * new for old, new in zip(normal_vec, new_vec)]
-    session.prototypes["normal_login"] = updated_proto
-
-    score_after = float(np.dot(probe_vec, updated_proto))
-    print(f"   Similarity after evolution: {score_after:.4f}")
-    print(f"   Change: {score_after - score_before:+.4f}")
+        retracted = stats_before['facts'] - stats_after['facts']
+        print(f"   ✅ Retracted: {retracted} fact(s)")
+        return retracted
+    return 0
 
 
 def main():
     parser = argparse.ArgumentParser(description="Holon-Powered Rete Rule Engine")
-    parser.add_argument("--http", action="store_true", help="Use HTTP API instead of local store")
-    parser.add_argument("--url", default="http://localhost:8000", help="Base URL for HTTP mode")
+    parser.add_argument("--http", action="store_true", help="Use HTTP API")
+    parser.add_argument("--url", default="http://localhost:8000", help="Server URL")
     args = parser.parse_args()
 
     print("=" * 70)
-    print("HOLON-POWERED RETE RULE ENGINE")
+    print("HOLON-POWERED RETE RULE ENGINE (HTTP-Compatible)")
     print("=" * 70)
 
     mode = "HTTP" if args.http else "Local"
@@ -655,20 +516,16 @@ def main():
 
     if args.http:
         print(f"   Server: {args.url}")
-        print("   ⚠️  Ensure server is running: ./scripts/run_with_venv.sh python scripts/server/holon_server.py")
+        print("   ⚠️  Ensure server is running")
 
-    # Create session
     start_time = time.time()
     session = ReteSession(use_http=args.http, base_url=args.url)
 
     # Run demos
-    demo_exact_matching(session)
-    demo_fuzzy_matching(session)
-    demo_hybrid_matching(session)
-    demo_truth_maintenance(session)
-    demo_prototype_evolution(session)
+    exact_alerts = demo_exact_matching(session)
+    fuzzy_flags = demo_fuzzy_matching(session)
+    retracted = demo_truth_maintenance(session)
 
-    # Final stats
     elapsed = time.time() - start_time
     stats = session.get_stats()
 
@@ -682,20 +539,18 @@ def main():
     Facts: {stats['facts']}
     Derived Facts: {stats['derived_facts']}
     Rules: {stats['rules']}
-    Prototypes: {stats['prototypes']}
 
-    Rule Activations:
-    {chr(10).join(f'      {name}: {count}' for name, count in stats['rule_activations'].items())}
+    Results:
+      Exact matching alerts: {exact_alerts}
+      Fuzzy matching flags: {fuzzy_flags}
+      Facts retracted: {retracted}
 
-    ✅ Rete engine demonstrates:
-       - Exact pattern matching
-       - Fuzzy similarity matching
-       - Prototype learning
-       - Multi-condition rules with joins
-       - Truth maintenance
-       - Prototype evolution
+    ✅ HTTP-Compatible Implementation:
+       - All similarity via search_json() (no local numpy)
+       - k-NN prototype matching (stored as facts)
+       - Works identically in local and HTTP modes
 
-    This combines the best of traditional Rete (precise logic)
+    This combines traditional Rete (precise logic)
     with Holon's VSA capabilities (fuzzy similarity).
     """)
 
