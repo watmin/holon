@@ -2,6 +2,10 @@
 
 See the main [README.md](../README.md) for overview and quick start.
 
+## Project Assessment
+
+**[ASSESSMENT.md](ASSESSMENT.md)** - Honest evaluation of what works, what doesn't, and what we learned.
+
 ## Core Documentation
 
 | Document | Description |

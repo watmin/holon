@@ -181,6 +181,7 @@ Validated implementations demonstrating capabilities:
 
 ## Documentation
 
+- [Project Assessment](docs/ASSESSMENT.md) - What works, what doesn't, what we learned
 - [API Reference](docs/api_reference.md) - Complete HTTP and Python API
 - [Encoding Guide](docs/encoding_guide.md) - How data becomes vectors
 - [Architecture Decisions](docs/architecture/decisions/) - Design rationale
