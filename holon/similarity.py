@@ -36,23 +36,25 @@ def normalized_dot_similarity(
     """
     D = len(vec1)
 
-    # Handle mixed CPU/GPU arrays
-    if CUPY_AVAILABLE and isinstance(vec1, cp.ndarray):
-        # GPU path: convert to float32 if needed
-        if vec1.dtype != cp.float32:
-            vec1 = vec1.astype(cp.float32)
-        if vec2.dtype != cp.float32:
-            vec2 = vec2.astype(cp.float32)
-        dot = cp.dot(vec1, vec2)
-        return float(cp.asnumpy(dot) / D)
-    else:
-        # CPU path: convert to float32 if int (avoids overflow) but reuse if already float
-        if vec1.dtype.kind == "i":  # integer type
-            vec1 = vec1.astype(np.float32)
-        if vec2.dtype.kind == "i":
-            vec2 = vec2.astype(np.float32)
-        dot = np.dot(vec1, vec2)
-        return float(dot) / D
+    # Handle mixed CPU/GPU arrays - check both vectors using type check
+    vec1_is_cupy = CUPY_AVAILABLE and type(vec1).__module__.startswith('cupy')
+    vec2_is_cupy = CUPY_AVAILABLE and type(vec2).__module__.startswith('cupy')
+
+    if vec1_is_cupy or vec2_is_cupy:
+        # At least one is cupy - convert both to numpy for safety
+        # (mixed operations are problematic in newer cupy)
+        if vec1_is_cupy:
+            vec1 = cp.asnumpy(vec1)
+        if vec2_is_cupy:
+            vec2 = cp.asnumpy(vec2)
+
+    # CPU path: convert to float32 if int (avoids overflow) but reuse if already float
+    if vec1.dtype.kind == "i":  # integer type
+        vec1 = vec1.astype(np.float32)
+    if vec2.dtype.kind == "i":
+        vec2 = vec2.astype(np.float32)
+    dot = np.dot(vec1, vec2)
+    return float(dot) / D
 
 
 def find_similar_vectors(

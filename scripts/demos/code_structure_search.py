@@ -167,7 +167,7 @@ def extract_searchable_nodes(tree: ast.AST, filepath: str) -> List[Tuple[Dict, C
 def ingest_python_file(client: HolonClient, filepath: str) -> int:
     """Ingest a Python file's AST structures."""
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
         tree = ast.parse(source, filename=filepath)
     except (SyntaxError, UnicodeDecodeError) as e:

@@ -73,8 +73,8 @@ class TestNormalizedDotSimilarity:
         vec2 = cupy.array([1, 1, -1, -1], dtype=cupy.int8)
         sim = normalized_dot_similarity(vec1, vec2)
         assert isinstance(sim, float)
-        # Expected: (1 + (-1*(-1)) + (1*(-1)) + ((-1)*(-1))) / 4 = (1 + 1 - 1 + 1) / 4 = 2/4 = 0.5
-        assert sim == pytest.approx(0.5, abs=1e-6)
+        # Expected: (1*1 + (-1)*1 + 1*(-1) + (-1)*(-1)) / 4 = (1 - 1 - 1 + 1) / 4 = 0/4 = 0.0
+        assert sim == pytest.approx(0.0, abs=1e-6)
 
     def test_similarity_mixed_cpu_gpu(self):
         """Test similarity between CPU and GPU vectors."""
@@ -85,7 +85,8 @@ class TestNormalizedDotSimilarity:
         vec2 = cp.array([1, 1, -1, -1], dtype=cp.int8)
         sim = normalized_dot_similarity(vec1, vec2)
         assert isinstance(sim, float)
-        assert sim == pytest.approx(0.5, abs=1e-6)
+        # Expected: (1*1 + (-1)*1 + 1*(-1) + (-1)*(-1)) / 4 = (1 - 1 - 1 + 1) / 4 = 0/4 = 0.0
+        assert sim == pytest.approx(0.0, abs=1e-6)
 
 
 class TestFindSimilarVectors:

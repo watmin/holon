@@ -61,6 +61,11 @@ class Encoder:
         self.backend = vector_manager.backend
         self.default_list_mode = default_list_mode
 
+    @property
+    def xp(self):
+        """Get the appropriate array module (numpy or cupy) for the backend."""
+        return self.vector_manager.np
+
     def encode_data(self, data: Any) -> np.ndarray:
         """
         Encode a data structure into a single vector using binding and bundling,
@@ -93,7 +98,7 @@ class Encoder:
     ) -> np.ndarray:
         """Encode a map by binding keys to values. Supports encoding mode hints."""
         if not data:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
         # Check for $time marker at top level of this dict
         if "$time" in data:
@@ -134,7 +139,7 @@ class Encoder:
             bound_vectors.append(bound)
 
         # Bundle all key-value bindings
-        bundled = np.sum(bound_vectors, axis=0)
+        bundled = self.xp.sum(self.xp.stack(bound_vectors), axis=0)
         return self._threshold_bipolar(bundled)
 
     def encode_list(
@@ -154,13 +159,13 @@ class Encoder:
             mode = ListEncodeMode(mode)
 
         if not seq:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
         item_vecs = [self._encode_recursive(item) for item in seq]
 
         if mode == ListEncodeMode.BUNDLE:
             # Pure bundling (multiset, no order)
-            bundled = np.sum(item_vecs, axis=0)
+            bundled = self.xp.sum(self.xp.stack(item_vecs), axis=0)
             return self._threshold_bipolar(bundled)
 
         elif mode == ListEncodeMode.POSITIONAL:
@@ -170,7 +175,7 @@ class Encoder:
                 pos_vector = self.vector_manager.get_position_vector(i)
                 bound = item_vector * pos_vector
                 bound_vectors.append(bound)
-            bundled = np.sum(bound_vectors, axis=0)
+            bundled = self.xp.sum(self.xp.stack(bound_vectors), axis=0)
             return self._threshold_bipolar(bundled)
 
         elif mode == ListEncodeMode.CHAINED:
@@ -178,7 +183,7 @@ class Encoder:
             # Creates: itemN ⊙ (itemN-1 ⊙ (... ⊙ item1))
             # Useful for: suffix matching, prefix removal, sequence reversal operations
             if len(item_vecs) == 0:
-                return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+                return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
             # Chain from the end for easy unbinding of prefixes
             chained = item_vecs[-1]
             for prev in reversed(item_vecs[:-1]):
@@ -205,7 +210,7 @@ class Encoder:
             bundled = (
                 self.bundle(item_vecs)
                 if item_vecs
-                else np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+                else self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
             )
             if config.get("length_penalty", False):
                 # Apply length normalization for short queries
@@ -312,11 +317,11 @@ class Encoder:
 
         # Bundle all enhanced components
         if all_ngrams:
-            bundled = np.sum(all_ngrams, axis=0)
+            bundled = self.xp.sum(self.xp.stack(all_ngrams), axis=0)
 
             return self._threshold_bipolar(bundled)
         else:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
     def bind(self, vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
         """Bind two vectors using element-wise multiplication."""
@@ -325,8 +330,8 @@ class Encoder:
     def bundle(self, vectors: List[np.ndarray]) -> np.ndarray:
         """Bundle multiple vectors by summing and thresholding."""
         if not vectors:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
-        bundled = np.sum(vectors, axis=0)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+        bundled = self.xp.sum(self.xp.stack(vectors), axis=0)
         return self._threshold_bipolar(bundled)
 
     def negate(
@@ -448,20 +453,21 @@ class Encoder:
             >>> sim(proto, unique1) = 0.28  # Low - not shared
         """
         if not vectors:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
-        # Sum all vectors
-        total = np.sum([v.astype(float) for v in vectors], axis=0)
+        # Sum all vectors (convert to float for precision)
+        stacked = self.xp.stack([v.astype(self.xp.float32) for v in vectors])
+        total = self.xp.sum(stacked, axis=0)
 
         # Threshold: keep only where absolute majority agrees
         n = len(vectors)
         agreement_threshold = n * threshold
 
-        result = np.zeros_like(total)
+        result = self.xp.zeros_like(total)
         result[total > agreement_threshold] = 1
         result[total < -agreement_threshold] = -1
 
-        return result.astype(np.int8)
+        return result.astype(self.xp.int8)
 
     def difference(self, before: np.ndarray, after: np.ndarray) -> np.ndarray:
         """
@@ -547,11 +553,11 @@ class Encoder:
     def _encode_set(self, data: Union[frozenset, set]) -> np.ndarray:
         """Encode a set by bundling items with set indicator."""
         if not data:
-            return np.zeros(self.vector_manager.dimensions, dtype=np.int8)
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
         set_indicator = self.vector_manager.get_vector("set_indicator")
         item_vectors = [self._encode_recursive(item) for item in data]
-        bundled_items = np.sum(item_vectors, axis=0)
+        bundled_items = self.xp.sum(self.xp.stack(item_vectors), axis=0)
         bundled_items = self._threshold_bipolar(bundled_items)
         # Bind set indicator to bundled items
         return set_indicator * bundled_items
@@ -833,8 +839,13 @@ class Encoder:
         result = np.zeros(dim, dtype=np.float64)
         for role_name, vec in components:
             role_vec = self.vector_manager.get_vector(f"__time_role_{role_name}__")
-            result += role_vec.astype(np.float64) * vec.astype(np.float64)
+            # Convert to numpy for consistent math (role_vec may be cupy)
+            role_np = role_vec.get() if hasattr(role_vec, 'get') else role_vec
+            result += role_np.astype(np.float64) * vec.astype(np.float64)
 
+        # Convert result to backend type before thresholding
+        if self.backend == "gpu" and CUPY_AVAILABLE:
+            result = cp.asarray(result)
         return self._threshold_bipolar(result)
 
     def _encode_circular(
