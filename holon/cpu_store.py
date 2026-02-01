@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Tuple
@@ -102,6 +103,11 @@ class CPUStore(Store):
     def __init__(self, dimensions: int = 16000, backend: str = "auto"):
         self.dimensions = dimensions
         self._use_torchhd = False
+
+        # Environment variable override for testing
+        env_backend = os.environ.get("HOLON_BACKEND")
+        if env_backend:
+            backend = env_backend
 
         # Auto-select backend
         if backend == "torchhd":
