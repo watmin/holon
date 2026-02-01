@@ -119,27 +119,12 @@ class CPUStore(Store):
             self.vector_manager = None  # Not used with TorchHD
             print("🔥 Using TorchHD backend")
         elif backend == "auto":
-            # Default to CPU/CuPy (fastest for individual operations)
-            # TorchHD has better accuracy but 39x slower due to GPU transfer overhead
-            # Use backend="torchhd" explicitly when accuracy matters more than speed
-            try:
-                import cupy as cp
-                try:
-                    cp.cuda.runtime.getDeviceCount()
-                    self.backend = "gpu"
-                    self.vector_manager = VectorManager(dimensions, self.backend)
-                    self.encoder = Encoder(self.vector_manager)
-                    print("🎮 Auto-selected GPU backend (CuPy)")
-                except cp.cuda.runtime.CUDARuntimeError:
-                    self.backend = "cpu"
-                    self.vector_manager = VectorManager(dimensions, self.backend)
-                    self.encoder = Encoder(self.vector_manager)
-                    print("💻 Auto-selected CPU backend (no GPU available)")
-            except ImportError:
-                self.backend = "cpu"
-                self.vector_manager = VectorManager(dimensions, self.backend)
-                self.encoder = Encoder(self.vector_manager)
-                print("💻 Auto-selected CPU backend (cupy not available)")
+            # Default to CPU - fastest for individual operations
+            # GPU backends have transfer overhead that kills throughput for typical workloads
+            # Use backend="gpu" or backend="torchhd" explicitly when needed
+            self.backend = "cpu"
+            self.vector_manager = VectorManager(dimensions, self.backend)
+            self.encoder = Encoder(self.vector_manager)
         else:
             self.backend = backend
             self.vector_manager = VectorManager(dimensions, self.backend)

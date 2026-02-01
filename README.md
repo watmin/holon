@@ -91,15 +91,16 @@ Holon supports multiple backends with different trade-offs:
 | `torchhd` | 300 ops/sec | **Best** | Accuracy-critical classification |
 
 ```python
-# Auto-select (prefers CuPy GPU if available, then CPU)
-store = CPUStore(dimensions=4096, backend="auto")
+# Default is CPU (fastest for typical workloads)
+store = CPUStore(dimensions=4096)
 
-# Force specific backend
-store = CPUStore(backend="cpu")      # Fastest individual ops
+# Explicit backend selection
+store = CPUStore(backend="cpu")      # Default - fastest individual ops
+store = CPUStore(backend="gpu")      # CuPy - for batch operations
 store = CPUStore(backend="torchhd")  # Best accuracy (Level embeddings)
 
 # Environment variable override
-# HOLON_BACKEND=cpu python my_script.py
+# HOLON_BACKEND=torchhd python my_script.py
 ```
 
 **TorchHD Backend** (`pip install torch-hd`):
