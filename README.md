@@ -241,6 +241,27 @@ Validated implementations with honest assessments:
 | **004-batch** | Sudoku constraint satisfaction | ❌ [VSA fundamentally cannot solve](scripts/challenges/004-batch/approaches/FINAL_ASSESSMENT.md) |
 | **005-batch** | NP-hard optimization (3-coloring, SAT, TSP) | ⏳ Expected to fail (same reasons as Sudoku) |
 | **006-batch** | LLM memory augmentation | ✅ [Ideal use case - 82% token savings](docs/challenges/006-batch/LEARNINGS.md) |
+| **007-batch** | Multi-domain demonstrations (7 solutions) | ✅ [7/7 working, 100% fraud detection](scripts/challenges/007-batch/FINAL_STATUS.md) |
+
+### Batch 007 Highlights
+
+Seven real-world use cases demonstrating Holon as a remote service:
+
+| Solution | Domain | Key Result |
+|----------|--------|------------|
+| Rete Rule Engine | Business rules | Exact + fuzzy matching with truth maintenance |
+| Code Understanding | Developer tools | 160 items indexed, AST + metadata search |
+| Hierarchical Docs | Legal tech | Section hierarchy, cross-references, amendments |
+| Event Sequences | Fraud detection | **100% accuracy** (5/5 k-NN classification) |
+| Knowledge Graph | Information retrieval | Entity relations, influence queries |
+| Medical Records | Healthcare | Symptom search, severity filtering |
+| Scale Experiments | Capacity planning | See scale results below |
+
+**Scale experiment results (HTTP-compatible, no local numpy):**
+- Category saturation: 30% accuracy at 50 categories (k-NN struggles with many similar categories)
+- Needle in haystack: **Rank 1 among 500 similar items** ✅
+- Binding depth: No degradation up to depth 6 ✅
+- Field dilution: 100% retention up to 100 fields ✅
 
 ### What Works vs What Doesn't
 
@@ -249,12 +270,16 @@ Validated implementations with honest assessments:
 - Top-k retrieval with semantic ranking
 - Prototype learning and classification
 - "Find similar to X" and "X but not Y" queries
+- Finding needles in haystacks (rank 1 among 500+ similar items)
+- Deep nesting without signal loss (6+ levels)
+- High field counts without dilution (100+ fields)
 
 **Holon cannot solve:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
 - Problems requiring global coherence across all parts
 - Exact matching where "close enough" isn't acceptable
 - NP-hard optimization (despite creative attempts)
+- Many-category classification via k-NN (30% at 50 categories)
 
 ## Documentation
 
