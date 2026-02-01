@@ -285,14 +285,18 @@ Validated implementations with honest assessments:
 
 ### Batch 008: Comprehensive Holon Feature Showcase
 
-All features demonstrated across 5 production-ready challenges:
+7 challenges demonstrating the full primitive set:
 
-| Challenge | Domain | Accuracy | Key Features |
-|-----------|--------|----------|--------------|
-| API Pattern Analyzer | Security | 92% | TorchHD, difference+amplify, negations |
-| Ticket Router | Support | 100% | k-NN, prototype, $time guards |
-| Event Correlation | SIEM | 100% | bind+bundle for sequences |
-| Config Drift | DevOps | 62% detected | difference, amplify, negate |
+| Challenge | Domain | Result | Key Features |
+|-----------|--------|--------|--------------|
+| Document Retrieval | Legal/Compliance | 0.88ms latency | $time similarity, guards, prototypes |
+| API Pattern Analyzer | Security | 92% precision | difference+amplify for signatures |
+| Code Search | Developer tools | 2K items indexed | N-gram encoding, AST structure |
+| Ticket Router | Support | 100%* | k-NN, prototype classification |
+| Event Correlation | SIEM | 100%* | bind+bundle for sequences |
+| Config Drift | DevOps | 2747x ratio | difference, amplify, negate |
+
+*On synthetic data with clean class separation. Real data will be noisier.
 
 **Key Holon Primitives in Action:**
 
@@ -322,6 +326,47 @@ results = client.search_json(
 ```
 
 **Takeaway**: The VSA primitives (`difference`, `amplify`, `negate`, `bind`, `bundle`) transform Holon from a simple vector store into a reasoning system.
+
+### Honest Assessment
+
+**What's genuinely novel:**
+- **Structured data → vectors**: Most vector DBs use LLM embeddings for semantic meaning. Holon encodes JSON *structure* directly - keys, nesting, relationships become geometry.
+- **$time as similarity**: "Documents from around that time" is vector similarity, not a date range filter. Time is *in the vector*.
+- **Composable primitives**: `difference(old_config, new_config)` gives you a drift *vector*. You can then `negate()` expected changes and `amplify()` security fields. This composes.
+- **Serializable everything**: Guards, negations, probes - all JSON. No lambdas. Works over HTTP.
+
+**What's honestly limited:**
+- **Scale**: Tested with 1-10K items. We don't know behavior at 1M+.
+- **Accuracy claims**: "100% accuracy" is on synthetic data designed for clean separation. Real data has noise, overlap, edge cases.
+- **Performance**: Sub-1ms on 1K items is just numpy array operations. Not magic.
+- **Not a search engine replacement**: We never benchmarked against Elasticsearch/Algolia. "Better than keyword search" is unproven.
+- **TorchHD tradeoff**: Level embeddings improve numeric field handling but 300 ops/sec vs 11K ops/sec is significant.
+
+**The genuine insight**: VSA encodes *structure* as *geometry*. Similar structures cluster. This is fundamentally different from semantic embeddings, and useful for different problems.
+
+**The coolest thing we built** (config drift detection):
+```python
+# Encode your golden config and actual server config
+golden = store.encode(golden_config)
+actual = store.encode(server_config)
+
+# The DRIFT is a vector (what changed)
+drift = store.difference(golden, actual)
+
+# Expected changes are also a vector
+expected = store.encode({"version": "2.0", "timeout": 60})
+
+# Remove expected changes → only UNEXPECTED drift remains
+unexpected = store.negate(drift, expected, method="orthogonalize")
+
+# Amplify security-related fields
+security_drift = store.amplify(unexpected, store.encode({"tls": {}, "auth": {}}), 2.0)
+
+# Now search: "Find servers with similar security drift patterns"
+results = client.search_by_vector(security_drift, limit=10)
+```
+
+This isn't possible with traditional search. The drift, the expected changes, the amplification - they're all *vectors* that compose mathematically.
 
 ### Batch 007 Highlights
 

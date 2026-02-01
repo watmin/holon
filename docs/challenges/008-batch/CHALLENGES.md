@@ -628,3 +628,37 @@ results = client.search_json(
 - Bind events with position vectors (preserves order)
 - Bundle to create sequence fingerprint
 - Result: 100% attack detection with order-aware matching
+
+---
+
+## Brutal Honesty
+
+### What We Actually Built
+
+**Genuinely impressive:**
+1. **Primitive composition works** - You can `difference()` configs, `negate()` expected changes, `amplify()` security fields, and the math composes correctly.
+2. **$time as similarity** - "Documents from around that time" via vector distance is elegant and works.
+3. **Structured search is real** - Finding functions by call patterns, configs by drift signatures, events by sequence fingerprints - this is genuinely different from keyword search.
+
+**Honestly limited:**
+1. **Synthetic data flatters us** - 100% accuracy on ticket routing/event correlation is because we designed the test data with clean separation. Real data has noise, ambiguity, edge cases.
+2. **Scale is unproven** - We tested with 1-2K items. At 1M+, we don't know if this works. The O(n) linear scan in `CPUStore.query()` will hurt.
+3. **Never benchmarked against alternatives** - "Better than keyword search" is asserted, not proven. We never compared to Elasticsearch, Algolia, or even grep.
+4. **Performance is nothing special** - Sub-1ms on 1K items is numpy array operations. A hash table would be faster.
+5. **TorchHD tradeoff is real** - 300 ops/sec vs 11K ops/sec. We chose accuracy over throughput without quantifying the accuracy gain properly.
+
+### What We'd Need to Prove
+
+- [ ] Run on real (messy) production data
+- [ ] Benchmark against Elasticsearch for similar queries
+- [ ] Test at 100K+ items with realistic query patterns
+- [ ] Quantify accuracy delta with statistical rigor
+- [ ] Profile memory usage at scale
+
+### The Genuine Contribution
+
+Holon demonstrates that **Vector Symbolic Architectures can encode structured data**, enabling a style of fuzzy search that's fundamentally different from both keyword search and semantic embeddings.
+
+The primitives (`prototype`, `difference`, `amplify`, `negate`, `bind`, `bundle`) compose mathematically and enable operations like "config drift detection" that would be hard to express otherwise.
+
+Whether this is *better* than alternatives for production use cases? **Unproven**. But the approach is novel and the demos show what's possible.
