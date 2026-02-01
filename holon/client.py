@@ -72,12 +72,16 @@ class HolonClient:
 
     def _to_numpy(self, vector):
         """Convert vector to numpy array, handling TorchHD tensors."""
-        if hasattr(self._store, '_use_torchhd') and self._store._use_torchhd:
+        # Check if it's already a numpy array
+        if isinstance(vector, np.ndarray):
+            return vector
+        # Check if it's a torch tensor
+        if hasattr(vector, 'cpu') and callable(vector.cpu):
             return vector.cpu().numpy()
-        elif self._store.vector_manager is not None:
+        # Try vector_manager if available
+        if self._store.vector_manager is not None:
             return self._store.vector_manager.to_cpu(vector)
-        else:
-            return vector  # Already numpy
+        return vector
 
     def health(self) -> Dict[str, Any]:
         """Get system health and statistics."""

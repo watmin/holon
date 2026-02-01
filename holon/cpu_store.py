@@ -113,25 +113,46 @@ class CPUStore(Store):
             self.vector_manager = None  # Not used with TorchHD
             print("🔥 Using TorchHD backend")
         elif backend == "auto":
-            # Default to CuPy GPU or CPU - TorchHD is opt-in for now
-            try:
-                import cupy as cp
+            # Try TorchHD with GPU first (best accuracy), then CuPy, then CPU
+            if TORCHHD_AVAILABLE:
                 try:
-                    cp.cuda.runtime.getDeviceCount()
-                    self.backend = "gpu"
-                    self.vector_manager = VectorManager(dimensions, self.backend)
-                    self.encoder = Encoder(self.vector_manager)
-                    print("🎮 Auto-selected GPU backend (CuPy)")
-                except cp.cuda.runtime.CUDARuntimeError:
+                    import torch
+                    if torch.cuda.is_available():
+                        self.backend = "torchhd"
+                        self._use_torchhd = True
+                        self.encoder = TorchHDEncoder(dimensions=dimensions)
+                        self.vector_manager = None
+                        print("🔥 Auto-selected TorchHD backend (GPU)")
+                    else:
+                        # TorchHD on CPU is slower, fall back to numpy
+                        self.backend = "cpu"
+                        self.vector_manager = VectorManager(dimensions, self.backend)
+                        self.encoder = Encoder(self.vector_manager)
+                        print("💻 Auto-selected CPU backend (TorchHD available but no GPU)")
+                except Exception:
                     self.backend = "cpu"
                     self.vector_manager = VectorManager(dimensions, self.backend)
                     self.encoder = Encoder(self.vector_manager)
-                    print("💻 Auto-selected CPU backend (no GPU available)")
-            except ImportError:
-                self.backend = "cpu"
-                self.vector_manager = VectorManager(dimensions, self.backend)
-                self.encoder = Encoder(self.vector_manager)
-                print("💻 Auto-selected CPU backend (cupy not available)")
+                    print("💻 Auto-selected CPU backend")
+            else:
+                try:
+                    import cupy as cp
+                    try:
+                        cp.cuda.runtime.getDeviceCount()
+                        self.backend = "gpu"
+                        self.vector_manager = VectorManager(dimensions, self.backend)
+                        self.encoder = Encoder(self.vector_manager)
+                        print("🎮 Auto-selected GPU backend (CuPy)")
+                    except cp.cuda.runtime.CUDARuntimeError:
+                        self.backend = "cpu"
+                        self.vector_manager = VectorManager(dimensions, self.backend)
+                        self.encoder = Encoder(self.vector_manager)
+                        print("💻 Auto-selected CPU backend (no GPU available)")
+                except ImportError:
+                    self.backend = "cpu"
+                    self.vector_manager = VectorManager(dimensions, self.backend)
+                    self.encoder = Encoder(self.vector_manager)
+                    print("💻 Auto-selected CPU backend (cupy not available)")
         else:
             self.backend = backend
             self.vector_manager = VectorManager(dimensions, self.backend)

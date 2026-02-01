@@ -36,6 +36,21 @@ MAX_QUERY_RESULTS = 100  # System maximum for top_k
 DEFAULT_QUERY_RESULTS = 10
 
 
+def _to_numpy(vector):
+    """Convert vector to numpy array, handling TorchHD tensors."""
+    import numpy as np
+    # Check if it's already a numpy array
+    if isinstance(vector, np.ndarray):
+        return vector
+    # Check if it's a torch tensor
+    if hasattr(vector, 'cpu') and callable(vector.cpu):
+        return vector.cpu().numpy()
+    # Try vector_manager if available
+    if store.vector_manager is not None:
+        return store.vector_manager.to_cpu(vector)
+    return vector
+
+
 def is_subset(guard: Dict[str, Any], data: Dict[str, Any]) -> bool:
     """Check if guard dict is a subset of data dict (recursive, with $any support)."""
     for key, value in guard.items():
@@ -330,7 +345,7 @@ async def encode_data_v1(request: EncodeRequest):
     try:
         parsed = parse_data(request.data, request.data_type)
         encoded_vector = store.encoder.encode_data(parsed)
-        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        cpu_vector = _to_numpy(encoded_vector)
         vector_list = cpu_vector.tolist()
 
         # Track timing
@@ -358,7 +373,7 @@ async def encode_mathematical_v1(request: MathematicalEncodeRequest):
             raise HTTPException(status_code=400, detail=f"Unknown mathematical primitive: {request.primitive}")
 
         encoded_vector = store.encoder.encode_mathematical_primitive(primitive, request.value)
-        cpu_vector = store.vector_manager.to_cpu(encoded_vector)
+        cpu_vector = _to_numpy(encoded_vector)
         vector_list = cpu_vector.tolist()
 
         return {"vector": vector_list, "encoding_type": f"mathematical_{request.primitive}"}
@@ -389,7 +404,7 @@ async def compose_vectors_v1(request: MathematicalComposeRequest):
         else:
             raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
 
-        cpu_result = store.vector_manager.to_cpu(result_vector)
+        cpu_result = _to_numpy(result_vector)
         result_list = cpu_result.tolist()
 
         return {"vector": result_list, "encoding_type": encoding_type}
@@ -418,7 +433,7 @@ async def compute_prototype_v1(request: PrototypeRequest):
 
         np_vectors = [np.array(v, dtype=np.float64) for v in request.vectors]
         result = store.prototype(np_vectors, threshold=request.threshold)
-        cpu_result = store.vector_manager.to_cpu(result)
+        cpu_result = _to_numpy(result)
 
         return {
             "vector": cpu_result.tolist(),
@@ -444,7 +459,7 @@ async def compute_difference_v1(request: DifferenceRequest):
         before = np.array(request.before, dtype=np.float64)
         after = np.array(request.after, dtype=np.float64)
         result = store.difference(before, after)
-        cpu_result = store.vector_manager.to_cpu(result)
+        cpu_result = _to_numpy(result)
 
         return {"vector": cpu_result.tolist()}
     except Exception as e:
@@ -466,7 +481,7 @@ async def compute_blend_v1(request: BlendRequest):
         vec1 = np.array(request.vec1, dtype=np.float64)
         vec2 = np.array(request.vec2, dtype=np.float64)
         result = store.blend(vec1, vec2, alpha=request.alpha)
-        cpu_result = store.vector_manager.to_cpu(result)
+        cpu_result = _to_numpy(result)
 
         return {"vector": cpu_result.tolist(), "alpha": request.alpha}
     except Exception as e:
@@ -488,7 +503,7 @@ async def compute_amplify_v1(request: AmplifyRequest):
         base = np.array(request.base, dtype=np.float64)
         component = np.array(request.component, dtype=np.float64)
         result = store.amplify(base, component, strength=request.strength)
-        cpu_result = store.vector_manager.to_cpu(result)
+        cpu_result = _to_numpy(result)
 
         return {"vector": cpu_result.tolist(), "strength": request.strength}
     except Exception as e:
@@ -510,7 +525,7 @@ async def compute_negate_v1(request: NegateRequest):
         base = np.array(request.base, dtype=np.float64)
         component = np.array(request.component, dtype=np.float64)
         result = store.negate(base, component, method=request.method)
-        cpu_result = store.vector_manager.to_cpu(result)
+        cpu_result = _to_numpy(result)
 
         return {"vector": cpu_result.tolist(), "method": request.method}
     except Exception as e:
@@ -559,7 +574,7 @@ async def get_item_vector_v1(item_id: str):
             raise HTTPException(status_code=404, detail="Item not found")
 
         vector = store.stored_vectors[item_id]
-        cpu_vector = store.vector_manager.to_cpu(vector)
+        cpu_vector = _to_numpy(vector)
         vector_list = cpu_vector.tolist()
 
         return {"id": item_id, "vector": vector_list}

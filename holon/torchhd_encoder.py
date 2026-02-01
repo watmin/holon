@@ -142,17 +142,17 @@ class TorchHDEncoder:
         return level_emb(torch.tensor([value], device=self.device)).squeeze(0)
     
     def _encode_time(self, timestamp) -> torch.Tensor:
-        """Encode timestamp using Circular embedding (wraps around)."""
-        import datetime
+        """Encode timestamp using Circular + Level (positional) embedding."""
+        import datetime as dt_module
         
         # Handle ISO string timestamps
         if isinstance(timestamp, str):
             try:
                 # Try ISO format parsing
                 if 'T' in timestamp:
-                    dt = datetime.datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    dt = dt_module.datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
                 else:
-                    dt = datetime.datetime.fromisoformat(timestamp)
+                    dt = dt_module.datetime.fromisoformat(timestamp)
                 timestamp = dt.timestamp()
             except ValueError:
                 # Fallback to hash-based encoding for invalid strings
@@ -162,17 +162,36 @@ class TorchHDEncoder:
             # 24 phases for hours in a day
             self._circular_embedding = embeddings.Circular(24, self.dimensions, device=self.device)
         
-        # Extract hour of day for circular encoding
-        dt = datetime.datetime.fromtimestamp(timestamp)
+        # Extract datetime components
+        dt = dt_module.datetime.fromtimestamp(timestamp)
         hour = dt.hour + dt.minute / 60.0
         
-        # Also encode day of week, month for richer time representation
+        # Circular components (periodic patterns)
+        hour_hv = self._circular_embedding(torch.tensor([hour], device=self.device)).squeeze(0)
         dow_emb = self._get_value_hv(f"dow:{dt.weekday()}")
         month_emb = self._get_value_hv(f"month:{dt.month}")
-        hour_hv = self._circular_embedding(torch.tensor([hour], device=self.device)).squeeze(0)
         
-        # Bundle time components (torchhd.bundle takes 2 args, so chain or sum)
-        return hour_hv + dow_emb + month_emb
+        # Positional component using Level embedding (near times = similar vectors)
+        # Range: 10 years of hours, centered around 2024
+        if not hasattr(self, '_time_level_embedding'):
+            # 10 years = ~87600 hours, 1000 levels for granularity
+            base_2024 = dt_module.datetime(2024, 1, 1).timestamp()
+            self._time_level_embedding = embeddings.Level(
+                1000, self.dimensions,
+                low=(base_2024 - 5*365*24*3600) / 3600,  # 5 years before 2024
+                high=(base_2024 + 5*365*24*3600) / 3600,  # 5 years after 2024
+                device=self.device
+            )
+        
+        hours_since_epoch = timestamp / 3600
+        position_hv = self._time_level_embedding(
+            torch.tensor([hours_since_epoch], device=self.device)
+        ).squeeze(0)
+        
+        # Bundle: balance circular and positional
+        # Hour: same-hour-diff-day similarity (weight 2)
+        # Position: near-time-more-similar (weight 1.5)
+        return 2.0 * hour_hv + 0.3 * dow_emb + 0.3 * month_emb + 1.5 * position_hv
     
     def _encode_list(self, items: List[Any]) -> torch.Tensor:
         """Encode a list by bundling items with position binding."""
@@ -191,6 +210,17 @@ class TorchHDEncoder:
     def _encode_dict(self, data: Dict[str, Any]) -> torch.Tensor:
         """Encode a dictionary using hash_table structure (field * value bindings bundled)."""
         if not data:
+            return torch.zeros(self.dimensions, device=self.device)
+        
+        # Handle special case: dict IS a time marker
+        if "$time" in data and len(data) == 1:
+            return self._encode_time(data["$time"])
+        if "$time" in data:
+            # Has $time plus other fields - encode time specially
+            pass  # Fall through to normal encoding
+        
+        # Handle $any marker (wildcard)
+        if "$any" in data:
             return torch.zeros(self.dimensions, device=self.device)
         
         # Build key-value pairs
@@ -226,7 +256,16 @@ class TorchHDEncoder:
         if isinstance(data, str):
             data = json.loads(data)
         
-        return self._encode_dict(data)
+        result = self._encode_dict(data)
+        # Threshold to bipolar for compatibility with original encoder
+        return self._threshold_bipolar(result)
+    
+    def _threshold_bipolar(self, vec: torch.Tensor) -> torch.Tensor:
+        """Threshold vector to bipolar values [-1, 0, 1]."""
+        result = torch.zeros_like(vec, dtype=torch.int8)
+        result[vec > 0] = 1
+        result[vec < 0] = -1
+        return result
     
     # VSA Primitives (delegated to torchhd)
     
@@ -285,6 +324,165 @@ class TorchHDEncoder:
     def to_numpy(self, tensor: torch.Tensor):
         """Convert tensor to numpy for compatibility."""
         return tensor.cpu().numpy()
+    
+    # Mathematical Primitives (for compatibility with original encoder)
+    
+    def encode_mathematical_primitive(self, primitive, value: float) -> torch.Tensor:
+        """Encode fundamental mathematical properties."""
+        from .encoder import MathematicalPrimitive
+        
+        if primitive == MathematicalPrimitive.CONVERGENCE_RATE:
+            return self._encode_convergence_rate(value)
+        elif primitive == MathematicalPrimitive.ITERATION_COMPLEXITY:
+            return self._encode_iteration_complexity(value)
+        elif primitive == MathematicalPrimitive.FREQUENCY_DOMAIN:
+            return self._encode_frequency_domain(value)
+        elif primitive == MathematicalPrimitive.AMPLITUDE_SCALE:
+            return self._encode_amplitude_scale(value)
+        elif primitive == MathematicalPrimitive.POWER_LAW_EXPONENT:
+            return self._encode_power_law_exponent(value)
+        elif primitive == MathematicalPrimitive.CLUSTERING_COEFFICIENT:
+            return self._encode_clustering_coefficient(value)
+        elif primitive == MathematicalPrimitive.TOPOLOGICAL_DISTANCE:
+            return self._encode_topological_distance(value)
+        elif primitive == MathematicalPrimitive.SELF_SIMILARITY:
+            return self._encode_self_similarity(value)
+        else:
+            raise ValueError(f"Unknown mathematical primitive: {primitive}")
+    
+    def _encode_convergence_rate(self, rate: float) -> torch.Tensor:
+        """Encode mathematical convergence properties."""
+        if rate < 0.2:
+            category = "very_slow_convergence"
+        elif rate < 0.4:
+            category = "slow_convergence"
+        elif rate < 0.6:
+            category = "moderate_slow_convergence"
+        elif rate < 0.8:
+            category = "moderate_convergence"
+        elif rate < 0.9:
+            category = "fast_convergence"
+        elif rate < 0.95:
+            category = "very_fast_convergence"
+        else:
+            category = "divergent"
+        return self._get_value_hv(category)
+    
+    def _encode_iteration_complexity(self, iterations: int) -> torch.Tensor:
+        """Encode computational iteration complexity."""
+        if iterations < 10:
+            category = "low_complexity"
+        elif iterations < 50:
+            category = "moderate_complexity"
+        elif iterations < 200:
+            category = "high_complexity"
+        else:
+            category = "extreme_complexity"
+        return self._get_value_hv(category)
+    
+    def _encode_frequency_domain(self, freq: float) -> torch.Tensor:
+        """Encode frequency domain properties."""
+        if freq < 0.01:
+            category = "very_low_frequency"
+        elif freq < 0.1:
+            category = "low_frequency"
+        elif freq < 1.0:
+            category = "medium_low_frequency"
+        elif freq < 10.0:
+            category = "medium_frequency"
+        elif freq < 100.0:
+            category = "high_frequency"
+        else:
+            category = "ultrasonic_frequency"
+        return self._get_value_hv(category)
+    
+    def _encode_amplitude_scale(self, amp: float) -> torch.Tensor:
+        """Encode amplitude scale properties."""
+        if amp < 0.01:
+            category = "micro_amplitude"
+        elif amp < 0.1:
+            category = "small_amplitude"
+        elif amp < 1.0:
+            category = "medium_amplitude"
+        elif amp < 10.0:
+            category = "large_amplitude"
+        else:
+            category = "macro_amplitude"
+        return self._get_value_hv(category)
+    
+    def _encode_power_law_exponent(self, exponent: float) -> torch.Tensor:
+        """Encode power law scaling exponent."""
+        if exponent < -2:
+            category = "steep_decay"
+        elif exponent < -1:
+            category = "moderate_decay"
+        elif exponent < 0:
+            category = "slow_decay"
+        elif exponent < 1:
+            category = "slow_growth"
+        elif exponent < 2:
+            category = "moderate_growth"
+        else:
+            category = "steep_growth"
+        return self._get_value_hv(category)
+    
+    def _encode_clustering_coefficient(self, coeff: float) -> torch.Tensor:
+        """Encode graph clustering coefficient."""
+        if coeff < 0.1:
+            category = "sparse_clustering"
+        elif coeff < 0.3:
+            category = "low_clustering"
+        elif coeff < 0.5:
+            category = "moderate_clustering"
+        elif coeff < 0.7:
+            category = "high_clustering"
+        else:
+            category = "dense_clustering"
+        return self._get_value_hv(category)
+    
+    def _encode_topological_distance(self, distance: float) -> torch.Tensor:
+        """Encode topological distance."""
+        if distance < 1:
+            category = "adjacent"
+        elif distance < 3:
+            category = "nearby"
+        elif distance < 6:
+            category = "moderate_distance"
+        else:
+            category = "far"
+        return self._get_value_hv(category)
+    
+    def _encode_self_similarity(self, measure: float) -> torch.Tensor:
+        """Encode self-similarity (fractal dimension)."""
+        if measure < 1.2:
+            category = "low_complexity_fractal"
+        elif measure < 1.5:
+            category = "moderate_fractal"
+        elif measure < 1.8:
+            category = "complex_fractal"
+        else:
+            category = "highly_complex_fractal"
+        return self._get_value_hv(category)
+    
+    def mathematical_bind(self, *vectors) -> torch.Tensor:
+        """Bind mathematical properties together."""
+        if not vectors:
+            return torch.zeros(self.dimensions, device=self.device)
+        result = vectors[0]
+        for vec in vectors[1:]:
+            result = torchhd.bind(result, vec)
+        return result
+    
+    def mathematical_bundle(self, vectors: List[torch.Tensor], weights: List[float] = None) -> torch.Tensor:
+        """Bundle mathematical properties with optional weighting."""
+        if not vectors:
+            return torch.zeros(self.dimensions, device=self.device)
+        if weights is None:
+            weights = [1.0] * len(vectors)
+        result = torch.zeros(self.dimensions, device=self.device, dtype=torch.float32)
+        for vec, weight in zip(vectors, weights):
+            result = result + weight * vec.float()
+        return result
 
 
 class TorchHDStore:
