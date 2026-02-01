@@ -310,14 +310,18 @@ class TorchHDEncoder:
         return torchhd.cosine_similarity(vec1.unsqueeze(0), vec2.unsqueeze(0)).item()
     
     def prototype(self, vectors: List[torch.Tensor], threshold: float = 0.5) -> torch.Tensor:
-        """Create prototype from list of vectors."""
+        """Create prototype from list of vectors.
+        
+        Bundles all vectors and thresholds to bipolar for consistent similarity.
+        """
         if not vectors:
-            return torch.zeros(self.dimensions, device=self.device)
+            return torch.zeros(self.dimensions, device=self.device, dtype=torch.int8)
         # Sum all vectors to create prototype
-        result = vectors[0].clone()
+        result = vectors[0].float()
         for v in vectors[1:]:
-            result = result + v
-        return result
+            result = result + v.float()
+        # Threshold to bipolar (like original encoder)
+        return self._threshold_bipolar(result)
     
     def difference(self, before: torch.Tensor, after: torch.Tensor) -> torch.Tensor:
         """Compute what changed between two states."""
@@ -327,9 +331,24 @@ class TorchHDEncoder:
         """Amplify a component in a superposition."""
         return superposition + strength * component
     
-    def negate(self, superposition: torch.Tensor, component: torch.Tensor) -> torch.Tensor:
-        """Remove a component from a superposition."""
-        return superposition - component
+    def negate(self, superposition: torch.Tensor, component: torch.Tensor, method: str = "subtract") -> torch.Tensor:
+        """Remove a component from a superposition.
+        
+        Args:
+            superposition: The base vector
+            component: The component to remove
+            method: "subtract" (default) or "orthogonalize"
+        """
+        if method == "orthogonalize":
+            # Project component out of superposition
+            dot = torch.dot(superposition.float(), component.float())
+            norm_sq = torch.dot(component.float(), component.float())
+            if norm_sq > 0:
+                projection = (dot / norm_sq) * component
+                return superposition - projection
+            return superposition
+        else:  # subtract
+            return superposition - component
     
     def blend(self, vec1: torch.Tensor, vec2: torch.Tensor, alpha: float = 0.5) -> torch.Tensor:
         """Blend two vectors with given weight."""

@@ -615,7 +615,9 @@ def demonstrate_new_primitives(store, client, tasks):
 
     print(f"  Task 1: {task1['title'][:40]}... ({task1['project']})")
     print(f"  Task 2: {task2['title'][:40]}... ({task2['project']})")
-    print(f"  Difference vector norm: {np.linalg.norm(diff):.1f}")
+    # Convert torch tensor to numpy if needed
+    diff_np = diff.cpu().numpy() if hasattr(diff, 'cpu') else diff
+    print(f"  Difference vector norm: {np.linalg.norm(diff_np):.1f}")
 
     # The difference should be more similar to task1 than task2
     sim_to_1 = cosine_similarity(diff, vec1)

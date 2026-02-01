@@ -37,6 +37,12 @@ def normalized_dot_similarity(
     D = len(vec1)
 
     # Handle mixed CPU/GPU arrays - check both vectors using type check
+    # Handle torch tensors
+    if hasattr(vec1, 'cpu') and callable(vec1.cpu):
+        vec1 = vec1.cpu().numpy()
+    if hasattr(vec2, 'cpu') and callable(vec2.cpu):
+        vec2 = vec2.cpu().numpy()
+
     vec1_is_cupy = CUPY_AVAILABLE and type(vec1).__module__.startswith('cupy')
     vec2_is_cupy = CUPY_AVAILABLE and type(vec2).__module__.startswith('cupy')
 
