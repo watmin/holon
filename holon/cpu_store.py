@@ -100,9 +100,19 @@ ANN_THRESHOLD = 1000  # Switch to ANN when > 1000 items
 
 
 class CPUStore(Store):
-    def __init__(self, dimensions: int = 16000, backend: str = "auto"):
+    def __init__(self, dimensions: int = 16000, backend: str = "auto", marker_prefix: str = "$"):
+        """
+        Initialize a CPU-based vector store.
+        
+        :param dimensions: Vector dimensionality (4096 recommended for most use cases)
+        :param backend: "cpu", "gpu", "torchhd", or "auto"
+        :param marker_prefix: Prefix for special markers like $time, $any, $gt, etc.
+                             Change this if your data legitimately contains keys like "$time".
+                             Example: marker_prefix="$$" makes the time marker "$$time"
+        """
         self.dimensions = dimensions
         self._use_torchhd = False
+        self.marker_prefix = marker_prefix
 
         # Environment variable override for testing
         env_backend = os.environ.get("HOLON_BACKEND")
@@ -115,7 +125,7 @@ class CPUStore(Store):
                 raise ImportError("TorchHD backend requested but torch-hd not installed. Run: pip install torch-hd")
             self.backend = "torchhd"
             self._use_torchhd = True
-            self.encoder = TorchHDEncoder(dimensions=dimensions)
+            self.encoder = TorchHDEncoder(dimensions=dimensions, marker_prefix=marker_prefix)
             self.vector_manager = None  # Not used with TorchHD
             print("🔥 Using TorchHD backend")
         elif backend == "auto":
@@ -124,11 +134,11 @@ class CPUStore(Store):
             # Use backend="gpu" or backend="torchhd" explicitly when needed
             self.backend = "cpu"
             self.vector_manager = VectorManager(dimensions, self.backend)
-            self.encoder = Encoder(self.vector_manager)
+            self.encoder = Encoder(self.vector_manager, marker_prefix=marker_prefix)
         else:
             self.backend = backend
             self.vector_manager = VectorManager(dimensions, self.backend)
-            self.encoder = Encoder(self.vector_manager)
+            self.encoder = Encoder(self.vector_manager, marker_prefix=marker_prefix)
 
         self.stored_data: Dict[str, Dict[str, Any]] = {}  # id -> original data dict
         self.stored_vectors: Dict[str, Any] = {}  # id -> encoded vector (numpy arrays)
@@ -690,3 +700,31 @@ class CPUStore(Store):
         Keeps only dimensions where both agree.
         """
         return self.encoder.resonance(vec, reference)
+
+    def permute(self, vec: np.ndarray, k: int) -> np.ndarray:
+        """
+        Circular shift (permutation) of vector dimensions.
+        
+        Used for positional encoding in sequences and "what comes after?" queries.
+        """
+        return self.encoder.permute(vec, k)
+
+    def cleanup(self, noisy: np.ndarray, codebook: List[np.ndarray]) -> np.ndarray:
+        """
+        Find the closest vector in codebook to the noisy input.
+        
+        Returns a vector (the closest match from codebook), not data.
+        Useful for denoising composed vectors before further operations.
+        """
+        return self.encoder.cleanup(noisy, codebook)
+
+    def prototype_add(
+        self, prototype: np.ndarray, example: np.ndarray, count: int
+    ) -> np.ndarray:
+        """
+        Incrementally update a prototype with a new example.
+        
+        Avoids re-computing prototype([all_examples]) from scratch.
+        Pass the current count (before adding this example).
+        """
+        return self.encoder.prototype_add(prototype, example, count)

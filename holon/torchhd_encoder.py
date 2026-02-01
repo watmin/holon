@@ -25,9 +25,18 @@ class TorchHDEncoder:
         dimensions: int = 4096,
         device: str = "auto",
         vsa_model: str = "MAP",  # MAP, BSC, HRR, FHRR
+        marker_prefix: str = "$",
     ):
         self.dimensions = dimensions
         self.vsa_model = vsa_model
+        self.marker_prefix = marker_prefix
+        
+        # Derived marker names (user-configurable to avoid conflicts with data)
+        self._time_marker = f"{marker_prefix}time"
+        self._time_resolution_marker = f"{marker_prefix}time_resolution"
+        self._any_marker = f"{marker_prefix}any"
+        self._not_marker = f"{marker_prefix}not"
+        self._or_marker = f"{marker_prefix}or"
         
         # Auto-detect device
         if device == "auto":
@@ -105,8 +114,8 @@ class TorchHDEncoder:
             return self._get_value_hv(value.name)
         
         # Handle $time marker (circular encoding)
-        if isinstance(value, dict) and "$time" in value:
-            return self._encode_time(value["$time"])
+        if isinstance(value, dict) and self._time_marker in value:
+            return self._encode_time(value[self._time_marker])
         
         # Handle $any marker (wildcard)
         if isinstance(value, dict) and "$any" in value:
@@ -228,9 +237,9 @@ class TorchHDEncoder:
             return torch.zeros(self.dimensions, device=self.device)
         
         # Handle special case: dict IS a time marker
-        if "$time" in data and len(data) == 1:
-            return self._encode_time(data["$time"])
-        if "$time" in data:
+        if self._time_marker in data and len(data) == 1:
+            return self._encode_time(data[self._time_marker])
+        if self._time_marker in data:
             # Has $time plus other fields - encode time specially
             pass  # Fall through to normal encoding
         
@@ -386,6 +395,49 @@ class TorchHDEncoder:
         result = torch.zeros_like(vec)
         result[agree] = vec[agree]
         return result
+    
+    def permute(self, vec: torch.Tensor, k: int) -> torch.Tensor:
+        """Circular shift (permutation) of vector dimensions."""
+        return torch.roll(vec, k)
+    
+    def cleanup(self, noisy: torch.Tensor, codebook: List[torch.Tensor]) -> torch.Tensor:
+        """Find the closest vector in codebook to the noisy input."""
+        import numpy as np
+        if isinstance(noisy, np.ndarray):
+            noisy = torch.from_numpy(noisy).to(self.device)
+        
+        if not codebook:
+            return noisy
+        
+        best_vec = codebook[0]
+        best_sim = -float('inf')
+        
+        for vec in codebook:
+            if isinstance(vec, np.ndarray):
+                vec = torch.from_numpy(vec).to(self.device)
+            noisy_norm = noisy.float() / (torch.norm(noisy.float()) + 1e-10)
+            vec_norm = vec.float() / (torch.norm(vec.float()) + 1e-10)
+            sim = float(torch.dot(noisy_norm, vec_norm))
+            
+            if sim > best_sim:
+                best_sim = sim
+                best_vec = vec
+        
+        return best_vec
+    
+    def prototype_add(
+        self, prototype: torch.Tensor, example: torch.Tensor, count: int
+    ) -> torch.Tensor:
+        """Incrementally update a prototype with a new example."""
+        import numpy as np
+        if isinstance(prototype, np.ndarray):
+            prototype = torch.from_numpy(prototype).to(self.device)
+        if isinstance(example, np.ndarray):
+            example = torch.from_numpy(example).to(self.device)
+        
+        weighted = prototype.float() * count + example.float()
+        averaged = weighted / (count + 1)
+        return self._threshold_bipolar(averaged)
     
     def to_numpy(self, tensor: torch.Tensor):
         """Convert tensor to numpy for compatibility."""

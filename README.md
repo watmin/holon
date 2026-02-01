@@ -236,6 +236,26 @@ filtered = store.negate(include_proto, exclude_proto)
 
 # Difference - extract what changed
 delta = store.difference(before_vec, after_vec)
+
+# Permute - circular shift for sequence encoding
+shifted = store.permute(vec, k=3)  # Shift dimensions by 3
+
+# Cleanup - find closest vector in codebook
+clean = store.cleanup(noisy_vec, [proto_a, proto_b, proto_c])
+
+# Prototype Add - incremental prototype update
+proto = store.prototype_add(existing_proto, new_example, count=5)
+```
+
+### Marker Prefix Configuration
+
+By default, Holon uses `$` for special markers (`$time`, `$any`, `$gt`, etc.). If your data legitimately contains keys like `"$time"`, configure a different prefix:
+
+```python
+# Your data has "$time" as a real field
+store = CPUStore(dimensions=4096, marker_prefix="@@")
+# Now use "@@time" for time encoding, "@@any" for wildcards, etc.
+client.insert_json({"$time": "my real data", "created": {"@@time": 1706500000}})
 ```
 
 ## HTTP API

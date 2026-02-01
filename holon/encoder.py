@@ -56,10 +56,26 @@ class Encoder:
         self,
         vector_manager: VectorManager,
         default_list_mode: ListEncodeMode = ListEncodeMode.POSITIONAL,
+        marker_prefix: str = "$",
     ):
         self.vector_manager = vector_manager
         self.backend = vector_manager.backend
         self.default_list_mode = default_list_mode
+        self.marker_prefix = marker_prefix
+        
+        # Derived marker names (user-configurable to avoid conflicts with data)
+        self._time_marker = f"{marker_prefix}time"
+        self._time_resolution_marker = f"{marker_prefix}time_resolution"
+        self._any_marker = f"{marker_prefix}any"
+        self._not_marker = f"{marker_prefix}not"
+        self._or_marker = f"{marker_prefix}or"
+        self._gt_marker = f"{marker_prefix}gt"
+        self._gte_marker = f"{marker_prefix}gte"
+        self._lt_marker = f"{marker_prefix}lt"
+        self._lte_marker = f"{marker_prefix}lte"
+        self._in_marker = f"{marker_prefix}in"
+        self._contains_marker = f"{marker_prefix}contains"
+        self._exists_marker = f"{marker_prefix}exists"
 
     @property
     def xp(self):
@@ -101,7 +117,7 @@ class Encoder:
             return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
         # Check for $time marker at top level of this dict
-        if "$time" in data:
+        if self._time_marker in data:
             return self._encode_time(data)
 
         bound_vectors = []
@@ -111,7 +127,7 @@ class Encoder:
             encode_config = {}
             if isinstance(value, dict):
                 # Check for $time marker in nested value
-                if "$time" in value:
+                if self._time_marker in value:
                     value_vector = self._encode_time(value)
                     key_vector = self._encode_scalar(key)
                     bound = key_vector * value_vector
@@ -782,9 +798,11 @@ class Encoder:
             {"$time": 1706500000}  # Unix timestamp
             {"$time": "2024-01-29T10:30:00Z"}  # ISO string
             {"$time": 1706500000, "$time_resolution": "minute"}
+            
+        Note: The "$time" marker prefix is configurable via marker_prefix.
         """
-        timestamp = value["$time"]
-        resolution_str = value.get("$time_resolution", "hour")
+        timestamp = value[self._time_marker]
+        resolution_str = value.get(self._time_resolution_marker, "hour")
         resolution = TimeResolution(resolution_str)
 
         # Parse timestamp if string
@@ -892,3 +910,79 @@ class Encoder:
             return cp.where(vector > 0, 1, cp.where(vector < 0, -1, 0)).astype(cp.int8)
         else:
             return np.where(vector > 0, 1, np.where(vector < 0, -1, 0)).astype(np.int8)
+
+    # =========================================================================
+    # Additional Primitives
+    # =========================================================================
+
+    def permute(self, vec: np.ndarray, k: int) -> np.ndarray:
+        """
+        Circular shift (permutation) of vector dimensions.
+        
+        Used for positional encoding in sequences:
+            sequence = bundle([permute(A, 0), permute(B, 1), permute(C, 2)])
+        
+        And for "what comes after X?" queries:
+            # If sequence = A + permute(B, 1) + permute(C, 2)
+            # unbind with permute(X, -1) to get "what follows X"
+        
+        :param vec: Input vector
+        :param k: Shift amount (positive = right, negative = left)
+        :return: Shifted vector
+        """
+        if self.backend == "gpu" and CUPY_AVAILABLE:
+            return cp.roll(vec, k)
+        return np.roll(vec, k)
+
+    def cleanup(self, noisy: np.ndarray, codebook: List[np.ndarray]) -> np.ndarray:
+        """
+        Find the closest vector in codebook to the noisy input.
+        
+        Useful for denoising composed vectors before further operations:
+            query = bundle([signal1, signal2, noise])
+            clean = cleanup(query, [proto_a, proto_b, proto_c])
+            result = amplify(base, clean, 0.5)
+        
+        :param noisy: Noisy or composed input vector
+        :param codebook: List of clean/known vectors to match against
+        :return: The codebook vector with highest similarity to noisy
+        """
+        if not codebook:
+            return noisy
+        
+        best_vec = codebook[0]
+        best_sim = -float('inf')
+        
+        for vec in codebook:
+            # Normalized dot product similarity
+            noisy_norm = noisy / (np.linalg.norm(noisy) + 1e-10)
+            vec_norm = vec / (np.linalg.norm(vec) + 1e-10)
+            sim = float(np.dot(noisy_norm, vec_norm))
+            
+            if sim > best_sim:
+                best_sim = sim
+                best_vec = vec
+        
+        return best_vec
+
+    def prototype_add(
+        self, prototype: np.ndarray, example: np.ndarray, count: int
+    ) -> np.ndarray:
+        """
+        Incrementally update a prototype with a new example.
+        
+        Instead of re-computing prototype([all_examples]), you can:
+            proto = prototype([ex1, ex2, ex3])  # Initial, n=3
+            proto = prototype_add(proto, ex4, 3)  # Now n=4
+            proto = prototype_add(proto, ex5, 4)  # Now n=5
+        
+        :param prototype: Existing prototype vector
+        :param example: New example to incorporate
+        :param count: Number of examples already in prototype (before this one)
+        :return: Updated prototype incorporating the new example
+        """
+        # Weighted average: (proto * count + example) / (count + 1)
+        # Then threshold back to bipolar
+        weighted = prototype.astype(np.float32) * count + example.astype(np.float32)
+        averaged = weighted / (count + 1)
+        return self._threshold_bipolar(averaged)

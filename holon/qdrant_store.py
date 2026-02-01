@@ -102,6 +102,7 @@ class QdrantStore(Store):
         url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
         recreate_collection: bool = False,
+        marker_prefix: str = "$",
     ):
         """
         Initialize Qdrant store.
@@ -113,6 +114,8 @@ class QdrantStore(Store):
             url: Qdrant server URL.
             api_key: Optional API key for Qdrant Cloud.
             recreate_collection: If True, drop and recreate collection on init.
+            marker_prefix: Prefix for special markers like $time, $any, $gt, etc.
+                          Change this if your data legitimately contains keys like "$time".
         """
         if not QDRANT_AVAILABLE:
             raise ImportError(
@@ -122,13 +125,14 @@ class QdrantStore(Store):
         self.collection = collection
         self.dimensions = dimensions
         self.url = url
+        self.marker_prefix = marker_prefix
 
         # Initialize Qdrant client
         self.client = QdrantClient(url=url, api_key=api_key)
 
         # Initialize encoder (CPU-based, vectors sent to Qdrant)
         self.vector_manager = VectorManager(dimensions, backend="cpu")
-        self.encoder = Encoder(self.vector_manager)
+        self.encoder = Encoder(self.vector_manager, marker_prefix=marker_prefix)
 
         # Setup collection
         if recreate_collection:
@@ -706,6 +710,20 @@ class QdrantStore(Store):
     def resonance(self, vec: np.ndarray, reference: np.ndarray) -> np.ndarray:
         """Extract resonating parts."""
         return self.encoder.resonance(vec, reference)
+
+    def permute(self, vec: np.ndarray, k: int) -> np.ndarray:
+        """Circular shift (permutation) of vector dimensions."""
+        return self.encoder.permute(vec, k)
+
+    def cleanup(self, noisy: np.ndarray, codebook: List[np.ndarray]) -> np.ndarray:
+        """Find the closest vector in codebook to the noisy input."""
+        return self.encoder.cleanup(noisy, codebook)
+
+    def prototype_add(
+        self, prototype: np.ndarray, example: np.ndarray, count: int
+    ) -> np.ndarray:
+        """Incrementally update a prototype with a new example."""
+        return self.encoder.prototype_add(prototype, example, count)
 
     # =========================================================================
     # Info
