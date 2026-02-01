@@ -388,7 +388,7 @@ class Encoder:
             # Simple subtraction - most effective for VSA
             result = sup - comp
 
-        elif method == "project":
+        elif method in ("project", "orthogonalize"):
             # Orthogonal projection - mathematically cleaner
             comp_norm = np.linalg.norm(comp)
             if comp_norm < 1e-10:
