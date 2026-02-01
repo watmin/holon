@@ -58,7 +58,7 @@ class Store(ABC):
         :param data_type: 'json' or 'edn'.
         :param top_k: Number of top results to return.
         :param threshold: Minimum similarity score to include in results.
-        :param guard: Optional callable (data_dict -> bool) to filter results post-similarity.
+        :param guard: Optional dict for subset matching to filter results post-similarity.
         :return: List of tuples (data_id, score, data_dict).
         """
         pass
