@@ -89,7 +89,11 @@ class HTTPTaskStore:
         # Enrich with cached task data
         enriched = []
         for r in results:
-            task_data = self.tasks.get(r["id"], r.get("data", {}))
+            task_data = self.tasks.get(r["id"])
+            if task_data is None:
+                # Parse JSON string from server response
+                raw_data = r.get("data", "{}")
+                task_data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
             enriched.append({"id": r["id"], "score": r["score"], "data": task_data})
         return enriched
 

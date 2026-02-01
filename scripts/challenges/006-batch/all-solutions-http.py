@@ -23,7 +23,7 @@ BASE_URL = "http://localhost:8000/api/v1"
 
 def insert_json(data: Dict) -> Dict:
     """Insert a JSON record via HTTP."""
-    response = requests.post(f"{BASE_URL}/items", json={"data": data, "data_type": "json"})
+    response = requests.post(f"{BASE_URL}/items", json={"data": json.dumps(data), "data_type": "json"})
     response.raise_for_status()
     return response.json()
 
