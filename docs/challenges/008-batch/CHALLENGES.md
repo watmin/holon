@@ -85,19 +85,21 @@ Qdrant handles its own GPU acceleration for HNSW separately.
 
 | Configuration | Precision | Recall | F1 | Latency |
 |---------------|-----------|--------|-----|---------|
-| Basic (4096 dims) | 74% | 96% | 83.6% | 0.56ms |
-| Lower dims (1024) | 78.5% | 98.5% | 87.4% | 0.22ms |
-| Advanced primitives | 95.9% | 81.5% | 88.1% | 0.23ms |
-| **TorchHD backend** | **98.4%** | **89.5%** | **93.7%** | 3.88ms |
+| CPU backend (4096 dims) | 42.8% | 100% | 60.0% | 0.22ms |
+| TorchHD backend (4096 dims) | **72.2%** | 100% | **83.9%** | 2.15ms |
+| TorchHD backend (comparison script) | **84.8%** | 95% | **89.6%** | 4.61ms |
+
+**Key finding**: TorchHD's Level embeddings provide significantly better precision for numeric fields like status codes (200 ≈ 201, 200 ≠ 500).
 
 ### Key to Success: TorchHD Backend
 
-The best results came from switching to TorchHD as the VSA engine:
+TorchHD provides Level embeddings for numeric fields, giving better discrimination:
 
 ```python
-from holon.torchhd_encoder import TorchHDStore
+from holon import CPUStore
 
-store = TorchHDStore(dimensions=1024)
+# Use TorchHD backend for better accuracy on numeric fields
+store = CPUStore(dimensions=4096, backend="torchhd")
 
 # TorchHD provides Level embeddings for numeric fields
 # Close values (status=200 vs 201) have similar vectors

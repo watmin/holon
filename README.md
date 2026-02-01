@@ -80,31 +80,41 @@ pip install -e .
 
 See [Dimension Selection Guide](docs/dimension_selection.md) for benchmarks and capacity planning.
 
-### GPU Acceleration
+### Backend Selection
 
-Holon supports GPU via CuPy. Here's the honest assessment:
+Holon supports multiple backends with different trade-offs:
 
-| Operation | GPU Speedup | Verdict |
-|-----------|-------------|---------|
-| Batch matrix similarity | **40x** | GPU wins big |
-| Individual insert/query | **0.02-0.12x** | GPU loses (transfer overhead) |
-
-**The uncomfortable truth**: Holon's default one-at-a-time operations don't benefit from GPU. The CPU→GPU→CPU transfer overhead dominates. GPU only wins when you batch thousands of similarity computations into a single matrix operation.
+| Backend | Speed | Accuracy | Best For |
+|---------|-------|----------|----------|
+| `cpu` (default) | **11K ops/sec** | Good | General use |
+| `gpu` (CuPy) | **40x batch speedup** | Good | Large batch operations |
+| `torchhd` | 300 ops/sec | **Best** | Accuracy-critical classification |
 
 ```python
-# GPU backend (auto-detects, or force with backend="gpu")
+# Auto-select (prefers CuPy GPU if available, then CPU)
 store = CPUStore(dimensions=4096, backend="auto")
 
-# For GPU to help, you need batch operations:
-# - Large prototype learning (1000+ examples)
-# - Batch similarity across many stored vectors
-# - Custom matrix operations via store.encoder.xp (numpy/cupy)
+# Force specific backend
+store = CPUStore(backend="cpu")      # Fastest individual ops
+store = CPUStore(backend="torchhd")  # Best accuracy (Level embeddings)
+
+# Environment variable override
+# HOLON_BACKEND=cpu python my_script.py
 ```
 
-**When to use GPU**: Large-scale prototype learning, batch classification, custom vector math.
-**When to skip GPU**: Normal insert/query workloads, small datasets (<1000 items).
+**TorchHD Backend** (`pip install torch-hd`):
+- Uses Level embeddings for numeric fields (200 ≈ 201, 200 ≠ 500)
+- Better precision on classification tasks (85% vs 70% on API anomaly detection)
+- **39x slower** than CPU due to GPU transfer overhead per operation
+- Use when accuracy matters more than throughput
 
-Install: `pip install cupy-cuda12x` (or `cupy-cuda11x` for older CUDA).
+**CuPy GPU Backend** (`pip install cupy-cuda12x`):
+- Fast for batch matrix operations (40x speedup)
+- Same accuracy as CPU
+- Individual ops slower due to transfer overhead
+- Use for large-scale prototype learning, batch similarity
+
+**The honest truth**: For typical insert/query workloads, CPU is fastest. GPU only helps with batch operations (1000+ items at once).
 
 ## Core Features
 
