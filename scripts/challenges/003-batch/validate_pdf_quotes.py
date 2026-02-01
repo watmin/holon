@@ -122,7 +122,7 @@ class PDFQuoteValidator:
                 unit = {
                     "unit_id": f"pdf_unit_{para_idx}_{sent_idx}",
                     "words": {
-                        "_encode_mode": "ngram",
+                        "$mode": "ngram",
                         "sequence": words
                     },
                     "metadata": {
@@ -205,7 +205,7 @@ class PDFQuoteValidator:
 
             probe_data = {
                 "words": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": search_words
                 }
             }
@@ -255,7 +255,7 @@ class PDFQuoteValidator:
 
             probe_data = {
                 "words": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": search_words
                 }
             }

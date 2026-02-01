@@ -76,6 +76,8 @@ class Encoder:
         self._in_marker = f"{marker_prefix}in"
         self._contains_marker = f"{marker_prefix}contains"
         self._exists_marker = f"{marker_prefix}exists"
+        self._mode_marker = f"{marker_prefix}mode"
+        self._mode_config_marker = f"{marker_prefix}mode_config"
 
     @property
     def xp(self):
@@ -95,7 +97,7 @@ class Encoder:
     def _encode_recursive(self, data: Any, list_mode=None, **kwargs) -> np.ndarray:
         """
         Recursively encode data structures with proper binding for relationships.
-        Supports encoding mode hints via _encode_mode key in dicts.
+        Supports encoding mode hints via $mode key in dicts (configurable via marker_prefix).
         """
         if isinstance(data, (dict, ImmutableDict)):
             return self._encode_map(data, list_mode=list_mode, **kwargs)
@@ -134,17 +136,19 @@ class Encoder:
                     bound_vectors.append(bound)
                     continue
 
-                if "_encode_mode" in value:
-                    mode_str = value["_encode_mode"]
+                # Check for $mode marker (sequence encoding mode)
+                if self._mode_marker in value:
+                    mode_str = value[self._mode_marker]
                     if mode_str in [m.value for m in ListEncodeMode]:
                         effective_list_mode = ListEncodeMode(mode_str)
                     # Remove the hint from the value for encoding
-                    value = {k: v for k, v in value.items() if k != "_encode_mode"}
+                    value = {k: v for k, v in value.items() if k != self._mode_marker}
 
-                if "_encode_config" in value:
-                    encode_config = value["_encode_config"]
+                # Check for $mode_config marker
+                if self._mode_config_marker in value:
+                    encode_config = value[self._mode_config_marker]
                     # Remove the config from the value for encoding
-                    value = {k: v for k, v in value.items() if k != "_encode_config"}
+                    value = {k: v for k, v in value.items() if k != self._mode_config_marker}
 
             key_vector = self._encode_scalar(key)
             value_vector = self._encode_recursive(

@@ -101,7 +101,7 @@ class TestEncoderModes:
     def test_encode_mode_hint_in_dict(self, encoder):
         """Test encoding mode hints in dictionaries."""
         data = {
-            "sequence": {"_encode_mode": "ngram", "data": ["word1", "word2", "word3"]}
+            "sequence": {"$mode": "ngram", "data": ["word1", "word2", "word3"]}
         }
         result = encoder.encode_data(data)
         assert isinstance(result, np.ndarray)
@@ -111,7 +111,7 @@ class TestEncoderModes:
         """Test chained encoding mode hint."""
         data = {
             "words": {
-                "_encode_mode": "chained",
+                "$mode": "chained",
                 "sequence": ["first", "second", "third"],
             }
         }
@@ -121,14 +121,14 @@ class TestEncoderModes:
 
     def test_encode_mode_hint_bundle(self, encoder):
         """Test bundle encoding mode hint."""
-        data = {"tags": {"_encode_mode": "bundle", "items": ["tag1", "tag2", "tag3"]}}
+        data = {"tags": {"$mode": "bundle", "items": ["tag1", "tag2", "tag3"]}}
         result = encoder.encode_data(data)
         assert isinstance(result, np.ndarray)
         assert np.all(np.isin(result, [-1, 0, 1]))
 
     def test_encode_invalid_mode_hint(self, encoder):
         """Test invalid encoding mode hint (should ignore and use default)."""
-        data = {"sequence": {"_encode_mode": "invalid_mode", "data": ["a", "b", "c"]}}
+        data = {"sequence": {"$mode": "invalid_mode", "data": ["a", "b", "c"]}}
         result = encoder.encode_data(data)
         assert isinstance(result, np.ndarray)
         # Should still work with default positional encoding

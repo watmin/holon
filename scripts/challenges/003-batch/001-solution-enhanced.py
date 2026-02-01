@@ -93,7 +93,7 @@ class EnhancedQuoteFinder:
                 words = normalize_text(quote)
                 unit = {
                     "unit_id": str(uuid.uuid4()),
-                    "words": {"_encode_mode": "ngram", "sequence": words},
+                    "words": {"$mode": "ngram", "sequence": words},
                     "metadata": {"topic": topic, "quote": quote[:50] + "..."}
                 }
 
@@ -117,7 +117,7 @@ class EnhancedQuoteFinder:
     def classify_quote(self, quote: str) -> str:
         """Classify a quote by topic using prototypes."""
         words = normalize_text(quote)
-        probe = {"words": {"_encode_mode": "ngram", "sequence": words}}
+        probe = {"words": {"$mode": "ngram", "sequence": words}}
         vec = np.array(self.client.encode_vectors_json(probe))
 
         best_topic = None
@@ -157,7 +157,7 @@ class EnhancedQuoteFinder:
     def amplified_search(self, query: str, boost_topic: str, strength: float = 2.0) -> List[tuple]:
         """Search with amplified topic signal."""
         words = normalize_text(query)
-        probe = {"words": {"_encode_mode": "ngram", "sequence": words}}
+        probe = {"words": {"$mode": "ngram", "sequence": words}}
         base_vec = np.array(self.client.encode_vectors_json(probe))
 
         if boost_topic not in self.topic_prototypes:
@@ -203,7 +203,7 @@ class EnhancedQuoteFinder:
     def find_unique_aspects(self, quote: str) -> np.ndarray:
         """Find what makes a quote unique compared to the average."""
         words = normalize_text(quote)
-        probe = {"words": {"_encode_mode": "ngram", "sequence": words}}
+        probe = {"words": {"$mode": "ngram", "sequence": words}}
         quote_vec = np.array(self.client.encode_vectors_json(probe))
 
         # Create average of all prototypes

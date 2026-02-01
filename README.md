@@ -161,15 +161,15 @@ proto = store.prototype([seq_vec, other_vec])  # Use in primitives
 
 **2. Embedded in data** (for insert/search):
 ```python
-# Embed encoding mode in stored data
+# Embed encoding mode in stored data (uses $mode marker)
 client.insert_json({
-    "events": {"_encode_mode": "chained", "sequence": ["login", "view", "purchase"]},
+    "events": {"$mode": "chained", "sequence": ["login", "view", "purchase"]},
     "user": "alice"
 })
 
 # Search with same encoding
 results = client.search_json(probe={
-    "events": {"_encode_mode": "chained", "sequence": ["login", "purchase"]}
+    "events": {"$mode": "chained", "sequence": ["login", "purchase"]}
 })
 ```
 

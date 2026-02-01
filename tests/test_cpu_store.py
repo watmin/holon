@@ -204,13 +204,13 @@ class TestCPUStore:
 
         # Test data with different encoding modes
         test_data = [
-            '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown", "fox"]}, '
+            '{"words": {"$mode": "ngram", "sequence": ["quick", "brown", "fox"]}, '
             '"type": "ngram_test"}',
-            '{"words": {"_encode_mode": "chained", "sequence": ["hello", "world"]}, '
+            '{"words": {"$mode": "chained", "sequence": ["hello", "world"]}, '
             '"type": "chained_test"}',
-            '{"words": {"_encode_mode": "positional", "sequence": ["foo", "bar"]}, '
+            '{"words": {"$mode": "positional", "sequence": ["foo", "bar"]}, '
             '"type": "positional_test"}',
-            '{"words": {"_encode_mode": "bundle", "sequence": ["simple", "list"]}, "type": "bundle_test"}',
+            '{"words": {"$mode": "bundle", "sequence": ["simple", "list"]}, "type": "bundle_test"}',
         ]
 
         ids = []
@@ -230,7 +230,7 @@ class TestCPUStore:
             assert "type" in retrieved
 
         # Test query with ngram-encoded data
-        probe = '{"words": {"_encode_mode": "ngram", "sequence": ["quick", "brown"]}}'
+        probe = '{"words": {"$mode": "ngram", "sequence": ["quick", "brown"]}}'
         results = store.query(probe=probe, top_k=5, threshold=0.0)
         assert len(results) >= 1  # Should find the ngram_test item
 
@@ -245,7 +245,7 @@ class TestCPUStore:
         # Test different encoding modes
         test_data = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": ["test", "vector", "encoding"],
             }
         }
@@ -261,7 +261,7 @@ class TestCPUStore:
         # Test that different data produces different vectors
         test_data2 = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": ["different", "test", "data"],
             }
         }

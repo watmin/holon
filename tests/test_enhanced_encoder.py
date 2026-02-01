@@ -102,8 +102,8 @@ class TestEnhancedEncoder:
         """Test _encode_config JSON interface."""
         data = {
             "sequence": {
-                "_encode_mode": "ngram",
-                "_encode_config": {
+                "$mode": "ngram",
+                "$mode_config": {
                     "n_sizes": [1, 2],
                     "weights": [0.5, 0.5],
                     "length_penalty": True,

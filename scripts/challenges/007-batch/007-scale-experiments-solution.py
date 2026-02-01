@@ -345,14 +345,14 @@ class ScaleExperiments:
             sequence[marker_pos] = "SPECIAL_MARKER"
 
             record = {
-                "sequence": {"_encode_mode": "ngram", "sequence": sequence}
+                "sequence": {"$mode": "ngram", "sequence": sequence}
             }
             self.client.insert_json(record)
 
             # Query for subsequence containing marker
             query_seq = ["SPECIAL_MARKER", f"word_{marker_pos + 1}"]
             query = {
-                "sequence": {"_encode_mode": "ngram", "sequence": query_seq}
+                "sequence": {"$mode": "ngram", "sequence": query_seq}
             }
 
             results = self.client.search_json(probe=query, limit=5, threshold=0.0)

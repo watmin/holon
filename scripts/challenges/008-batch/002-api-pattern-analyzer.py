@@ -79,7 +79,7 @@ def generate_normal_request(base_time: float, user_id: str, use_ngram: bool = Fa
         ua_tokens = user_agent.replace("/", " ").replace("(", " ").replace(")", " ").split()
         headers = {
             "user_agent": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": ua_tokens[:5],  # First 5 tokens
             },
             "content_type": "application/json",

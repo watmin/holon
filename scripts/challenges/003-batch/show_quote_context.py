@@ -63,7 +63,7 @@ class QuoteContextViewer:
                 unit = {
                     "unit_id": f"page_{page_num}_sent_{sent_idx}",
                     "words": {
-                        "_encode_mode": "ngram",
+                        "$mode": "ngram",
                         "sequence": words
                     },
                     "metadata": {
@@ -118,7 +118,7 @@ class QuoteContextViewer:
 
             probe_data = {
                 "words": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": search_words
                 }
             }
@@ -179,7 +179,7 @@ class QuoteContextViewer:
 
             probe_data = {
                 "words": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": search_words
                 }
             }

@@ -124,7 +124,7 @@ class CalculusQuoteFinder:
                 unit = {
                     "unit_id": str(uuid.uuid4()),
                     "words": {
-                        "_encode_mode": "ngram",
+                        "$mode": "ngram",
                         "sequence": words
                     },
                     "metadata": {
@@ -238,7 +238,7 @@ class CalculusQuoteFinder:
         # Use vector bootstrapping API
         search_data = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": words
             }
         }
@@ -270,7 +270,7 @@ class CalculusQuoteFinder:
         # Use n-gram probe matching stored data structure
         probe_data = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": search_words
             }
         }

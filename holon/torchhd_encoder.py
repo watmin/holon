@@ -37,6 +37,8 @@ class TorchHDEncoder:
         self._any_marker = f"{marker_prefix}any"
         self._not_marker = f"{marker_prefix}not"
         self._or_marker = f"{marker_prefix}or"
+        self._mode_marker = f"{marker_prefix}mode"
+        self._mode_config_marker = f"{marker_prefix}mode_config"
         
         # Auto-detect device
         if device == "auto":
@@ -310,7 +312,7 @@ class TorchHDEncoder:
             
             # Skip internal Holon metadata fields (stored with data)
             # but DO encode user fields that start with "_" (like _type, _in_class)
-            if field_str in ("_raw", "_parsed", "_encode_mode"):
+            if field_str in ("_raw", "_parsed") or field_str == self._mode_marker:
                 continue
             
             field_hv = self._get_field_hv(field_str)

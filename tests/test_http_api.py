@@ -146,7 +146,7 @@ class TestHTTPAPI:
         # Test encoding JSON data
         data = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": ["test", "vector", "bootstrap"],
             },
             "metadata": {"type": "test_data"},
@@ -168,7 +168,7 @@ class TestHTTPAPI:
 
     def test_encode_endpoint_edn(self):
         """Test the /api/v1/vectors/encode endpoint with EDN data"""
-        edn_data = '{:words {:_encode_mode "chained" :sequence ["edn" "test"]} :type "edn_test"}'
+        edn_data = '{:words {:$mode "chained" :sequence ["edn" "test"]} :type "edn_test"}'
 
         response = client.post(
             "/api/v1/vectors/encode", json={"data": edn_data, "data_type": "edn"}

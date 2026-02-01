@@ -49,7 +49,7 @@ def generate_normal_sessions(count: int = 20) -> List[Dict[str, Any]]:
         session = {
             "session_id": f"normal_{i:04d}",
             "user_id": f"user_{random.randint(1, 50):03d}",
-            "events": {"_encode_mode": "chained", "sequence": pattern},
+            "events": {"$mode": "chained", "sequence": pattern},
             "duration_seconds": random.randint(120, 900),
             "ip_changes": random.randint(0, 1),
             "total_amount": random.randint(0, 500),
@@ -76,7 +76,7 @@ def generate_fraud_sessions(count: int = 10) -> List[Dict[str, Any]]:
         session = {
             "session_id": f"fraud_{i:04d}",
             "user_id": f"user_{random.randint(1, 50):03d}",
-            "events": {"_encode_mode": "chained", "sequence": pattern},
+            "events": {"$mode": "chained", "sequence": pattern},
             "duration_seconds": random.randint(30, 120),  # Faster than normal
             "ip_changes": random.randint(2, 5),  # More IP changes
             "total_amount": random.randint(5000, 50000),  # Higher amounts
@@ -132,7 +132,7 @@ def generate_test_sessions() -> List[Dict[str, Any]]:
         session = {
             "session_id": f"test_{i:04d}",
             "user_id": f"user_test_{i:03d}",
-            "events": {"_encode_mode": "chained", "sequence": tc["pattern"]},
+            "events": {"$mode": "chained", "sequence": tc["pattern"]},
             "duration_seconds": tc["duration"],
             "ip_changes": tc["ip_changes"],
             "total_amount": tc["amount"],
@@ -308,7 +308,7 @@ def demo_pattern_search(detector: AnomalyDetector):
 
     # Search for sessions with transfer patterns
     pattern = {
-        "events": {"_encode_mode": "chained", "sequence": ["login", "transfer", "transfer", "logout"]}
+        "events": {"$mode": "chained", "sequence": ["login", "transfer", "transfer", "logout"]}
     }
 
     print("\n🔍 Searching for sessions with multiple transfers...")

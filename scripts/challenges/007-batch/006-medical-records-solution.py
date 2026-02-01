@@ -76,7 +76,7 @@ def generate_medical_records(count: int = 50) -> List[Dict[str, Any]]:
                 "dosage": f"{random.randint(1, 4) * 250}mg",
             },
             "notes": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "text": random.choice(notes_templates),
             },
             "record_id": str(uuid.uuid4()),
@@ -136,7 +136,7 @@ class MedicalRecordIndex:
 
     def search_by_notes(self, text: str, limit: int = 10) -> List[Dict]:
         """Search by clinical notes."""
-        probe = {"notes": {"_encode_mode": "ngram", "text": text}}
+        probe = {"notes": {"$mode": "ngram", "text": text}}
         return self.client.search_json(probe=probe, limit=limit)
 
     def search_excluding_medication(
@@ -238,7 +238,7 @@ def demo_complex_query(index: MedicalRecordIndex):
     # First do fuzzy search, then filter manually
     probe = {
         "symptoms": ["cough", "fever"],
-        "notes": {"_encode_mode": "ngram", "text": "persistent cough"},
+        "notes": {"$mode": "ngram", "text": "persistent cough"},
     }
 
     results = index.client.search_json(probe=probe, limit=20)

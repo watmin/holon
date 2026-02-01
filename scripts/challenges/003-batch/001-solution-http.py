@@ -142,7 +142,7 @@ class HTTPQuoteFinder:
             unit = {
                 "unit_id": str(uuid.uuid4()),
                 "words": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": words[:max_words]
                 },
                 "metadata": {
@@ -200,7 +200,7 @@ class HTTPQuoteFinder:
 
         probe = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": words
             }
         }
@@ -216,7 +216,7 @@ class HTTPQuoteFinder:
         # Bootstrap the search vector
         probe = {
             "words": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": words
             }
         }
@@ -284,7 +284,7 @@ def main():
     print(f"   Bootstrapping vector for: '{bootstrap_phrase}'")
 
     words = finder.normalize_text(bootstrap_phrase)
-    probe = {"words": {"_encode_mode": "ngram", "sequence": words}}
+    probe = {"words": {"$mode": "ngram", "sequence": words}}
     vector = encode(probe)
     print(f"   → Generated {len(vector)}D vector")
 

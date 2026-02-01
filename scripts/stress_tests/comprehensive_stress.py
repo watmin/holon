@@ -355,7 +355,7 @@ def test_ngram_dilution(suite: StressTestSuite):
         # Insert the long sequence
         record = {
             "content": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": sequence
             },
             "seq_len": seq_len
@@ -366,7 +366,7 @@ def test_ngram_dilution(suite: StressTestSuite):
         for _ in range(20):
             distractor = {
                 "content": {
-                    "_encode_mode": "ngram",
+                    "$mode": "ngram",
                     "sequence": random.choices(word_pool, k=random.randint(10, 50))
                 }
             }
@@ -375,7 +375,7 @@ def test_ngram_dilution(suite: StressTestSuite):
         # Search for the target phrase
         probe = {
             "content": {
-                "_encode_mode": "ngram",
+                "$mode": "ngram",
                 "sequence": target_phrase
             }
         }
