@@ -148,25 +148,29 @@ client.search_json(
 
 ### Sequence Encoding
 
+Two approaches depending on use case:
+
+**1. Direct vector operations** (for primitives like prototype, difference):
 ```python
-# Encode sequences with different modes
-# "positional" - ordered, position-aware (default)
-# "chained" - for prefix/suffix operations
-# "ngram" - fuzzy substring matching
-# "bundle" - unordered (bag of items)
-
-# Event sequence (order matters)
+# Get vector directly with encode_sequence()
 seq_vec = store.encode_sequence(["login", "view", "purchase"], mode="positional")
+proto = store.prototype([seq_vec, other_vec])  # Use in primitives
 
-# Text search (fuzzy partial matching)
-text_vec = store.encode_sequence(["quick", "brown", "fox"], mode="ngram")
+# Modes: "positional", "chained", "ngram", "bundle"
+```
 
-# Tags (order doesn't matter)
-tags_vec = store.encode_sequence(["python", "ml", "api"], mode="bundle")
+**2. Embedded in data** (for insert/search):
+```python
+# Embed encoding mode in stored data
+client.insert_json({
+    "events": {"_encode_mode": "chained", "sequence": ["login", "view", "purchase"]},
+    "user": "alice"
+})
 
-# Use in search
-client.insert_json({"events": ["login", "view", "purchase"], "user": "alice"})
-results = client.search_json(probe={"events": ["login", "purchase"]})  # Partial match
+# Search with same encoding
+results = client.search_json(probe={
+    "events": {"_encode_mode": "chained", "sequence": ["login", "purchase"]}
+})
 ```
 
 ### Time Encoding
