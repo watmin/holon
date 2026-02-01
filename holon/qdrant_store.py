@@ -725,6 +725,16 @@ class QdrantStore(Store):
         """Incrementally update a prototype with a new example."""
         return self.encoder.prototype_add(prototype, example, count)
 
+    def encode_sequence(
+        self, items: List[Any], mode: str = "positional", **config
+    ) -> np.ndarray:
+        """
+        Encode a sequence of items into a single vector.
+        
+        Modes: "positional", "chained", "ngram", "bundle"
+        """
+        return self.encoder.encode_list(items, mode=mode, **config)
+
     # =========================================================================
     # Info
     # =========================================================================

@@ -146,21 +146,27 @@ client.search_json(
 )
 ```
 
-### N-gram Encoding for Text
+### Sequence Encoding
 
 ```python
-# Fuzzy text matching with n-grams
-client.insert_json({
-    "content": {
-        "_encode_mode": "ngram",
-        "sequence": ["the", "quick", "brown", "fox"]
-    }
-})
+# Encode sequences with different modes
+# "positional" - ordered, position-aware (default)
+# "chained" - for prefix/suffix operations
+# "ngram" - fuzzy substring matching
+# "bundle" - unordered (bag of items)
 
-# Partial phrase matches
-results = client.search_json(probe={
-    "content": {"_encode_mode": "ngram", "sequence": ["quick", "fox"]}
-})
+# Event sequence (order matters)
+seq_vec = store.encode_sequence(["login", "view", "purchase"], mode="positional")
+
+# Text search (fuzzy partial matching)
+text_vec = store.encode_sequence(["quick", "brown", "fox"], mode="ngram")
+
+# Tags (order doesn't matter)
+tags_vec = store.encode_sequence(["python", "ml", "api"], mode="bundle")
+
+# Use in search
+client.insert_json({"events": ["login", "view", "purchase"], "user": "alice"})
+results = client.search_json(probe={"events": ["login", "purchase"]})  # Partial match
 ```
 
 ### Time Encoding
@@ -245,6 +251,9 @@ clean = store.cleanup(noisy_vec, [proto_a, proto_b, proto_c])
 
 # Prototype Add - incremental prototype update
 proto = store.prototype_add(existing_proto, new_example, count=5)
+
+# Encode Sequence - with mode selection
+vec = store.encode_sequence(["a", "b", "c"], mode="ngram")  # fuzzy matching
 ```
 
 ### Marker Prefix Configuration

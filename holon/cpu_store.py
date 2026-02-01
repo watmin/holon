@@ -728,3 +728,37 @@ class CPUStore(Store):
         Pass the current count (before adding this example).
         """
         return self.encoder.prototype_add(prototype, example, count)
+
+    def encode_sequence(
+        self, items: List[Any], mode: str = "positional", **config
+    ) -> np.ndarray:
+        """
+        Encode a sequence of items into a single vector.
+        
+        Modes:
+            - "positional": Bind each item to position vector (default)
+                           Good for: ordered lists, event sequences
+            - "chained": Relative binding for suffix/prefix operations
+                        Good for: prefix matching, sequence reversal
+            - "ngram": N-gram pairs for fuzzy substring matching
+                      Good for: text search, partial phrase matching
+                      Config: n_sizes=[1,2] (unigrams + bigrams)
+            - "bundle": Pure superposition, no order preserved
+                       Good for: bag-of-words, unordered sets
+        
+        Examples:
+            # Event sequence (order matters)
+            store.encode_sequence(["login", "view", "purchase"])
+            
+            # Text search (fuzzy matching)
+            store.encode_sequence(["quick", "brown", "fox"], mode="ngram")
+            
+            # Tags (order doesn't matter)
+            store.encode_sequence(["python", "ml", "api"], mode="bundle")
+        
+        :param items: List of items to encode
+        :param mode: Encoding mode
+        :param config: Mode-specific options (e.g., n_sizes for ngram)
+        :return: Encoded vector
+        """
+        return self.encoder.encode_list(items, mode=mode, **config)

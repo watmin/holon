@@ -219,17 +219,68 @@ class TorchHDEncoder:
     
     def _encode_list(self, items: List[Any]) -> torch.Tensor:
         """Encode a list by bundling items with position binding."""
+        return self.encode_list(items, mode="positional")
+    
+    def encode_list(self, items: List[Any], mode: str = "positional", **config) -> torch.Tensor:
+        """
+        Encode a sequence with configurable mode.
+        
+        Modes:
+            - "positional": Bind each item to position vector (default)
+            - "chained": Relative binding for suffix/prefix operations
+            - "ngram": N-gram pairs for fuzzy matching
+            - "bundle": Pure superposition (no order)
+        """
         if not items:
             return torch.zeros(self.dimensions, device=self.device)
         
-        # Encode each item bound with its position
-        result = torch.zeros(self.dimensions, device=self.device)
-        for i, item in enumerate(items):
-            pos_hv = self._get_value_hv(f"pos:{i}")
-            item_hv = self._encode_value(item)
-            result = result + torchhd.bind(pos_hv, item_hv)
+        # Encode all items first
+        item_vecs = [self._encode_value(item) for item in items]
         
-        return result
+        if mode == "bundle":
+            # Pure bundling (multiset, no order)
+            result = torch.zeros(self.dimensions, device=self.device)
+            for vec in item_vecs:
+                result = result + vec
+            return result
+        
+        elif mode == "positional":
+            # Bind each item to position vector
+            result = torch.zeros(self.dimensions, device=self.device)
+            for i, vec in enumerate(item_vecs):
+                pos_hv = self._get_value_hv(f"pos:{i}")
+                result = result + torchhd.bind(pos_hv, vec)
+            return result
+        
+        elif mode == "chained":
+            # Chain from end for easy prefix unbinding
+            if len(item_vecs) == 0:
+                return torch.zeros(self.dimensions, device=self.device)
+            chained = item_vecs[-1]
+            for prev in reversed(item_vecs[:-1]):
+                chained = torchhd.bind(prev, chained)
+            return chained
+        
+        elif mode == "ngram":
+            # N-gram encoding
+            n_sizes = config.get("n_sizes", [1, 2])
+            result = torch.zeros(self.dimensions, device=self.device)
+            
+            for n in n_sizes:
+                if n == 1:
+                    for vec in item_vecs:
+                        result = result + vec
+                else:
+                    for i in range(len(item_vecs) - n + 1):
+                        ngram_vec = item_vecs[i]
+                        for j in range(1, n):
+                            pos_hv = self._get_value_hv(f"ngram_pos:{j}")
+                            ngram_vec = torchhd.bind(ngram_vec, torchhd.bind(pos_hv, item_vecs[i + j]))
+                        result = result + ngram_vec
+            return result
+        
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
     
     def _encode_dict(self, data: Dict[str, Any]) -> torch.Tensor:
         """Encode a dictionary using hash_table structure (field * value bindings bundled)."""
