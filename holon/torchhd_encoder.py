@@ -85,6 +85,10 @@ class TorchHDEncoder:
         if value is None:
             return torch.zeros(self.dimensions, device=self.device)
         
+        # Handle EDN Keyword/Symbol
+        if hasattr(value, 'name'):  # EDN Keyword or Symbol
+            return self._get_value_hv(value.name)
+        
         # Handle $time marker (circular encoding)
         if isinstance(value, dict) and "$time" in value:
             return self._encode_time(value["$time"])
@@ -101,8 +105,12 @@ class TorchHDEncoder:
         if isinstance(value, list):
             return self._encode_list(value)
         
+        # Handle set/frozenset
+        if isinstance(value, (set, frozenset)):
+            return self._encode_list(list(value))
+        
         # Handle numeric (Level encoding - close values have similar vectors!)
-        if isinstance(value, (int, float)):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
             return self._encode_numeric(value, field_name)
         
         # Handle boolean
@@ -133,14 +141,28 @@ class TorchHDEncoder:
         
         return level_emb(torch.tensor([value], device=self.device)).squeeze(0)
     
-    def _encode_time(self, timestamp: float) -> torch.Tensor:
+    def _encode_time(self, timestamp) -> torch.Tensor:
         """Encode timestamp using Circular embedding (wraps around)."""
+        import datetime
+        
+        # Handle ISO string timestamps
+        if isinstance(timestamp, str):
+            try:
+                # Try ISO format parsing
+                if 'T' in timestamp:
+                    dt = datetime.datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                else:
+                    dt = datetime.datetime.fromisoformat(timestamp)
+                timestamp = dt.timestamp()
+            except ValueError:
+                # Fallback to hash-based encoding for invalid strings
+                return self._get_value_hv(f"time:{timestamp}")
+        
         if self._circular_embedding is None:
             # 24 phases for hours in a day
             self._circular_embedding = embeddings.Circular(24, self.dimensions, device=self.device)
         
         # Extract hour of day for circular encoding
-        import datetime
         dt = datetime.datetime.fromtimestamp(timestamp)
         hour = dt.hour + dt.minute / 60.0
         
@@ -176,11 +198,16 @@ class TorchHDEncoder:
         values = []
         
         for field, value in data.items():
-            if field.startswith("_"):  # Skip metadata fields
+            # Convert EDN Keyword/Symbol to string
+            field_str = str(field)
+            if hasattr(field, 'name'):  # EDN Keyword
+                field_str = field.name
+            
+            if field_str.startswith("_"):  # Skip metadata fields
                 continue
             
-            field_hv = self._get_field_hv(field)
-            value_hv = self._encode_value(value, field_name=field)
+            field_hv = self._get_field_hv(field_str)
+            value_hv = self._encode_value(value, field_name=field_str)
             
             keys.append(field_hv)
             values.append(value_hv)
@@ -246,6 +273,14 @@ class TorchHDEncoder:
     def blend(self, vec1: torch.Tensor, vec2: torch.Tensor, alpha: float = 0.5) -> torch.Tensor:
         """Blend two vectors with given weight."""
         return alpha * vec1 + (1 - alpha) * vec2
+    
+    def resonance(self, vec: torch.Tensor, reference: torch.Tensor) -> torch.Tensor:
+        """Extract the part of vec that resonates with reference."""
+        # Where they agree (same sign), keep the value
+        agree = (vec * reference) > 0
+        result = torch.zeros_like(vec)
+        result[agree] = vec[agree]
+        return result
     
     def to_numpy(self, tensor: torch.Tensor):
         """Convert tensor to numpy for compatibility."""

@@ -70,6 +70,15 @@ class HolonClient:
             self._mode = "local"
             self._store = local_store
 
+    def _to_numpy(self, vector):
+        """Convert vector to numpy array, handling TorchHD tensors."""
+        if hasattr(self._store, '_use_torchhd') and self._store._use_torchhd:
+            return vector.cpu().numpy()
+        elif self._store.vector_manager is not None:
+            return self._store.vector_manager.to_cpu(vector)
+        else:
+            return vector  # Already numpy
+
     def health(self) -> Dict[str, Any]:
         """Get system health and statistics."""
         if self._mode == "http":
@@ -293,7 +302,7 @@ class HolonClient:
 
             parsed = parse_data(data_str, data_type)
             vector = self._store.encoder.encode_data(parsed)
-            cpu_vector = self._store.vector_manager.to_cpu(vector)
+            cpu_vector = self._to_numpy(vector)
             return cpu_vector.tolist()
 
     def encode_mathematical(
@@ -321,7 +330,7 @@ class HolonClient:
 
             prim = MathematicalPrimitive(primitive)
             vector = self._store.encoder.encode_mathematical_primitive(prim, value)
-            cpu_vector = self._store.vector_manager.to_cpu(vector)
+            cpu_vector = self._to_numpy(vector)
             return cpu_vector.tolist()
 
     def compose_vectors(
@@ -354,7 +363,7 @@ class HolonClient:
             else:
                 raise ValueError(f"Unknown operation: {operation}")
 
-            cpu_result = self._store.vector_manager.to_cpu(result)
+            cpu_result = self._to_numpy(result)
             return cpu_result.tolist()
 
     # Advanced Similarity (Minimal Kernel Addition)

@@ -11,6 +11,14 @@ from .encoder import Encoder
 from .similarity import find_similar_vectors
 from .vector_manager import VectorManager
 
+# Optional TorchHD backend
+try:
+    from .torchhd_encoder import TorchHDEncoder
+    TORCHHD_AVAILABLE = True
+except ImportError:
+    TorchHDEncoder = None
+    TORCHHD_AVAILABLE = False
+
 # =============================================================================
 # Store Base Class (ABC)
 # =============================================================================
@@ -93,29 +101,44 @@ ANN_THRESHOLD = 1000  # Switch to ANN when > 1000 items
 class CPUStore(Store):
     def __init__(self, dimensions: int = 16000, backend: str = "auto"):
         self.dimensions = dimensions
+        self._use_torchhd = False
 
         # Auto-select backend
-        if backend == "auto":
+        if backend == "torchhd":
+            if not TORCHHD_AVAILABLE:
+                raise ImportError("TorchHD backend requested but torch-hd not installed. Run: pip install torch-hd")
+            self.backend = "torchhd"
+            self._use_torchhd = True
+            self.encoder = TorchHDEncoder(dimensions=dimensions)
+            self.vector_manager = None  # Not used with TorchHD
+            print("🔥 Using TorchHD backend")
+        elif backend == "auto":
+            # Default to CuPy GPU or CPU - TorchHD is opt-in for now
             try:
                 import cupy as cp
-
                 try:
-                    cp.cuda.runtime.getDeviceCount()  # Check GPU availability
+                    cp.cuda.runtime.getDeviceCount()
                     self.backend = "gpu"
-                    print("🎮 Auto-selected GPU backend")
+                    self.vector_manager = VectorManager(dimensions, self.backend)
+                    self.encoder = Encoder(self.vector_manager)
+                    print("🎮 Auto-selected GPU backend (CuPy)")
                 except cp.cuda.runtime.CUDARuntimeError:
                     self.backend = "cpu"
+                    self.vector_manager = VectorManager(dimensions, self.backend)
+                    self.encoder = Encoder(self.vector_manager)
                     print("💻 Auto-selected CPU backend (no GPU available)")
             except ImportError:
                 self.backend = "cpu"
+                self.vector_manager = VectorManager(dimensions, self.backend)
+                self.encoder = Encoder(self.vector_manager)
                 print("💻 Auto-selected CPU backend (cupy not available)")
         else:
             self.backend = backend
+            self.vector_manager = VectorManager(dimensions, self.backend)
+            self.encoder = Encoder(self.vector_manager)
 
-        self.vector_manager = VectorManager(dimensions, self.backend)
-        self.encoder = Encoder(self.vector_manager)
         self.stored_data: Dict[str, Dict[str, Any]] = {}  # id -> original data dict
-        self.stored_vectors: Dict[str, Any] = {}  # id -> encoded vector
+        self.stored_vectors: Dict[str, Any] = {}  # id -> encoded vector (numpy arrays)
 
         # ANN indexing options
         self.ann_index = None
@@ -165,6 +188,10 @@ class CPUStore(Store):
         start = time.time()
         encoded_vector = self.encoder.encode_data(parsed)
         encode_time = time.time() - start
+
+        # Convert TorchHD tensors to numpy for storage
+        if self._use_torchhd:
+            encoded_vector = encoded_vector.cpu().numpy()
 
         data_id = str(uuid.uuid4())
         # Store original string and type for accurate retrieval
@@ -243,6 +270,9 @@ class CPUStore(Store):
 
                 if branch_vectors:
                     # Bundle via superposition (sum + normalize) - the VSA way!
+                    # Convert TorchHD tensors to numpy if needed
+                    if self._use_torchhd:
+                        branch_vectors = [v.cpu().numpy() for v in branch_vectors]
                     bundled = sum(branch_vectors)
                     bundled = bundled / (np.linalg.norm(bundled) + 1e-10)
 
@@ -274,6 +304,9 @@ class CPUStore(Store):
         if not skip_encoding:
             try:
                 probe_vector = self.encoder.encode_data(clean_probe)
+                # Convert TorchHD tensors to numpy if needed
+                if self._use_torchhd:
+                    probe_vector = probe_vector.cpu().numpy()
             except Exception as e:
                 raise ValueError(
                     f"Failed to encode query probe: {e}. "
@@ -309,6 +342,9 @@ class CPUStore(Store):
         # Vector-level negation via subtraction (encode cleaned)
         if cleaned_negations:
             neg_vector = self.encoder.encode_data(cleaned_negations)
+            # Convert TorchHD tensors to numpy if needed
+            if self._use_torchhd:
+                neg_vector = neg_vector.cpu().numpy()
             probe_vector = probe_vector - neg_vector
 
         # Data-based negation check
