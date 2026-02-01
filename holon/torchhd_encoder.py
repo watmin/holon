@@ -316,10 +316,19 @@ class TorchHDEncoder:
         """
         if not vectors:
             return torch.zeros(self.dimensions, device=self.device, dtype=torch.int8)
+        
+        # Convert numpy arrays to torch tensors if needed
+        def to_tensor(v):
+            if not isinstance(v, torch.Tensor):
+                import numpy as np
+                if isinstance(v, np.ndarray):
+                    return torch.from_numpy(v).to(self.device)
+            return v
+        
         # Sum all vectors to create prototype
-        result = vectors[0].float()
+        result = to_tensor(vectors[0]).float()
         for v in vectors[1:]:
-            result = result + v.float()
+            result = result + to_tensor(v).float()
         # Threshold to bipolar (like original encoder)
         return self._threshold_bipolar(result)
     
