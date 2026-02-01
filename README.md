@@ -270,6 +270,22 @@ Validated implementations with honest assessments:
 | **005-batch** | NP-hard optimization (3-coloring, SAT, TSP) | ⏳ Expected to fail (same reasons as Sudoku) |
 | **006-batch** | LLM memory augmentation | ✅ [Ideal use case - 82% token savings](docs/challenges/006-batch/LEARNINGS.md) |
 | **007-batch** | Multi-domain demonstrations (7 solutions) | ✅ [7/7 working, 100% fraud detection](scripts/challenges/007-batch/FINAL_STATUS.md) |
+| **008-batch** | Production patterns (GPU, API anomaly detection) | ⏳ [1/6 complete, 95.9% precision](docs/challenges/008-batch/CHALLENGES.md) |
+
+### Batch 008: Primitive Composition
+
+Key finding from API anomaly detection challenge:
+
+```python
+# Basic prototype learning: 74% precision
+attack_proto = store.prototype(attack_vectors)
+
+# With primitive composition: 95.9% precision
+attack_diff = store.difference(normal_proto, attack_proto)  # Extract unique features
+enhanced = store.amplify(attack_proto, attack_diff, 0.5)    # Boost distinguishing signals
+```
+
+**Takeaway**: The algebraic operations (`difference`, `amplify`, `negate`, `blend`) aren't just utilities—they're essential for precision-critical classification.
 
 ### Batch 007 Highlights
 
