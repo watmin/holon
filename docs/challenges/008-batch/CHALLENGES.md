@@ -87,11 +87,33 @@ Qdrant handles its own GPU acceleration for HNSW separately.
 |---------------|-----------|--------|-----|---------|
 | Basic (4096 dims) | 74% | 96% | 83.6% | 0.56ms |
 | Lower dims (1024) | 78.5% | 98.5% | 87.4% | 0.22ms |
-| **Advanced primitives** | **95.9%** | 81.5% | **88.1%** | **0.23ms** |
+| Advanced primitives | 95.9% | 81.5% | 88.1% | 0.23ms |
+| **TorchHD backend** | **98.4%** | **89.5%** | **93.7%** | 3.88ms |
 
-### Key to Success: Advanced Primitives
+### Key to Success: TorchHD Backend
 
-The breakthrough came from using Holon's advanced primitives:
+The best results came from switching to TorchHD as the VSA engine:
+
+```python
+from holon.torchhd_encoder import TorchHDStore
+
+store = TorchHDStore(dimensions=1024)
+
+# TorchHD provides Level embeddings for numeric fields
+# Close values (status=200 vs 201) have similar vectors
+# Distant values (status=200 vs 500) have different vectors
+```
+
+**Why TorchHD wins:**
+- **Level embeddings** for numeric fields (status codes, durations)
+- Close numeric values → similar vectors (e.g., 200 ≈ 201, 200 ≠ 500)
+- Better discrimination between normal (200s) and error (400s, 500s) status codes
+
+Original Holon treats all values as categorical (200 ≠ 201), losing numeric similarity.
+
+### Alternative: Advanced Primitives (Original Encoder)
+
+With the original encoder, using `difference()` and `amplify()` helped:
 
 ```python
 # Extract what makes attacks unique (remove normal components)
@@ -101,7 +123,7 @@ attack_diff = store.encoder.difference(normal_prototype, attack_prototype)
 enhanced = store.encoder.amplify(attack_prototype, attack_diff, strength=0.5)
 ```
 
-This **boosted precision from 74% to 95.9%** by focusing on what makes attacks different rather than what they share with normal traffic.
+This boosted precision from 74% to 95.9%, but TorchHD's 98.4% is still better.
 
 ### Honest Findings
 
