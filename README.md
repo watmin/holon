@@ -74,7 +74,9 @@ pip install -e .
 | Complex documents, time encoding | 4096 | ~233K |
 | Very complex (100+ fields) | 8192 | ~119K |
 
-**Key finding**: 512 dimensions fail at 100+ field documents. Use 1024+ for production.
+**Key findings**:
+- 512 dimensions fail at 100+ field documents. Use 1024+ for production.
+- For **prototype classification**, lower dimensions (~1024) often outperform higher dimensions due to better generalization. Common wisdom (10K+) applies to storage, not classification.
 
 See [Dimension Selection Guide](docs/dimension_selection.md) for benchmarks and capacity planning.
 

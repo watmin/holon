@@ -95,21 +95,38 @@ Qdrant handles its own GPU acceleration for HNSW separately.
 
 **What works well:**
 - Distinct attack patterns detected at 100% (admin_probe, data_exfil, brute_force)
-- 96% recall - catches nearly all attacks
-- Sub-millisecond scoring latency
+- 98.5% recall - catches nearly all attacks
+- 0.22ms scoring latency
 
 **What doesn't work:**
-- Precision (74%) below 90% target
-- rate_abuse pattern overlaps with normal traffic (85% detection)
+- Precision (78.5%) below 90% target
+- rate_abuse pattern overlaps with normal traffic (94.5% detection)
 - Prototype approach flags some normal requests as suspicious
 
 **Root cause**: Attack patterns share structural overlap with normal traffic. Rate abuse especially - it's just fast normal requests.
 
-**Trade-off**: 74% precision with 96% recall is often acceptable for security use cases (investigate false positives rather than miss attacks).
+**Trade-off**: 78.5% precision with 98.5% recall is often acceptable for security use cases (investigate false positives rather than miss attacks).
+
+### Dimension Analysis (Important Finding!)
+
+| Dimensions | Precision | Recall | Latency |
+|------------|-----------|--------|---------|
+| 512 | 64.6% | 96.0% | - |
+| **1024** | **78.5%** | **98.5%** | **0.22ms** |
+| 2048 | 68.4% | 98.5% | - |
+| 4096 | 74.0% | 96.0% | 0.56ms |
+| 8192 | 66.2% | 100.0% | - |
+| 16000 | 65.8% | 100.0% | 2.77ms |
+
+**Key insight**: Common wisdom (10K+ dimensions) applies to **storage** (many items without interference). For **prototype-based classification**, lower dimensions (~1024) improve generalization.
 
 ### Run
 
 ```bash
+# Best configuration (1024 dimensions)
+./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py --qdrant --dimensions 1024
+
+# Default (4096 dimensions)
 ./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py --qdrant
 ```
 
