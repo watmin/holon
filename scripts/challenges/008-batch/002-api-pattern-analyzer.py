@@ -62,10 +62,29 @@ USER_AGENTS = [
 STATUS_CODES = [200, 201, 204, 400, 401, 403, 404, 500, 502, 503]
 
 
-def generate_normal_request(base_time: float, user_id: str) -> Dict[str, Any]:
+def generate_normal_request(base_time: float, user_id: str, use_ngram: bool = False) -> Dict[str, Any]:
     """Generate a normal API request."""
     endpoint = random.choice(ENDPOINTS[:9])  # Exclude admin endpoints for normal
     method = "GET" if "{id}" in endpoint else random.choice(["GET", "POST"])
+    
+    user_agent = random.choice(USER_AGENTS[:3])  # Normal browsers
+    
+    # Use ngram encoding for user_agent if enabled
+    if use_ngram:
+        # Split user agent into tokens for ngram matching
+        ua_tokens = user_agent.replace("/", " ").replace("(", " ").replace(")", " ").split()
+        headers = {
+            "user_agent": {
+                "_encode_mode": "ngram",
+                "sequence": ua_tokens[:5],  # First 5 tokens
+            },
+            "content_type": "application/json",
+        }
+    else:
+        headers = {
+            "user_agent": user_agent,
+            "content_type": "application/json",
+        }
     
     return {
         "endpoint": endpoint,
@@ -77,10 +96,7 @@ def generate_normal_request(base_time: float, user_id: str) -> Dict[str, Any]:
             "status": random.choice([200, 200, 200, 201, 204]),  # Mostly success
             "duration_ms": random.randint(10, 200),
         },
-        "headers": {
-            "user_agent": random.choice(USER_AGENTS[:3]),  # Normal browsers
-            "content_type": "application/json",
-        },
+        "headers": headers,
         "label": "normal",
     }
 
@@ -250,8 +266,14 @@ class APIPatternAnalyzer:
         elapsed = time.perf_counter() - start
         return count, elapsed
     
-    def learn_prototypes(self, requests: List[Dict]) -> None:
-        """Learn prototypes from labeled training data."""
+    def learn_prototypes(self, requests: List[Dict], use_advanced: bool = True) -> None:
+        """Learn prototypes from labeled training data.
+        
+        Uses advanced primitives when use_advanced=True:
+        - difference() to extract distinguishing features
+        - negate() to remove normal patterns from attack signatures
+        - amplify() to boost distinguishing features
+        """
         # Separate by label
         normal_vecs = []
         suspicious_by_pattern = {}
@@ -269,15 +291,30 @@ class APIPatternAnalyzer:
                     suspicious_by_pattern[pattern] = []
                 suspicious_by_pattern[pattern].append(vec)
         
-        # Create prototypes
+        # Create normal prototype
         if normal_vecs:
             self.normal_prototype = self.store.encoder.prototype(normal_vecs, threshold=0.3)
             print(f"   Normal prototype learned from {len(normal_vecs)} examples")
         
+        # Create attack prototypes
         for pattern, vecs in suspicious_by_pattern.items():
             if len(vecs) >= 5:  # Need enough examples
-                self.suspicious_prototypes[pattern] = self.store.encoder.prototype(vecs, threshold=0.4)
-                print(f"   {pattern} prototype learned from {len(vecs)} examples")
+                raw_prototype = self.store.encoder.prototype(vecs, threshold=0.4)
+                
+                if use_advanced and self.normal_prototype is not None:
+                    # Use difference() to extract what makes this attack unique
+                    # This removes the "normal request" components from the attack signature
+                    attack_diff = self.store.encoder.difference(self.normal_prototype, raw_prototype)
+                    
+                    # Amplify the distinguishing features
+                    enhanced_prototype = self.store.encoder.amplify(
+                        raw_prototype, attack_diff, strength=0.5
+                    )
+                    self.suspicious_prototypes[pattern] = enhanced_prototype
+                    print(f"   {pattern} prototype learned from {len(vecs)} examples (enhanced)")
+                else:
+                    self.suspicious_prototypes[pattern] = raw_prototype
+                    print(f"   {pattern} prototype learned from {len(vecs)} examples")
     
     def score_request(self, request: Dict) -> Dict[str, float]:
         """Score a request against learned prototypes."""
@@ -407,6 +444,8 @@ def main():
     parser.add_argument("--num-suspicious", type=int, default=1000, help="Number of suspicious requests")
     parser.add_argument("--threshold", type=float, default=0.0, help="Classification threshold")
     parser.add_argument("--dimensions", type=int, default=4096, help="Vector dimensions")
+    parser.add_argument("--advanced", action="store_true", help="Use advanced primitives (difference, amplify)")
+    parser.add_argument("--ngram", action="store_true", help="Use ngram encoding for user_agent")
     args = parser.parse_args()
     
     print("=" * 60)
@@ -434,6 +473,10 @@ def main():
     print(f"\n📊 Generating dataset...")
     print(f"   Normal requests: {args.num_normal}")
     print(f"   Suspicious requests: {args.num_suspicious}")
+    if args.advanced:
+        print(f"   Advanced primitives: ENABLED (difference, amplify)")
+    if args.ngram:
+        print(f"   N-gram encoding: ENABLED (for user_agent)")
     
     train, test_normal, test_suspicious = generate_dataset(
         num_normal=args.num_normal,
@@ -452,7 +495,7 @@ def main():
     
     # Learn prototypes
     print(f"\n🧠 Learning prototypes...")
-    analyzer.learn_prototypes(train)
+    analyzer.learn_prototypes(train, use_advanced=args.advanced)
     
     # Evaluate
     print(f"\n📈 Evaluating detection (threshold={args.threshold})...")

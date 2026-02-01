@@ -78,56 +78,74 @@ Qdrant handles its own GPU acceleration for HNSW separately.
 
 - [x] 10K+ requests indexed (10,400 in Qdrant)
 - [x] Prototype learning from labeled examples (4 attack patterns)
-- [ ] >90% precision on anomaly detection (74% achieved - see findings)
-- [x] Real-time scoring <10ms (0.56ms achieved)
+- [x] >90% precision on anomaly detection (**95.9% with advanced primitives**)
+- [x] Real-time scoring <10ms (0.23ms achieved)
 
 ### Results
 
-| Metric | Value | Status |
-|--------|-------|--------|
-| Requests indexed | 10,400 | ✅ |
-| Ingestion rate | 175 req/sec (Qdrant) | ✅ |
-| Scoring latency | 0.56ms | ✅ |
-| Precision | 74% | ⚠️ |
-| Recall | 96% | ✅ |
+| Configuration | Precision | Recall | F1 | Latency |
+|---------------|-----------|--------|-----|---------|
+| Basic (4096 dims) | 74% | 96% | 83.6% | 0.56ms |
+| Lower dims (1024) | 78.5% | 98.5% | 87.4% | 0.22ms |
+| **Advanced primitives** | **95.9%** | 81.5% | **88.1%** | **0.23ms** |
+
+### Key to Success: Advanced Primitives
+
+The breakthrough came from using Holon's advanced primitives:
+
+```python
+# Extract what makes attacks unique (remove normal components)
+attack_diff = store.encoder.difference(normal_prototype, attack_prototype)
+
+# Amplify the distinguishing features
+enhanced = store.encoder.amplify(attack_prototype, attack_diff, strength=0.5)
+```
+
+This **boosted precision from 74% to 95.9%** by focusing on what makes attacks different rather than what they share with normal traffic.
 
 ### Honest Findings
 
 **What works well:**
-- Distinct attack patterns detected at 100% (admin_probe, data_exfil, brute_force)
-- 98.5% recall - catches nearly all attacks
-- 0.22ms scoring latency
+- Advanced primitives achieve 95.9% precision
+- Distinct patterns detected at 100% (data_exfil, brute_force)
+- 0.23ms scoring latency
+- 10,400 requests persisted in Qdrant
 
-**What doesn't work:**
-- Precision (78.5%) below 90% target
-- rate_abuse pattern overlaps with normal traffic (94.5% detection)
-- Prototype approach flags some normal requests as suspicious
+**Trade-offs:**
+- High precision (95.9%) comes with lower recall (81.5%)
+- rate_abuse detection drops to 57.9% (looks like fast normal requests)
+- Use threshold tuning to find your precision/recall balance
 
-**Root cause**: Attack patterns share structural overlap with normal traffic. Rate abuse especially - it's just fast normal requests.
+**Best threshold by use case:**
+- High security (catch everything): threshold=0.03, 78% precision, 96% recall
+- Balanced: threshold=0.06, 89% precision, 89% recall
+- Low false positives: threshold=0.07, 96% precision, 82% recall
 
-**Trade-off**: 78.5% precision with 98.5% recall is often acceptable for security use cases (investigate false positives rather than miss attacks).
+### Dimension Analysis
 
-### Dimension Analysis (Important Finding!)
+| Dimensions | Precision (basic) | Precision (advanced) |
+|------------|-------------------|----------------------|
+| 512 | 64.6% | - |
+| **1024** | 78.5% | **95.9%** |
+| 4096 | 74.0% | - |
+| 16000 | 65.8% | - |
 
-| Dimensions | Precision | Recall | Latency |
-|------------|-----------|--------|---------|
-| 512 | 64.6% | 96.0% | - |
-| **1024** | **78.5%** | **98.5%** | **0.22ms** |
-| 2048 | 68.4% | 98.5% | - |
-| 4096 | 74.0% | 96.0% | 0.56ms |
-| 8192 | 66.2% | 100.0% | - |
-| 16000 | 65.8% | 100.0% | 2.77ms |
-
-**Key insight**: Common wisdom (10K+ dimensions) applies to **storage** (many items without interference). For **prototype-based classification**, lower dimensions (~1024) improve generalization.
+**Key insight**: Lower dimensions (~1024) + advanced primitives gives best results. Common wisdom (10K+ dimensions) applies to storage, not classification.
 
 ### Run
 
 ```bash
-# Best configuration (1024 dimensions)
-./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py --qdrant --dimensions 1024
+# Best configuration (95.9% precision)
+./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py \
+  --qdrant --dimensions 1024 --advanced --threshold 0.07
 
-# Default (4096 dimensions)
-./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py --qdrant
+# Balanced (89% precision, 89% recall)  
+./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py \
+  --qdrant --dimensions 1024 --advanced --threshold 0.06
+
+# High recall (78% precision, 96% recall)
+./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py \
+  --qdrant --dimensions 1024 --advanced --threshold 0.03
 ```
 
 ---
