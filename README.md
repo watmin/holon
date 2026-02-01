@@ -78,6 +78,32 @@ pip install -e .
 
 See [Dimension Selection Guide](docs/dimension_selection.md) for benchmarks and capacity planning.
 
+### GPU Acceleration
+
+Holon supports GPU via CuPy. Here's the honest assessment:
+
+| Operation | GPU Speedup | Verdict |
+|-----------|-------------|---------|
+| Batch matrix similarity | **40x** | GPU wins big |
+| Individual insert/query | **0.02-0.12x** | GPU loses (transfer overhead) |
+
+**The uncomfortable truth**: Holon's default one-at-a-time operations don't benefit from GPU. The CPU→GPU→CPU transfer overhead dominates. GPU only wins when you batch thousands of similarity computations into a single matrix operation.
+
+```python
+# GPU backend (auto-detects, or force with backend="gpu")
+store = CPUStore(dimensions=4096, backend="auto")
+
+# For GPU to help, you need batch operations:
+# - Large prototype learning (1000+ examples)
+# - Batch similarity across many stored vectors
+# - Custom matrix operations via store.encoder.xp (numpy/cupy)
+```
+
+**When to use GPU**: Large-scale prototype learning, batch classification, custom vector math.
+**When to skip GPU**: Normal insert/query workloads, small datasets (<1000 items).
+
+Install: `pip install cupy-cuda12x` (or `cupy-cuda11x` for older CUDA).
+
 ## Core Features
 
 ### Query Operators
