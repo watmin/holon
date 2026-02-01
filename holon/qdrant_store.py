@@ -47,6 +47,45 @@ except ImportError:
     QdrantClient = None
 
 
+def _encode_chunk(
+    work_items: List[Tuple[int, str, str, int]]
+) -> List[Tuple[int, List[float], Any]]:
+    """
+    Encode a chunk of items in a worker process.
+
+    Args:
+        work_items: List of (index, data_string, data_type, dimensions)
+
+    Returns:
+        List of (index, vector_as_list, parsed_data)
+    """
+    # Create encoder for this worker (each process needs its own)
+    if not work_items:
+        return []
+
+    dimensions = work_items[0][3]
+    vm = VectorManager(dimensions, backend="cpu")
+    encoder = Encoder(vm)
+
+    results = []
+    for idx, data_str, data_type, _ in work_items:
+        parsed = parse_data(data_str, data_type)
+        vector = encoder.encode_data(parsed)
+
+        if hasattr(vector, "get"):
+            vector = vector.get()
+        vector = vector.astype(np.float32)
+
+        # Normalize
+        norm = np.linalg.norm(vector)
+        if norm > 0:
+            vector = vector / norm
+
+        results.append((idx, vector.tolist(), parsed))
+
+    return results
+
+
 class QdrantStore(Store):
     """
     Qdrant-backed Holon store.
@@ -458,15 +497,19 @@ class QdrantStore(Store):
     # =========================================================================
 
     def batch_insert(
-        self, items: List[str], data_type: str = "json", batch_size: int = 100
+        self, items: List[str], data_type: str = "json", batch_size: int = 200
     ) -> List[str]:
         """
         Insert multiple items efficiently in chunks.
 
+        Note: The bottleneck is Qdrant HTTP upload (~320-335 items/sec),
+        not encoding. Larger batch sizes help slightly but hit payload
+        limits above 200 for 4096d vectors.
+
         Args:
             items: List of data strings.
             data_type: 'json' or 'edn'.
-            batch_size: Number of items per batch (default 100).
+            batch_size: Number of items per batch (default 200).
 
         Returns:
             List of generated IDs.
@@ -509,6 +552,97 @@ class QdrantStore(Store):
                 )
 
             # Batch upsert chunk
+            self.client.upsert(
+                collection_name=self.collection,
+                points=points,
+            )
+            all_ids.extend(chunk_ids)
+
+        return all_ids
+
+    def parallel_batch_insert(
+        self,
+        items: List[str],
+        data_type: str = "json",
+        batch_size: int = 200,
+        num_workers: int = None,
+    ) -> List[str]:
+        """
+        Insert multiple items with parallel encoding.
+
+        Uses multiprocessing to encode vectors in parallel, then batch uploads.
+
+        Note: Provides only ~1.2x speedup because Qdrant HTTP upload
+        (~320 items/sec) is the bottleneck, not encoding (~1300 items/sec).
+        Use regular batch_insert() for simplicity unless encoding is your
+        bottleneck (e.g., very complex documents or higher dimensions).
+
+        Args:
+            items: List of data strings.
+            data_type: 'json' or 'edn'.
+            batch_size: Number of items per Qdrant batch (default 200).
+            num_workers: Number of parallel workers (default: CPU count).
+
+        Returns:
+            List of generated IDs.
+        """
+        import multiprocessing as mp
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        if num_workers is None:
+            num_workers = mp.cpu_count()
+
+        # Prepare work items with indices for ordering
+        work_items = [
+            (i, data, data_type, self.dimensions) for i, data in enumerate(items)
+        ]
+
+        # Process in parallel
+        encoded_results = [None] * len(items)
+
+        # Use smaller chunks for parallel processing
+        chunk_size = max(1, len(items) // (num_workers * 4))
+
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = {}
+            for i in range(0, len(work_items), chunk_size):
+                chunk = work_items[i : i + chunk_size]
+                future = executor.submit(_encode_chunk, chunk)
+                futures[future] = i
+
+            for future in as_completed(futures):
+                chunk_start = futures[future]
+                results = future.result()
+                for idx, vector, parsed in results:
+                    encoded_results[idx] = (vector, parsed)
+
+        # Now batch upload to Qdrant
+        all_ids = []
+
+        for chunk_start in range(0, len(items), batch_size):
+            chunk_end = min(chunk_start + batch_size, len(items))
+            points = []
+            chunk_ids = []
+
+            for i in range(chunk_start, chunk_end):
+                vector, parsed = encoded_results[i]
+                point_id = str(uuid.uuid4())
+                chunk_ids.append(point_id)
+
+                points.append(
+                    PointStruct(
+                        id=point_id,
+                        vector=vector,
+                        payload={
+                            "_raw": items[i],
+                            "_type": data_type,
+                            "_parsed": parsed
+                            if isinstance(parsed, dict)
+                            else str(parsed),
+                        },
+                    )
+                )
+
             self.client.upsert(
                 collection_name=self.collection,
                 points=points,
