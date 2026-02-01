@@ -353,10 +353,17 @@ class TorchHDEncoder:
         """Remove a component from a superposition.
         
         Args:
-            superposition: The base vector
-            component: The component to remove
+            superposition: The base vector (can be numpy array or torch tensor)
+            component: The component to remove (can be numpy array or torch tensor)
             method: "subtract" (default) or "orthogonalize"
         """
+        # Convert numpy arrays to tensors
+        import numpy as np
+        if isinstance(superposition, np.ndarray):
+            superposition = torch.from_numpy(superposition).to(self.device)
+        if isinstance(component, np.ndarray):
+            component = torch.from_numpy(component).to(self.device)
+        
         if method == "orthogonalize":
             # Project component out of superposition
             dot = torch.dot(superposition.float(), component.float())

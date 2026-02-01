@@ -2,17 +2,17 @@
 """
 Challenge 008-004: Customer Support Ticket Router
 
-Auto-route support tickets to the right team using k-NN classification
-based on similarity to past resolved tickets.
+COMPREHENSIVE HOLON DEMO showcasing:
+1. TorchHD backend - Level embeddings for satisfaction scores (4.5 ≈ 5.0, ≠ 2.0)
+2. Rich guards - $gte, $in, nested $time comparisons
+3. Negations - "find tickets NOT like complaint X"
+4. difference() - understand what distinguishes teams
+5. prototype() - learn team signatures
+6. $time encoding - temporal similarity in vector space
+7. k-NN classification - weighted voting by similarity
 
 Use case: Support teams get tickets auto-routed based on what worked before,
 not just keyword matching.
-
-Key Holon features demonstrated:
-- k-NN classification for team routing
-- Prototype learning from resolved tickets
-- Guard filters for quality (satisfaction >= 4.0)
-- Time awareness (similar issues from last month)
 """
 
 import json
@@ -21,6 +21,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Any
 from collections import Counter
+import numpy as np
 from holon import CPUStore, HolonClient
 
 # =============================================================================
@@ -190,10 +191,13 @@ def generate_test_tickets(count: int = 100) -> List[Dict]:
 class TicketRouter:
     """Route tickets using k-NN classification on historical tickets."""
     
-    def __init__(self, dimensions: int = 4096):
-        self.store = CPUStore(dimensions=dimensions)
+    def __init__(self, dimensions: int = 4096, use_torchhd: bool = True):
+        # TorchHD for Level embeddings: satisfaction 4.5 ≈ 5.0, but ≠ 2.0
+        backend = "torchhd" if use_torchhd else "cpu"
+        self.store = CPUStore(dimensions=dimensions, backend=backend)
         self.client = HolonClient(local_store=self.store)
         self.team_prototypes = {}
+        self.backend = backend
         
     def train(self, tickets: List[Dict]):
         """Ingest training tickets."""
@@ -329,6 +333,132 @@ class TicketRouter:
             "by_team": team_accuracy,
             "confusion": confusion,
         }
+    
+    # =========================================================================
+    # ADVANCED HOLON FEATURES
+    # =========================================================================
+    
+    def analyze_team_differences(self) -> Dict[str, float]:
+        """
+        Use difference() to understand what distinguishes each team.
+        Returns magnitude of difference from average prototype.
+        """
+        if len(self.team_prototypes) < 2:
+            return {}
+        
+        # Create average prototype
+        all_protos = list(self.team_prototypes.values())
+        all_np = [p.cpu().numpy() if hasattr(p, 'cpu') else p for p in all_protos]
+        avg_proto = np.mean(all_np, axis=0)
+        
+        differences = {}
+        for team, proto in self.team_prototypes.items():
+            proto_np = proto.cpu().numpy() if hasattr(proto, 'cpu') else proto
+            diff = self.store.difference(avg_proto, proto_np)
+            diff_np = diff.cpu().numpy() if hasattr(diff, 'cpu') else diff
+            differences[team] = float(np.linalg.norm(diff_np))
+        
+        return differences
+    
+    def find_similar_excluding(self, ticket: Dict, exclude_team: str, limit: int = 5) -> List[Dict]:
+        """
+        Find similar tickets, EXCLUDING a specific team.
+        Demonstrates negations in search.
+        """
+        results = self.client.search_json(
+            probe={
+                "subject": ticket["subject"],
+                "keywords": ticket["keywords"],
+            },
+            guard={"status": "resolved"},
+            negations={"routed_to": exclude_team},  # Exclude this team
+            limit=limit
+        )
+        return results
+    
+    def find_tickets_from_period(self, start_time: float, end_time: float, keywords: List[str] = None) -> List[Dict]:
+        """
+        Find tickets from a specific time period.
+        Demonstrates $time guards for temporal filtering.
+        """
+        guard = {
+            "created_at": {
+                "$time": {"$gte": start_time, "$lte": end_time}
+            },
+            "status": "resolved"
+        }
+        
+        probe = {"keywords": keywords} if keywords else {}
+        
+        results = self.client.search_json(
+            probe=probe,
+            guard=guard,
+            limit=20
+        )
+        return results
+    
+    def find_enterprise_high_priority(self) -> List[Dict]:
+        """
+        Find enterprise tickets with high priority.
+        Demonstrates $in operator for multi-value matching.
+        """
+        results = self.client.search_json(
+            probe={},
+            guard={
+                "customer_type": "enterprise",
+                "priority": {"$in": ["high", "urgent"]},
+                "status": "resolved"
+            },
+            limit=20
+        )
+        return results
+    
+    def demo_holon_features(self):
+        """Demonstrate all advanced Holon features for ticket routing."""
+        print("\n" + "=" * 70)
+        print("ADVANCED HOLON FEATURES DEMO")
+        print("=" * 70)
+        
+        # 1. Team differences
+        print("\n1️⃣  DIFFERENCE() - What distinguishes each team?")
+        differences = self.analyze_team_differences()
+        for team, magnitude in sorted(differences.items(), key=lambda x: -x[1]):
+            print(f"   {team}: {magnitude:.1f} (distinctiveness)")
+        
+        # 2. Negations
+        print("\n2️⃣  NEGATIONS - Find similar tickets, excluding 'billing' team")
+        sample_ticket = {"subject": "Payment issue", "keywords": ["payment", "charge"]}
+        results = self.find_similar_excluding(sample_ticket, "billing")
+        print(f"   Found {len(results)} similar tickets (billing excluded)")
+        if results:
+            teams = [r["data"].get("routed_to") for r in results]
+            print(f"   Teams found: {set(teams)}")
+        
+        # 3. Time-based queries
+        print("\n3️⃣  $TIME GUARDS - Find tickets from last 30 days")
+        now = time.time()
+        results = self.find_tickets_from_period(now - 30*86400, now)
+        print(f"   Found {len(results)} tickets from last 30 days")
+        
+        # 4. Rich guards ($in)
+        print("\n4️⃣  RICH GUARDS - Find enterprise high-priority tickets")
+        results = self.find_enterprise_high_priority()
+        print(f"   Found {len(results)} enterprise high-priority tickets")
+        
+        # 5. TorchHD benefit
+        if self.backend == "torchhd":
+            print("\n5️⃣  TORCHHD LEVEL EMBEDDINGS - Satisfaction similarity")
+            print("   satisfaction=5.0 is similar to satisfaction=4.5")
+            print("   satisfaction=5.0 is different from satisfaction=2.0")
+            # Demo: search with satisfaction probe
+            results = self.client.search_json(
+                probe={"satisfaction": 4.8},
+                guard={"status": "resolved"},
+                limit=5
+            )
+            if results:
+                sats = [r["data"].get("satisfaction") for r in results]
+                print(f"   Probe satisfaction=4.8, found: {sats}")
 
 
 # =============================================================================
@@ -351,9 +481,10 @@ def main():
     print(f"   Test tickets: {len(test_tickets)}")
     print(f"   Teams: {', '.join(TEAMS)}")
     
-    # Initialize router
+    # Initialize router with TorchHD for Level embeddings
     print("\n🔧 Initializing ticket router...")
-    router = TicketRouter(dimensions=4096)
+    router = TicketRouter(dimensions=4096, use_torchhd=True)
+    print(f"   Backend: {router.backend}")
     
     # Train
     print("\n📥 Ingesting training tickets...")
@@ -469,9 +600,12 @@ def main():
         days_ago = (time.time() - d.get("created_at", {}).get("$time", 0)) / 86400
         print(f"      {d['ticket_id']}: {d['routed_to']} ({days_ago:.0f} days ago, score: {r['score']:.3f})")
     
-    # Demo 6: Latency benchmark
+    # Demo 6: Advanced Holon features
+    router.demo_holon_features()
+    
+    # Demo 7: Latency benchmark
     print("\n" + "=" * 70)
-    print("DEMO 6: Routing Latency")
+    print("DEMO 7: Routing Latency")
     print("=" * 70)
     
     # k-NN routing latency

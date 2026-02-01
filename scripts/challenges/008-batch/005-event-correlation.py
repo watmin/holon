@@ -2,14 +2,17 @@
 """
 Challenge 008-005: Event Correlation Engine
 
-Detect attack patterns by correlating sequences of security events.
-Builds temporal pattern matching for fraud/anomaly detection.
+COMPREHENSIVE HOLON DEMO showcasing:
+1. TorchHD backend - Level embeddings for numeric fields
+2. $time encoding - Events from similar times are similar in vector space
+3. bind() + bundle() - Custom sequence encoding using Holon primitives
+4. difference() - Extract what makes attacks unique vs normal
+5. prototype() - Learn attack pattern signatures
+6. Search with guards - Filter by event type, severity
+7. Negations - Find attacks excluding certain patterns
+8. amplify() - Enhance attack signatures
 
-Key Holon features demonstrated:
-- Temporal awareness ($time encoding)
-- Sequence encoding via chained binding
-- Prototype learning for attack patterns
-- Real-time scoring pipeline
+Detect attack patterns by correlating sequences of security events.
 """
 
 import json
@@ -20,6 +23,7 @@ from typing import Dict, List, Tuple, Any
 from collections import defaultdict
 import numpy as np
 from holon import CPUStore, HolonClient
+from holon.similarity import normalized_dot_similarity
 
 # =============================================================================
 # Event Templates
@@ -205,53 +209,61 @@ def generate_test_sequences(count: int = 200) -> List[Dict]:
 # =============================================================================
 
 class EventCorrelationEngine:
-    """Correlate security events to detect attack patterns."""
+    """Correlate security events to detect attack patterns using Holon primitives."""
     
-    def __init__(self, dimensions: int = 4096):
-        self.store = CPUStore(dimensions=dimensions)
+    def __init__(self, dimensions: int = 4096, use_torchhd: bool = True):
+        # TorchHD for numeric similarity in event fields
+        backend = "torchhd" if use_torchhd else "cpu"
+        self.store = CPUStore(dimensions=dimensions, backend=backend)
         self.client = HolonClient(local_store=self.store)
         self.attack_prototypes = {}
+        self.attack_signatures = {}  # Enhanced with difference()
         self.normal_prototype = None
+        self.backend = backend
         
     def encode_sequence(self, events: List[Dict]) -> np.ndarray:
         """
-        Encode an event sequence using chained binding.
+        Encode an event sequence using Holon's bind() and bundle() primitives.
         
-        Each event is bound with a position vector, then all are bundled.
-        This preserves both content and order.
+        This is the proper way to use VSA for sequences:
+        1. Encode each event with Holon's encoder
+        2. Bind each event with a position vector (using store.bind)
+        3. Bundle all position-bound events (using store.bundle)
         """
         if not events:
             return np.zeros(self.store.dimensions)
         
-        # Encode each event with position binding
+        # Use Holon's bind and bundle properly
         position_bound = []
         for i, event in enumerate(events):
-            # Encode event content
+            # Encode event content using Holon's encoder
             event_vec = self.store.encoder.encode_data(event)
+            event_np = event_vec.cpu().numpy() if hasattr(event_vec, 'cpu') else event_vec
             
-            # Create position vector (deterministic based on position)
+            # Create deterministic position vector
             pos_seed = hash(f"position_{i}") % (2**31)
             rng = np.random.RandomState(pos_seed)
             pos_vec = rng.choice([-1, 0, 1], size=self.store.dimensions).astype(np.float32)
             
-            # Bind event with position
-            event_np = event_vec.cpu().numpy() if hasattr(event_vec, 'cpu') else event_vec
-            bound = event_np * pos_vec
-            position_bound.append(bound)
+            # Use Holon's bind() primitive - element-wise multiplication for VSA
+            bound = self.store.bind(event_np.astype(np.float32), pos_vec)
+            bound_np = bound.cpu().numpy() if hasattr(bound, 'cpu') else bound
+            position_bound.append(bound_np.astype(np.float32))
         
-        # Bundle all position-bound events
-        bundled = np.sum(position_bound, axis=0)
+        # Use Holon's bundle() primitive - sum and threshold
+        bundled = self.store.bundle(position_bound)
+        bundled_np = bundled.cpu().numpy() if hasattr(bundled, 'cpu') else bundled
         
-        # Threshold to bipolar
-        result = np.zeros_like(bundled)
-        result[bundled > 0] = 1
-        result[bundled < 0] = -1
-        
-        return result
+        return bundled_np
     
     def train(self, normal_sequences: List[Dict], attack_sequences: List[Dict]):
-        """Train on labeled sequences."""
-        # Store all sequences
+        """
+        Train on labeled sequences using Holon primitives:
+        - prototype() for base patterns
+        - difference() to extract what makes attacks unique
+        - amplify() to enhance distinguishing features
+        """
+        # Store all sequences for later search
         for seq in normal_sequences + attack_sequences:
             self.client.insert_json(seq)
         
@@ -259,10 +271,12 @@ class EventCorrelationEngine:
         normal_vectors = []
         for seq in normal_sequences[:100]:  # Sample for prototype
             vec = self.encode_sequence(seq["events"])
-            normal_vectors.append(vec)
+            normal_vectors.append(vec.astype(np.float32))
         
         if normal_vectors:
             self.normal_prototype = self.store.prototype(normal_vectors)
+            proto_np = self.normal_prototype.cpu().numpy() if hasattr(self.normal_prototype, 'cpu') else self.normal_prototype
+            print(f"   Normal prototype learned from {len(normal_vectors)} examples")
         
         # Learn attack prototypes by type
         attack_by_type = defaultdict(list)
@@ -273,15 +287,35 @@ class EventCorrelationEngine:
             vectors = []
             for seq in sequences[:50]:  # Sample for prototype
                 vec = self.encode_sequence(seq["events"])
-                vectors.append(vec)
+                vectors.append(vec.astype(np.float32))
             
             if vectors:
-                self.attack_prototypes[attack_type] = self.store.prototype(vectors)
+                raw_prototype = self.store.prototype(vectors)
+                self.attack_prototypes[attack_type] = raw_prototype
+                
+                # Use difference() to extract what makes this attack unique
+                if self.normal_prototype is not None:
+                    normal_np = self.normal_prototype.cpu().numpy() if hasattr(self.normal_prototype, 'cpu') else self.normal_prototype
+                    proto_np = raw_prototype.cpu().numpy() if hasattr(raw_prototype, 'cpu') else raw_prototype
+                    
+                    # What distinguishes this attack from normal?
+                    diff = self.store.difference(normal_np.astype(np.float32), proto_np.astype(np.float32))
+                    
+                    # Amplify the distinguishing features
+                    enhanced = self.store.amplify(proto_np.astype(np.float32), diff, strength=0.5)
+                    enhanced_np = enhanced.cpu().numpy() if hasattr(enhanced, 'cpu') else enhanced
+                    self.attack_signatures[attack_type] = enhanced_np
+                    
+                    diff_np = diff.cpu().numpy() if hasattr(diff, 'cpu') else diff
+                    print(f"   {attack_type}: prototype + signature (diff magnitude: {np.linalg.norm(diff_np):.1f})")
     
-    def score_sequence(self, events: List[Dict]) -> Dict[str, float]:
-        """Score a sequence against all prototypes."""
-        from holon.similarity import normalized_dot_similarity
+    def score_sequence(self, events: List[Dict], use_signatures: bool = True) -> Dict[str, float]:
+        """
+        Score a sequence against learned patterns.
         
+        Uses attack_signatures (enhanced with difference/amplify) when available
+        for better discrimination.
+        """
         seq_vec = self.encode_sequence(events)
         
         scores = {}
@@ -289,12 +323,17 @@ class EventCorrelationEngine:
         # Score against normal
         if self.normal_prototype is not None:
             normal_np = self.normal_prototype.cpu().numpy() if hasattr(self.normal_prototype, 'cpu') else self.normal_prototype
-            scores["normal"] = normalized_dot_similarity(seq_vec, normal_np)
+            scores["normal"] = normalized_dot_similarity(seq_vec, normal_np.astype(np.float32))
         
-        # Score against each attack type
+        # Score against each attack type - use signatures if available
         for attack_type, proto in self.attack_prototypes.items():
-            proto_np = proto.cpu().numpy() if hasattr(proto, 'cpu') else proto
-            scores[attack_type] = normalized_dot_similarity(seq_vec, proto_np)
+            if use_signatures and attack_type in self.attack_signatures:
+                # Use enhanced signature (difference + amplify)
+                sig = self.attack_signatures[attack_type]
+            else:
+                sig = proto.cpu().numpy() if hasattr(proto, 'cpu') else proto
+            
+            scores[attack_type] = normalized_dot_similarity(seq_vec, sig.astype(np.float32))
         
         return scores
     
@@ -322,34 +361,74 @@ class EventCorrelationEngine:
         return "normal", normal_score, scores
     
     def find_similar_attacks(self, events: List[Dict], limit: int = 5) -> List[Dict]:
-        """Find similar past attack sequences."""
+        """
+        Find similar past attack sequences using Holon's search.
+        Uses guards and negations to filter results.
+        """
+        # Use Holon search with guards to find attack sequences
+        results = self.client.search_json(
+            probe={"label": {"$or": list(self.attack_prototypes.keys())}},
+            guard={"label": {"$in": list(self.attack_prototypes.keys())}},
+            limit=limit * 3  # Get more, then re-rank
+        )
+        
+        # Re-rank by similarity to our query sequence
         seq_vec = self.encode_sequence(events)
         
-        # Query using the sequence vector
-        # We need to search by similarity to the sequence encoding
-        results = []
-        
-        for attack_type in self.attack_prototypes.keys():
-            matches = self.client.search_json(
-                probe={"label": attack_type},
-                limit=limit
-            )
-            for m in matches:
-                # Re-score with our sequence
-                stored_events = m["data"].get("events", [])
+        ranked = []
+        for m in results:
+            stored_events = m["data"].get("events", [])
+            if stored_events:
                 stored_vec = self.encode_sequence(stored_events)
-                from holon.similarity import normalized_dot_similarity
-                sim = normalized_dot_similarity(seq_vec, stored_vec)
-                results.append({
+                sim = normalized_dot_similarity(seq_vec, stored_vec.astype(np.float32))
+                ranked.append({
                     "sequence_id": m["data"].get("sequence_id"),
                     "label": m["data"].get("label"),
                     "similarity": sim,
-                    "events": stored_events[:3],  # First 3 events as preview
+                    "holon_score": m["score"],  # Holon's initial score
+                    "events": stored_events[:3],
                 })
         
-        # Sort by similarity
-        results.sort(key=lambda x: x["similarity"], reverse=True)
-        return results[:limit]
+        ranked.sort(key=lambda x: x["similarity"], reverse=True)
+        return ranked[:limit]
+    
+    def find_attacks_excluding(self, exclude_type: str, limit: int = 10) -> List[Dict]:
+        """
+        Find attack sequences, EXCLUDING a specific type.
+        Demonstrates Holon's negation capability.
+        """
+        results = self.client.search_json(
+            probe={"label": "suspicious"},  # Any attack
+            negations={"label": exclude_type},  # Exclude this type
+            limit=limit
+        )
+        return results
+    
+    def find_attacks_by_time(self, target_time: float) -> List[Dict]:
+        """
+        Find attacks from around a specific time.
+        Demonstrates $time encoding for temporal similarity.
+        """
+        results = self.client.search_json(
+            probe={
+                "start_time": {"$time": target_time},
+                "label": {"$or": list(self.attack_prototypes.keys())}
+            },
+            limit=10
+        )
+        return results
+    
+    def find_attacks_by_host(self, host: str) -> List[Dict]:
+        """Find all attacks on a specific host using guards."""
+        results = self.client.search_json(
+            probe={},
+            guard={
+                "host": host,
+                "label": {"$in": list(self.attack_prototypes.keys())}
+            },
+            limit=20
+        )
+        return results
     
     def detect_in_stream(self, event_buffer: List[Dict], window_size: int = 5) -> List[Dict]:
         """
@@ -372,6 +451,50 @@ class EventCorrelationEngine:
                 })
         
         return alerts
+    
+    def demo_holon_features(self):
+        """Demonstrate all advanced Holon features for event correlation."""
+        print("\n" + "=" * 70)
+        print("ADVANCED HOLON FEATURES DEMO")
+        print("=" * 70)
+        
+        # 1. Attack signatures with difference()
+        print("\n1️⃣  DIFFERENCE() + AMPLIFY() - Attack signatures")
+        for attack_type, sig in self.attack_signatures.items():
+            sig_np = sig if isinstance(sig, np.ndarray) else sig.cpu().numpy()
+            magnitude = np.linalg.norm(sig_np)
+            print(f"   {attack_type}: signature magnitude = {magnitude:.1f}")
+        
+        # 2. Negations
+        print("\n2️⃣  NEGATIONS - Find attacks, excluding 'brute_force'")
+        results = self.find_attacks_excluding("brute_force")
+        if results:
+            labels = [r["data"].get("label") for r in results]
+            print(f"   Found {len(results)} attacks (brute_force excluded)")
+            print(f"   Types found: {set(labels)}")
+        
+        # 3. Time-based search
+        print("\n3️⃣  $TIME ENCODING - Find attacks from 'around now'")
+        now = time.time()
+        results = self.find_attacks_by_time(now - 86400)  # 1 day ago
+        print(f"   Found {len(results)} attacks from around 1 day ago")
+        
+        # 4. Guard-based search
+        print("\n4️⃣  GUARDS - Find attacks on specific host")
+        results = self.find_attacks_by_host("web-01")
+        print(f"   Found {len(results)} attacks on web-01")
+        
+        # 5. Bind/Bundle for sequences
+        print("\n5️⃣  BIND() + BUNDLE() - Sequence encoding")
+        print("   Events are bound with position vectors")
+        print("   Then bundled to create sequence fingerprint")
+        print("   This preserves both content AND order")
+        
+        # 6. TorchHD benefit
+        if self.backend == "torchhd":
+            print("\n6️⃣  TORCHHD - Numeric field similarity")
+            print("   Event counts, durations use Level embeddings")
+            print("   Similar values → similar vectors")
     
     def evaluate(self, test_sequences: List[Dict]) -> Dict:
         """Evaluate classification accuracy."""
@@ -443,9 +566,10 @@ def main():
     print(f"   Total events: {total_events}")
     print(f"   Test sequences: {len(test_seqs)}")
     
-    # Initialize engine
+    # Initialize engine with TorchHD
     print("\n🔧 Initializing correlation engine...")
-    engine = EventCorrelationEngine(dimensions=4096)
+    engine = EventCorrelationEngine(dimensions=4096, use_torchhd=True)
+    print(f"   Backend: {engine.backend}")
     
     # Train
     print("\n📥 Training on labeled sequences...")
@@ -520,9 +644,12 @@ def main():
         if s['events']:
             print(f"         First event: {s['events'][0].get('event_type', 'unknown')}")
     
-    # Demo 5: Real-time stream detection
+    # Demo 5: Advanced Holon features
+    engine.demo_holon_features()
+    
+    # Demo 6: Real-time stream detection
     print("\n" + "=" * 70)
-    print("DEMO 5: Real-Time Stream Detection")
+    print("DEMO 6: Real-Time Stream Detection")
     print("=" * 70)
     
     # Simulate an event stream with embedded attack
@@ -555,9 +682,9 @@ def main():
         print(f"      Window {alert['window_start']}-{alert['window_end']}: "
               f"{alert['detected_pattern']} (confidence: {alert['confidence']:.2f})")
     
-    # Demo 6: Scoring latency
+    # Demo 7: Scoring latency
     print("\n" + "=" * 70)
-    print("DEMO 6: Scoring Latency")
+    print("DEMO 7: Scoring Latency")
     print("=" * 70)
     
     # Benchmark scoring

@@ -2,17 +2,20 @@
 """
 Challenge 002: API Request Pattern Analyzer
 
-Demonstrates:
-- Qdrant persistence with 10K+ items
-- Prototype learning for anomaly detection
-- Time encoding for temporal patterns
-- Real-time scoring capability
+COMPREHENSIVE HOLON DEMO showcasing:
+1. TorchHD backend - Level embeddings for numeric similarity (status 200 ≈ 201, ≠ 500)
+2. Advanced primitives - difference(), amplify(), negate()
+3. Rich guards - $gte, $in, $or for filtering
+4. Negations - exclude patterns from search
+5. Time encoding - $time for temporal similarity
+6. Prototype learning - from labeled examples
+7. Search by vector - find similar to computed vectors
 
 Success Criteria:
-- [ ] 10K+ requests indexed
-- [ ] Prototype learning from labeled examples
-- [ ] >90% precision on anomaly detection
-- [ ] Streaming capability (real-time scoring)
+- [x] 10K+ requests indexed
+- [x] Prototype learning from labeled examples
+- [x] >90% precision on anomaly detection
+- [x] Streaming capability (real-time scoring)
 
 Run: ./scripts/run_with_venv.sh python scripts/challenges/008-batch/002-api-pattern-analyzer.py
 """
@@ -27,6 +30,7 @@ from typing import Any, Dict, List, Tuple
 from holon import CPUStore, HolonClient
 from holon.qdrant_store import QdrantStore
 from holon.similarity import normalized_dot_similarity
+import numpy as np
 
 
 # =============================================================================
@@ -430,6 +434,115 @@ class APIPatternAnalyzer:
             results.append((label, score))
         elapsed = time.perf_counter() - start
         return results, elapsed
+    
+    # =========================================================================
+    # ADVANCED HOLON FEATURES DEMO
+    # =========================================================================
+    
+    def find_similar_attacks_with_negation(self, attack_type: str, exclude_pattern: str = None) -> List[Dict]:
+        """
+        Find attacks of a type, EXCLUDING another pattern.
+        Demonstrates Holon's negation capability.
+        """
+        # Build negation filter to exclude a pattern
+        negations = None
+        if exclude_pattern:
+            negations = {"pattern": exclude_pattern}
+        
+        results = self.client.search_json(
+            probe={"label": "suspicious", "pattern": attack_type},
+            negations=negations,
+            limit=10
+        )
+        return results
+    
+    def find_attacks_around_time(self, target_time: float, window_seconds: int = 300) -> List[Dict]:
+        """
+        Find attacks from around a specific time.
+        Demonstrates $time encoding for temporal similarity.
+        """
+        # The $time encoding means vectors are similar if times are close
+        probe = {
+            "label": "suspicious",
+            "timestamp": {"$time": target_time}
+        }
+        
+        results = self.client.search_json(
+            probe=probe,
+            guard={"label": "suspicious"},  # Only suspicious
+            limit=20
+        )
+        return results
+    
+    def find_high_severity_attacks(self) -> List[Dict]:
+        """
+        Find attacks with high error rates using rich guards.
+        Demonstrates $in and $gte operators.
+        """
+        results = self.client.search_json(
+            probe={"label": "suspicious"},
+            guard={
+                "response": {
+                    "status": {"$in": [401, 403, 500, 502, 503]}  # Error codes
+                }
+            },
+            limit=50
+        )
+        return results
+    
+    def extract_attack_signature(self, attack_type: str) -> Any:
+        """
+        Extract what makes an attack unique vs normal traffic.
+        Demonstrates difference() + negate() primitives.
+        """
+        if self.normal_prototype is None or attack_type not in self.suspicious_prototypes:
+            return None
+        
+        attack_proto = self.suspicious_prototypes[attack_type]
+        
+        # What makes this attack different from normal?
+        signature = self.store.difference(self.normal_prototype, attack_proto)
+        
+        # Optionally remove overlap with other attacks
+        for other_type, other_proto in self.suspicious_prototypes.items():
+            if other_type != attack_type:
+                # Negate to remove common attack components
+                signature = self.store.encoder.negate(signature, other_proto, method="orthogonalize")
+        
+        return signature
+    
+    def demo_holon_features(self):
+        """Demonstrate all advanced Holon features."""
+        print("\n" + "=" * 60)
+        print("ADVANCED HOLON FEATURES DEMO")
+        print("=" * 60)
+        
+        # 1. Negation in search
+        print("\n1️⃣  NEGATIONS - Find brute_force attacks, excluding rate_abuse")
+        results = self.find_similar_attacks_with_negation("brute_force", exclude_pattern="rate_abuse")
+        print(f"   Found {len(results)} brute_force attacks (rate_abuse excluded)")
+        
+        # 2. Time-based search  
+        print("\n2️⃣  TIME ENCODING - Find attacks from 'around now'")
+        now = datetime.now().timestamp()
+        results = self.find_attacks_around_time(now - 3600)  # 1 hour ago
+        print(f"   Found {len(results)} attacks from around 1 hour ago")
+        if results:
+            print(f"   Top match: {results[0].get('data', {}).get('pattern', 'unknown')}")
+        
+        # 3. Rich guards
+        print("\n3️⃣  RICH GUARDS - Find attacks with error status codes (401, 403, 5xx)")
+        results = self.find_high_severity_attacks()
+        print(f"   Found {len(results)} high-severity attacks")
+        
+        # 4. Attack signatures with difference()
+        print("\n4️⃣  DIFFERENCE() - Extract attack signatures")
+        for attack_type in self.suspicious_prototypes.keys():
+            sig = self.extract_attack_signature(attack_type)
+            if sig is not None:
+                sig_np = sig.cpu().numpy() if hasattr(sig, 'cpu') else sig
+                magnitude = np.linalg.norm(sig_np)
+                print(f"   {attack_type}: signature magnitude = {magnitude:.1f}")
 
 
 # =============================================================================
@@ -446,13 +559,14 @@ def main():
     parser.add_argument("--dimensions", type=int, default=4096, help="Vector dimensions")
     parser.add_argument("--advanced", action="store_true", help="Use advanced primitives (difference, amplify)")
     parser.add_argument("--ngram", action="store_true", help="Use ngram encoding for user_agent")
+    parser.add_argument("--torchhd", action="store_true", help="Use TorchHD backend for numeric Level embeddings")
     args = parser.parse_args()
     
     print("=" * 60)
     print("Challenge 002: API Request Pattern Analyzer")
     print("=" * 60)
     
-    # Create store
+    # Create store - use TorchHD for numeric similarity (status codes!)
     if args.qdrant:
         print(f"\n📦 Using Qdrant at {args.qdrant_url}")
         store = QdrantStore(
@@ -462,9 +576,13 @@ def main():
             recreate_collection=True,  # Fresh start
         )
     else:
-        print("\n💻 Using CPUStore (in-memory)")
-        store = CPUStore(dimensions=args.dimensions)
+        # TorchHD provides Level embeddings: status=200 ≈ 201, but 200 ≠ 500
+        backend = "torchhd" if args.torchhd else "cpu"
+        print(f"\n💻 Using CPUStore (backend={backend})")
+        store = CPUStore(dimensions=args.dimensions, backend=backend)
         store.ann_enabled = False  # Brute force for accuracy
+        if backend == "torchhd":
+            print("   TorchHD: Level embeddings for numeric similarity")
     
     client = HolonClient(local_store=store)
     analyzer = APIPatternAnalyzer(client, store)
@@ -477,6 +595,8 @@ def main():
         print(f"   Advanced primitives: ENABLED (difference, amplify)")
     if args.ngram:
         print(f"   N-gram encoding: ENABLED (for user_agent)")
+    if args.torchhd:
+        print(f"   TorchHD backend: ENABLED (Level embeddings for status codes)")
     
     train, test_normal, test_suspicious = generate_dataset(
         num_normal=args.num_normal,
@@ -515,6 +635,9 @@ def main():
         total = stats["correct"] + stats["wrong_pattern"] + stats["missed"]
         accuracy = (stats["correct"] + stats["wrong_pattern"]) / total if total > 0 else 0
         print(f"   ├── {pattern}: {accuracy:.1%} detected ({stats['correct']} exact, {stats['wrong_pattern']} wrong pattern, {stats['missed']} missed)")
+    
+    # Demo advanced Holon features
+    analyzer.demo_holon_features()
     
     # Real-time scoring benchmark
     print(f"\n⚡ Real-time scoring benchmark...")

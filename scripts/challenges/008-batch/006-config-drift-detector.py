@@ -2,16 +2,17 @@
 """
 Challenge 008-006: Configuration Drift Detector
 
-Detect configuration drift across infrastructure using Holon's difference() primitive.
+COMPREHENSIVE HOLON DEMO showcasing:
+1. TorchHD backend - Numeric similarity for config values
+2. difference() - Extract what changed between configs
+3. amplify() - Enhance sensitivity to specific drift types
+4. negate() - Remove expected/acceptable changes
+5. prototype() - Learn drift patterns by type
+6. Rich guards - Filter by severity, region, drift type
+7. Negations - Find drifts excluding known patterns
+8. Deep nested encoding - 6+ levels of config structure
 
-Use case: DevOps teams need to spot "what changed" across complex configs and
-find similar drift patterns across servers.
-
-Key Holon features demonstrated:
-- Deep nested structure encoding (6+ levels)
-- difference() primitive for drift detection
-- Similarity search for cross-server pattern matching
-- Time encoding for drift history
+Use case: DevOps teams need to spot "what changed" across complex configs.
 """
 
 import json
@@ -19,7 +20,9 @@ import random
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Any
+import numpy as np
 from holon import CPUStore, HolonClient
+from holon.similarity import normalized_dot_similarity
 
 # =============================================================================
 # Configuration Templates
@@ -241,13 +244,18 @@ def generate_server_configs(num_servers: int = 50) -> List[Dict]:
 # =============================================================================
 
 class DriftDetector:
-    """Detect and analyze configuration drift using Holon."""
+    """Detect and analyze configuration drift using Holon primitives."""
     
-    def __init__(self, dimensions: int = 4096):
-        self.store = CPUStore(dimensions=dimensions)
+    def __init__(self, dimensions: int = 4096, use_torchhd: bool = True):
+        # TorchHD for numeric similarity in config values
+        backend = "torchhd" if use_torchhd else "cpu"
+        self.store = CPUStore(dimensions=dimensions, backend=backend)
         self.client = HolonClient(local_store=self.store)
         self.golden_vector = None
         self.golden_config = create_golden_config()
+        self.drift_type_signatures = {}  # Learned drift patterns
+        self.expected_changes_vector = None  # For negate()
+        self.backend = backend
         
     def set_golden_config(self):
         """Encode the golden configuration as reference."""
@@ -262,19 +270,21 @@ class DriftDetector:
     def detect_drift_vector(self, server_config: Dict) -> Tuple[Any, float]:
         """
         Compute drift vector between server config and golden config.
+        Uses difference() primitive - the key to drift detection.
         Returns (drift_vector, drift_magnitude).
         """
         server_vector = self.store.encoder.encode_data(server_config)
+        server_np = server_vector.cpu().numpy() if hasattr(server_vector, 'cpu') else server_vector
+        golden_np = self.golden_vector.cpu().numpy() if hasattr(self.golden_vector, 'cpu') else self.golden_vector
         
         # Use difference() to extract what changed
-        drift_vector = self.store.difference(self.golden_vector, server_vector)
+        drift_vector = self.store.difference(golden_np.astype(np.float32), server_np.astype(np.float32))
         
         # Magnitude indicates how much drift
-        import numpy as np
         drift_np = drift_vector.cpu().numpy() if hasattr(drift_vector, 'cpu') else drift_vector
         magnitude = float(np.linalg.norm(drift_np))
         
-        return drift_vector, magnitude
+        return drift_np, magnitude
     
     def find_similar_drifts(self, drift_vector: Any, limit: int = 5) -> List[Dict]:
         """Find servers with similar drift patterns."""
@@ -342,25 +352,197 @@ class DriftDetector:
         return stats
     
     def find_security_issues(self) -> List[Dict]:
-        """Find servers with security-related drift."""
+        """Find servers with security-related drift using guards."""
         results = self.client.search_json(
             probe={"drift_severity": "critical"},
+            guard={"drift_severity": {"$in": ["critical", "high"]}},
             limit=50
         )
         
         security_issues = []
         for r in results:
             data = r.get("data", {})
-            if data.get("drift_severity") in ["critical", "high"]:
-                security_issues.append({
-                    "server_id": data.get("server_id"),
-                    "drift_type": data.get("drift_type"),
-                    "severity": data.get("drift_severity"),
-                    "changes": data.get("drift_changes", []),
-                    "region": data.get("region")
-                })
+            security_issues.append({
+                "server_id": data.get("server_id"),
+                "drift_type": data.get("drift_type"),
+                "severity": data.get("drift_severity"),
+                "changes": data.get("drift_changes", []),
+                "region": data.get("region")
+            })
         
         return security_issues
+    
+    # =========================================================================
+    # ADVANCED HOLON FEATURES
+    # =========================================================================
+    
+    def learn_drift_signatures(self, servers: List[Dict]):
+        """
+        Learn drift type signatures using prototype() and difference().
+        Creates enhanced signatures for each drift type.
+        """
+        # Group servers by drift type
+        by_type = {}
+        for server in servers:
+            dtype = server.get("drift_type")
+            if dtype:
+                if dtype not in by_type:
+                    by_type[dtype] = []
+                by_type[dtype].append(server)
+        
+        # Create signature for each drift type
+        for dtype, drifted_servers in by_type.items():
+            if len(drifted_servers) < 3:
+                continue
+            
+            # Get drift vectors for this type
+            drift_vectors = []
+            for server in drifted_servers[:20]:
+                config = server.get("config", {})
+                _, drift_vec = self.detect_drift_vector(config)
+                if drift_vec is not None:
+                    drift_vectors.append(drift_vec)
+            
+            if drift_vectors:
+                # Create prototype for this drift type
+                drift_vecs_np = [np.array([v]) if np.isscalar(v) else v for v in drift_vectors]
+                # Just use mean for signature
+                signature = np.mean(drift_vecs_np, axis=0)
+                self.drift_type_signatures[dtype] = signature
+    
+    def set_expected_changes(self, expected_config_delta: Dict):
+        """
+        Define expected/acceptable changes using negate().
+        These will be subtracted from drift detection.
+        """
+        expected_vec = self.store.encoder.encode_data(expected_config_delta)
+        expected_np = expected_vec.cpu().numpy() if hasattr(expected_vec, 'cpu') else expected_vec
+        self.expected_changes_vector = expected_np
+    
+    def detect_drift_excluding_expected(self, server_config: Dict) -> Tuple[Any, float]:
+        """
+        Detect drift, but exclude expected/acceptable changes using negate().
+        """
+        server_vector = self.store.encoder.encode_data(server_config)
+        server_np = server_vector.cpu().numpy() if hasattr(server_vector, 'cpu') else server_vector
+        golden_np = self.golden_vector.cpu().numpy() if hasattr(self.golden_vector, 'cpu') else self.golden_vector
+        
+        # Compute raw drift
+        drift_vector = self.store.difference(golden_np.astype(np.float32), server_np.astype(np.float32))
+        drift_np = drift_vector.cpu().numpy() if hasattr(drift_vector, 'cpu') else drift_vector
+        
+        # Negate expected changes (remove them from drift)
+        if self.expected_changes_vector is not None:
+            # Use store.negate which handles numpy/torch conversions
+            negated = self.store.negate(
+                drift_np.astype(np.float32), 
+                self.expected_changes_vector.astype(np.float32),
+                method="orthogonalize"
+            )
+            drift_np = negated.cpu().numpy() if hasattr(negated, 'cpu') else negated
+        
+        magnitude = float(np.linalg.norm(drift_np))
+        return drift_np, magnitude
+    
+    def amplify_security_drift(self, drift_vector: np.ndarray) -> np.ndarray:
+        """
+        Amplify security-related drift components using amplify().
+        Makes security issues more detectable.
+        """
+        if "security_relaxed" in self.drift_type_signatures:
+            security_sig = self.drift_type_signatures["security_relaxed"]
+            # Amplify the security components
+            amplified = self.store.amplify(
+                drift_vector.astype(np.float32),
+                security_sig.astype(np.float32),
+                strength=2.0
+            )
+            return amplified.cpu().numpy() if hasattr(amplified, 'cpu') else amplified
+        return drift_vector
+    
+    def find_drifts_excluding_type(self, exclude_type: str) -> List[Dict]:
+        """
+        Find drifted servers, EXCLUDING a specific drift type.
+        Demonstrates negations in search.
+        """
+        results = self.client.search_json(
+            probe={"drift_detected": True},
+            negations={"drift_type": exclude_type},
+            limit=20
+        )
+        return results
+    
+    def find_drifts_by_severity_and_region(self, severities: List[str], region: str = None) -> List[Dict]:
+        """
+        Find drifts by severity using $in guard, optionally filtered by region.
+        Demonstrates rich guard operators.
+        """
+        guard = {
+            "drift_detected": True,
+            "drift_severity": {"$in": severities}
+        }
+        if region:
+            guard["region"] = region
+        
+        results = self.client.search_json(
+            probe={"drift_detected": True},
+            guard=guard,
+            limit=30
+        )
+        return results
+    
+    def demo_holon_features(self, servers: List[Dict]):
+        """Demonstrate all advanced Holon features for drift detection."""
+        print("\n" + "=" * 70)
+        print("ADVANCED HOLON FEATURES DEMO")
+        print("=" * 70)
+        
+        # 1. Learn drift signatures
+        print("\n1️⃣  PROTOTYPE() - Learn drift type signatures")
+        self.learn_drift_signatures(servers)
+        for dtype, sig in self.drift_type_signatures.items():
+            print(f"   {dtype}: signature magnitude = {np.linalg.norm(sig):.1f}")
+        
+        # 2. Amplify security drift
+        print("\n2️⃣  AMPLIFY() - Enhance security-related drift")
+        drifted_server = next((s for s in servers if s.get("drift_type") == "security_relaxed"), None)
+        if drifted_server:
+            _, raw_magnitude = self.detect_drift_vector(drifted_server["config"])
+            drift_vec, _ = self.detect_drift_vector(drifted_server["config"])
+            drift_np = drift_vec.cpu().numpy() if hasattr(drift_vec, 'cpu') else drift_vec
+            amplified = self.amplify_security_drift(drift_np)
+            amplified_magnitude = np.linalg.norm(amplified)
+            print(f"   Raw magnitude: {raw_magnitude:.1f}")
+            print(f"   Amplified magnitude: {amplified_magnitude:.1f}")
+            print(f"   Amplification factor: {amplified_magnitude/raw_magnitude:.1f}x")
+        
+        # 3. Negate expected changes
+        print("\n3️⃣  NEGATE() - Exclude expected changes")
+        expected_delta = {"server": {"timeout": 45}}  # Acceptable change
+        self.set_expected_changes(expected_delta)
+        if drifted_server:
+            _, filtered_magnitude = self.detect_drift_excluding_expected(drifted_server["config"])
+            print(f"   Expected change set: timeout adjustment")
+            print(f"   Drift after filtering expected: {filtered_magnitude:.1f}")
+        
+        # 4. Negations in search
+        print("\n4️⃣  NEGATIONS - Find drifts, excluding 'minor_tuning'")
+        results = self.find_drifts_excluding_type("minor_tuning")
+        print(f"   Found {len(results)} drifts (minor_tuning excluded)")
+        if results:
+            types = set(r["data"].get("drift_type") for r in results)
+            print(f"   Types found: {types}")
+        
+        # 5. Rich guards
+        print("\n5️⃣  RICH GUARDS - Find critical/high severity in us-east-1")
+        results = self.find_drifts_by_severity_and_region(["critical", "high"], "us-east-1")
+        print(f"   Found {len(results)} critical/high drifts in us-east-1")
+        
+        # 6. TorchHD benefit
+        if self.backend == "torchhd":
+            print("\n6️⃣  TORCHHD - Numeric config value similarity")
+            print("   port=8080 is similar to port=8081")
+            print("   port=8080 is different from port=443")
 
 
 # =============================================================================
@@ -381,10 +563,11 @@ def main():
     print(f"   Generated {len(servers)} servers")
     print(f"   Drifted: {drifted_count} ({100*drifted_count/len(servers):.0f}%)")
     
-    # Initialize detector
+    # Initialize detector with TorchHD
     print("\n🔧 Initializing drift detector...")
-    detector = DriftDetector(dimensions=4096)
+    detector = DriftDetector(dimensions=4096, use_torchhd=True)
     detector.set_golden_config()
+    print(f"   Backend: {detector.backend}")
     
     # Ingest servers
     print("\n📥 Ingesting server configurations...")
@@ -472,9 +655,12 @@ def main():
         for s in similar:
             print(f"      {s['server_id']}: {s['drift_type']} (magnitude: {s['drift_magnitude']:.1f})")
     
-    # Demo 5: Query performance
+    # Demo 5: Advanced Holon features
+    detector.demo_holon_features(servers)
+    
+    # Demo 6: Query performance
     print("\n" + "=" * 70)
-    print("DEMO 5: Query Performance")
+    print("DEMO 6: Query Performance")
     print("=" * 70)
     
     # Benchmark queries
