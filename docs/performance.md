@@ -43,7 +43,79 @@ All benchmarks validated on production hardware with real-world data patterns an
 | < 1,000 items | Sub-millisecond | Minimal | CPU (brute-force) |
 | 1k-10k items | Millisecond range | Moderate | CPU + ANN |
 | 10k-100k items | Millisecond range | High | GPU + ANN |
-| 100k+ items | Millisecond range | Very High | Distributed |
+| 100k-1M items | 15-20ms range | Very High | Qdrant |
+| 1M+ items | 15-20ms range | Disk-based | Qdrant |
+
+## Qdrant Backend (Persistent Storage)
+
+For production workloads beyond in-memory limits, use `QdrantStore`:
+
+### Performance at 1 Million Records
+
+| Metric | Value |
+|--------|-------|
+| **Query Rate** | 59-64 queries/sec |
+| **Query Latency** | 15-17 ms |
+| **Storage Size** | 16 GB (4096d vectors) |
+| **Bytes per Record** | ~16 KB |
+| **Index Status** | HNSW (automatic) |
+
+### Comparison: CPUStore vs QdrantStore at 1M Scale
+
+| Backend | Query Rate | Latency | Storage |
+|---------|-----------|---------|---------|
+| CPUStore (brute-force) | 0.07 q/s | 14.7s | In-memory only |
+| **QdrantStore (HNSW)** | **59-64 q/s** | **16ms** | Persistent disk |
+
+**Qdrant is ~850x faster at 1M scale** due to HNSW indexing.
+
+### Insert Performance
+
+| Phase | Rate | Notes |
+|-------|------|-------|
+| Early (1K-10K) | ~260 items/sec | Before HNSW overhead |
+| Mid (100K-500K) | ~200-260 items/sec | Index building begins |
+| Late (500K-1M) | ~120-300 items/sec | Concurrent indexing |
+
+### Storage Scaling
+
+| Records | Storage (4096d) | Storage (1024d) |
+|---------|-----------------|-----------------|
+| 100K | ~1.6 GB | ~0.4 GB |
+| 500K | ~8 GB | ~2 GB |
+| 1M | ~16 GB | ~4 GB |
+| 10M | ~160 GB | ~40 GB |
+
+### Usage
+
+```python
+from holon import QdrantStore, HolonClient
+
+# Persistent storage with namespacing
+store = QdrantStore(
+    collection="my_app",  # Namespace for isolation
+    dimensions=4096,
+    url="http://localhost:6333"
+)
+client = HolonClient(local_store=store)
+
+# Same API as CPUStore
+client.insert_json({"name": "Alice"})
+results = client.search_json(probe={"name": "Alice"})
+
+# Easy cleanup
+store.drop_collection()  # Wipe entire namespace
+```
+
+### Running Qdrant
+
+```bash
+# Start with Docker Compose
+docker-compose up -d
+
+# Check status
+curl http://localhost:6333/collections
+```
 
 ### Accuracy Validation
 - **ANN Consistency**: 100% identical results between ANN and brute-force
