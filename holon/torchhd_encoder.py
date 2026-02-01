@@ -50,26 +50,41 @@ class TorchHDEncoder:
         self._circular_embedding: Optional[embeddings.Circular] = None
         
     def _get_field_hv(self, field_name: str) -> torch.Tensor:
-        """Get or create hypervector for a field name (role vector)."""
+        """Get or create hypervector for a field name (role vector).
+        
+        Uses sparse vectors (~1/3 zeros) to match original encoder behavior.
+        """
         if field_name not in self._field_cache:
             # Deterministic seeding based on field name
             seed = int(hashlib.md5(field_name.encode()).hexdigest()[:8], 16)
-            generator = torch.Generator(device=self.device).manual_seed(seed)
-            self._field_cache[field_name] = torchhd.random(
-                1, self.dimensions, device=self.device, generator=generator
-            ).squeeze(0)
+            self._field_cache[field_name] = self._sparse_random(seed)
         return self._field_cache[field_name]
     
     def _get_value_hv(self, value: str) -> torch.Tensor:
-        """Get or create hypervector for a categorical value."""
+        """Get or create hypervector for a categorical value.
+        
+        Uses sparse vectors (~1/3 zeros) to match original encoder behavior.
+        """
         cache_key = str(value)
         if cache_key not in self._value_cache:
             seed = int(hashlib.md5(cache_key.encode()).hexdigest()[:8], 16)
-            generator = torch.Generator(device=self.device).manual_seed(seed)
-            self._value_cache[cache_key] = torchhd.random(
-                1, self.dimensions, device=self.device, generator=generator
-            ).squeeze(0)
+            self._value_cache[cache_key] = self._sparse_random(seed)
         return self._value_cache[cache_key]
+    
+    def _sparse_random(self, seed: int) -> torch.Tensor:
+        """Generate a sparse random bipolar vector with ~1/3 zeros.
+        
+        This matches the original encoder's vector distribution.
+        """
+        generator = torch.Generator(device=self.device).manual_seed(seed)
+        # Generate values in {-1, 0, 1} with roughly equal probability
+        # Use uniform random and threshold
+        rand = torch.rand(self.dimensions, device=self.device, generator=generator)
+        vec = torch.zeros(self.dimensions, device=self.device, dtype=torch.float32)
+        vec[rand < 0.33] = -1.0
+        vec[rand > 0.66] = 1.0
+        # Middle 1/3 stays at 0
+        return vec
     
     def _get_level_embedding(self, field_name: str, low: float, high: float, levels: int = 100) -> embeddings.Level:
         """Get or create Level embedding for numeric field."""
@@ -233,7 +248,9 @@ class TorchHDEncoder:
             if hasattr(field, 'name'):  # EDN Keyword
                 field_str = field.name
             
-            if field_str.startswith("_"):  # Skip metadata fields
+            # Skip internal Holon metadata fields (stored with data)
+            # but DO encode user fields that start with "_" (like _type, _in_class)
+            if field_str in ("_raw", "_parsed", "_encode_mode"):
                 continue
             
             field_hv = self._get_field_hv(field_str)
@@ -261,10 +278,15 @@ class TorchHDEncoder:
         return self._threshold_bipolar(result)
     
     def _threshold_bipolar(self, vec: torch.Tensor) -> torch.Tensor:
-        """Threshold vector to bipolar values [-1, 0, 1]."""
+        """Threshold vector to bipolar values [-1, 0, 1].
+        
+        Uses a small threshold around 0 to create zeros, matching
+        the original encoder's behavior.
+        """
         result = torch.zeros_like(vec, dtype=torch.int8)
-        result[vec > 0] = 1
-        result[vec < 0] = -1
+        # Use threshold of 0.5 to create zeros (values between -0.5 and 0.5 become 0)
+        result[vec > 0.5] = 1
+        result[vec < -0.5] = -1
         return result
     
     # VSA Primitives (delegated to torchhd)

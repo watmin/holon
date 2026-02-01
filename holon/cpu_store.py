@@ -211,7 +211,7 @@ class CPUStore(Store):
         encode_time = time.time() - start
 
         # Convert TorchHD tensors to numpy for storage
-        if self._use_torchhd:
+        if self._use_torchhd and hasattr(encoded_vector, 'cpu'):
             encoded_vector = encoded_vector.cpu().numpy()
 
         data_id = str(uuid.uuid4())
@@ -293,7 +293,7 @@ class CPUStore(Store):
                     # Bundle via superposition (sum + normalize) - the VSA way!
                     # Convert TorchHD tensors to numpy if needed
                     if self._use_torchhd:
-                        branch_vectors = [v.cpu().numpy() for v in branch_vectors]
+                        branch_vectors = [v.cpu().numpy() if hasattr(v, 'cpu') else v for v in branch_vectors]
                     bundled = sum(branch_vectors)
                     bundled = bundled / (np.linalg.norm(bundled) + 1e-10)
 
@@ -326,7 +326,7 @@ class CPUStore(Store):
             try:
                 probe_vector = self.encoder.encode_data(clean_probe)
                 # Convert TorchHD tensors to numpy if needed
-                if self._use_torchhd:
+                if self._use_torchhd and hasattr(probe_vector, 'cpu'):
                     probe_vector = probe_vector.cpu().numpy()
             except Exception as e:
                 raise ValueError(
@@ -364,7 +364,7 @@ class CPUStore(Store):
         if cleaned_negations:
             neg_vector = self.encoder.encode_data(cleaned_negations)
             # Convert TorchHD tensors to numpy if needed
-            if self._use_torchhd:
+            if self._use_torchhd and hasattr(neg_vector, 'cpu'):
                 neg_vector = neg_vector.cpu().numpy()
             probe_vector = probe_vector - neg_vector
 
