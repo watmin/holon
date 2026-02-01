@@ -535,7 +535,8 @@ def demonstrate_new_primitives(store, client, recipes):
         diff = store.difference(chicken_vec, tofu_vec)
 
         print(f"  Comparing: '{tofu_recipe['name']}' vs '{chicken_recipe['name']}'")
-        print(f"  Difference vector norm: {np.linalg.norm(diff):.1f}")
+        diff_np = diff.cpu().numpy() if hasattr(diff, 'cpu') else diff
+        print(f"  Difference vector norm: {np.linalg.norm(diff_np):.1f}")
 
         # Use difference to find "substitution candidates"
         # Things similar to the difference are "what you'd add to make tofu more like chicken"

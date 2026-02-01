@@ -338,6 +338,15 @@ class TorchHDEncoder:
     
     def amplify(self, superposition: torch.Tensor, component: torch.Tensor, strength: float = 1.0) -> torch.Tensor:
         """Amplify a component in a superposition."""
+        # Convert numpy arrays to torch tensors if needed
+        if not isinstance(superposition, torch.Tensor):
+            import numpy as np
+            if isinstance(superposition, np.ndarray):
+                superposition = torch.from_numpy(superposition).to(self.device)
+        if not isinstance(component, torch.Tensor):
+            import numpy as np
+            if isinstance(component, np.ndarray):
+                component = torch.from_numpy(component).to(self.device)
         return superposition + strength * component
     
     def negate(self, superposition: torch.Tensor, component: torch.Tensor, method: str = "subtract") -> torch.Tensor:
@@ -529,9 +538,18 @@ class TorchHDEncoder:
             return torch.zeros(self.dimensions, device=self.device)
         if weights is None:
             weights = [1.0] * len(vectors)
+        
+        # Convert numpy arrays to torch tensors if needed
+        def to_tensor(v):
+            if not isinstance(v, torch.Tensor):
+                import numpy as np
+                if isinstance(v, np.ndarray):
+                    return torch.from_numpy(v).to(self.device)
+            return v
+        
         result = torch.zeros(self.dimensions, device=self.device, dtype=torch.float32)
         for vec, weight in zip(vectors, weights):
-            result = result + weight * vec.float()
+            result = result + weight * to_tensor(vec).float()
         return result
 
 
