@@ -7,6 +7,8 @@
 <img src="assets/superposition-incantation.gif" alt="Superposition Incantation">
 
 *Reality doesn't fold itself. We make it fold.*
+
+Inspired by [Carin Meier's VSA talk](https://www.youtube.com/watch?v=j7ygjfbBJD0) on hyperdimensional computing.
 </div>
 
 Holon encodes **JSON structure into vectors**, enabling similarity search over structured data. Unlike semantic embeddings that capture meaning, Holon captures *structure* - keys, nesting, relationships become geometry.
@@ -135,12 +137,6 @@ results = client.search_by_vector(security_drift, limit=10)
 ```
 
 This isn't possible with traditional search. The drift, the expected changes, the amplification - they're all *vectors* that compose.
-
-<div align="center">
-<img src="assets/forbidden-binding-spell.gif" alt="Vector Operations">
-
-*From mystical runes to mathematical vectors. The power endures.*
-</div>
 
 ## Markers
 
@@ -285,6 +281,12 @@ See [API Reference](docs/api_reference.md) for complete documentation.
 
 Named after Arthur Koestler's holon - a self-contained whole that is simultaneously part of a larger whole.
 
+<div align="center">
+<img src="assets/forbidden-binding-spell.gif" alt="Vector Operations">
+
+*From mystical runes to mathematical vectors. The power endures.*
+</div>
+
 ---
 
-MIT Licensed | Inspired by [Carin Meier's VSA talk](https://www.youtube.com/watch?v=j7ygjfbBJD0)
+MIT Licensed
