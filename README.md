@@ -73,7 +73,17 @@ results = client.search_json(probe={
 
 ```bash
 git clone https://github.com/watmin/holon.git
-cd holon && pip install -e .
+cd holon
+python -m venv holon_env
+source holon_env/bin/activate
+pip install -e .
+```
+
+All scripts use `./scripts/run_with_venv.sh` to ensure venv activation:
+
+```bash
+./scripts/run_with_venv.sh python examples/basic_usage.py
+./scripts/run_with_venv.sh pytest tests/
 ```
 
 ## Core Primitives
