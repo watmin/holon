@@ -291,7 +291,9 @@ See [API Reference](docs/api_reference.md) for complete documentation.
 - **Bundling**: `a + b + c` - vector superposition aggregates multiple vectors
 - **Similarity**: Cosine distance enables partial/substructure matching
 
-Named after Arthur Koestler's holon - a self-contained whole that is simultaneously part of a larger whole.
+## Why "Holon"?
+
+Named after Arthur Koestler's concept - a *holon* is a self-contained whole that is simultaneously part of a larger whole. Each data item in Holon is independent yet entangled through vector relationships. A document is complete on its own, but its vector connects it to every similar document in the space.
 
 <div align="center">
 <img src="assets/forbidden-binding-spell.gif" alt="Vector Operations">
