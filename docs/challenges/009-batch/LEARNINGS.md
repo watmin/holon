@@ -115,19 +115,14 @@ We tested with 500-1000 examples and 7 fields. Open questions:
 
 ## Next Steps
 
-### Phase 2: Interaction Discovery
+### Phase 2: Interaction Discovery ✓ COMPLETE
 
-Learn which field pairs should be bound together:
+Discovered how to find field pairs that should be bound together:
+- Key insight: zero individual field weights when testing interactions
+- Successfully solves XOR (54% → 100%)
+- Automatically finds (priority, urgency) in interaction data
 
-```python
-# Current: encode each field separately
-vec = bundle([encode(f1), encode(f2), encode(f3)])
-
-# Future: discover that (f1, f2) interaction matters
-vec = bundle([encode(f1), encode(f2), bind(encode(f1), encode(f2))])
-```
-
-### Phase 3: Full Program Synthesis
+### Phase 3: Full Program Synthesis (Future)
 
 Learn complete encoding programs using genetic programming:
 
@@ -142,7 +137,14 @@ def encode(item):
     return base
 ```
 
-### Better Baselines
+### Phase 4: Real-World Testing (Future)
+
+Apply to existing challenges:
+- API Pattern Analyzer (batch 008)
+- Event Correlation (batch 008)
+- Compare learned programs vs hand-tuned
+
+### Better Baselines (Future)
 
 Compare against:
 - TF-IDF weighting
@@ -166,6 +168,56 @@ The optimizer correctly discovered that `type` was the only field that mattered.
 
 ---
 
+## Phase 2: Interaction Discovery
+
+### 7. Field Interactions Can Be Automatically Discovered
+
+When categories depend on field COMBINATIONS (not individual values), the algorithm finds the right bindings:
+
+| Experiment | Baseline | With Interaction | Improvement |
+|------------|----------|------------------|-------------|
+| Interaction data | 89.2% | 100.0% | +10.8% |
+| XOR data | 54.2% | 100.0% | +45.8% |
+
+The XOR result is especially significant: individual fields provide ZERO information (each is 50/50 in each class), only `bind(feature_a, feature_b)` can discriminate.
+
+### 8. Key Insight: Zero Individual Weights When Testing Interactions
+
+The critical fix for interaction discovery:
+
+```python
+# Wrong: Test interaction WITH individual fields
+vec = bundle([encode(A), encode(B), bind(A, B)])  # Diluted!
+
+# Right: Zero individual weights when interaction matters
+self.weights[A] = 0.0
+self.weights[B] = 0.0
+vec = bundle([bind(A, B)])  # Clear signal!
+```
+
+When individual fields provide no information (like XOR), including them actually **hurts** by adding noise that drowns out the interaction signal.
+
+### 9. Interaction Discovery Algorithm
+
+```
+1. Start with learned field weights (Phase 1)
+2. For each candidate field pair:
+   a. Zero out individual weights for (field_a, field_b)
+   b. Add bind(field_a, field_b) with weight 2.0
+   c. Evaluate accuracy
+3. Keep interactions that improve accuracy > threshold
+4. Repeat until no improvement found
+```
+
+### 10. Real-World Implications
+
+This has practical implications for feature engineering:
+- **Don't just use individual features** - interactions matter
+- **Interactions can dominate** - sometimes individual features add noise
+- **Automatic discovery works** - no need to manually specify interactions
+
+---
+
 ## Code Summary
 
 | File | Purpose |
@@ -173,6 +225,8 @@ The optimizer correctly discovered that `type` was the only field that mattered.
 | `001-weighted-encoder.py` | WeightedEncoder class with fit() method |
 | `002-noisy-training.py` | Noise robustness experiments |
 | `003-hard-categories.py` | Overlapping category discrimination |
+| `004-interaction-discovery.py` | InteractionEncoder with automatic binding discovery |
+| `005-xor-debug.py` | Debug script analyzing why interactions work |
 | `common.py` | Data generation, evaluation utilities |
 
 ### Core Classes
