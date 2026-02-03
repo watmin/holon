@@ -183,18 +183,32 @@ def generate_large_data(
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--samples", type=int, default=1_000_000, help="Total samples")
+    parser.add_argument("--categories", type=int, default=100, help="Number of categories")
+    parser.add_argument("--dimensions", type=int, default=4096, help="Vector dimensions")
+    parser.add_argument("--workers", type=int, default=12, help="Parallel workers")
+    parser.add_argument("--cardinality", type=int, default=1000, help="Values per field")
+    args = parser.parse_args()
+
     # Start memory tracking
     tracemalloc.start()
 
     print("="*70, flush=True)
-    print("LARGE SCALE Stress Test - GO NUTS Edition", flush=True)
+    print(f"LARGE SCALE Stress Test - {args.samples:,} samples, {args.categories} categories", flush=True)
     print("="*70, flush=True)
+
+    # Estimate memory
+    est_vectors = args.samples * args.dimensions / 1e9  # GB for int8
+    est_float = args.samples * args.dimensions * 4 / 1e9  # GB for float32
+    print(f"Estimated memory: {est_vectors:.1f}GB vectors + {est_float:.1f}GB float32 = {est_vectors + est_float:.1f}GB", flush=True)
 
     # Generate data - GO BIG
     items, labels = generate_large_data(
-        n_samples=500_000,
-        n_categories=100,
-        cardinality=1000,
+        n_samples=args.samples,
+        n_categories=args.categories,
+        cardinality=args.cardinality,
         n_fields=10,
     )
     print(f"Generated {len(items):,} items", flush=True)
@@ -210,12 +224,16 @@ def main():
     print(f"Split: {len(X_train):,} train, {len(X_test):,} test", flush=True)
 
     # Configuration
-    dimensions = 8192
-    n_workers = 10  # Use 10 cores
+    dimensions = args.dimensions
+    n_workers = args.workers
 
     # Create store (for prototype building and classification)
     store = CPUStore(dimensions=dimensions)
     print(f"Store created ({store.dimensions}D)", flush=True)
+
+    # Stop tracemalloc before heavy operations (causes 8x slowdown)
+    _, peak_before_encode = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
 
     # Encode training data IN PARALLEL
     print(f"\nEncoding training data (PARALLEL with {n_workers} workers)...", flush=True)
@@ -272,9 +290,11 @@ def main():
     print(f"Classification took {classify_time:.1f}s", flush=True)
     print(f"Accuracy: {accuracy:.1%}", flush=True)
 
-    # Final memory
-    current, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    # Estimate actual memory usage from numpy arrays
+    train_mem = train_vectors.nbytes / 1024 / 1024
+    test_mem = test_vectors.nbytes / 1024 / 1024
+    proto_mem = proto_matrix.nbytes / 1024 / 1024
+    total_mem = train_mem + test_mem + proto_mem
 
     print("\n" + "="*70, flush=True)
     print("FINAL RESULTS", flush=True)
@@ -283,7 +303,7 @@ def main():
 Samples:          {len(items):,}
 Categories:       {len(unique_labels)}
 Dimensions:       {store.dimensions}
-Cardinality:      1000 unique values per field
+Cardinality:      {args.cardinality} unique values per field
 Workers:          {n_workers} (parallel encoding)
 
 Performance:
@@ -293,9 +313,14 @@ Performance:
   TOTAL:          {encode_time + proto_time + classify_time:.1f}s
 
 Accuracy:         {accuracy:.1%}
-Peak Memory:      {peak/1024/1024:,.0f} MB
 
-STATUS:           {"PASSED" if accuracy > 0.3 else "NEEDS WORK"} ✓
+Memory (vectors only):
+  Train vectors:  {train_mem:,.0f} MB
+  Test vectors:   {test_mem:,.0f} MB
+  Prototypes:     {proto_mem:,.1f} MB
+  Total:          {total_mem:,.0f} MB
+
+STATUS:           {"PASSED" if accuracy > 0.3 else "NEEDS WORK"}
 """, flush=True)
 
 
