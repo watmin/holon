@@ -307,6 +307,7 @@ See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for detail
 
 ## Documentation
 
+- [Use Cases](docs/USE_CASES.md) - When and why to use Holon
 - [API Reference](docs/api_reference.md) - Complete HTTP and Python API
 - [Encoding Guide](docs/encoding_guide.md) - How data becomes vectors
 - [Examples](examples/) - Working code samples
