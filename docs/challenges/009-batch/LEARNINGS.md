@@ -426,11 +426,11 @@ Pushed to 1000 categories with actual Qdrant persistence:
 
 | Metric | 100 Categories | 1000 Categories |
 |--------|----------------|-----------------|
-| **Accuracy** | 93.8% | **81.6%** |
-| Encode rate | 5,941/sec | 19,731/sec |
-| Qdrant insert rate | 58/sec | 54/sec |
-| Query latency (avg) | 26.9ms | 35.5ms |
-| Peak memory | 291 MB | 3,024 MB |
+| **Accuracy** | 93.5% | **81.7%** |
+| Encode rate | 6,049/sec | 16,922/sec |
+| Qdrant insert rate | 418/sec | 440/sec |
+| Query latency (avg) | 7.8ms | 13.5ms |
+| HNSW index build | ~0s | 132.8s |
 
 ### Key Insights
 
@@ -438,13 +438,14 @@ Pushed to 1000 categories with actual Qdrant persistence:
 
 Going from 100 to 1000 categories (10x), accuracy dropped from 93.8% to 81.6% (12.2 percentage points). This is actually quite good - with 1000 categories, random guessing would be 0.1%. We're at 816x random baseline.
 
-**2. Qdrant insert is the bottleneck**
+**2. HNSW index build is the real bottleneck**
 
-- Encoding: 19,731/sec (fast)
-- Qdrant insert: 54/sec (slow)
-- Total insert time: ~25 minutes for 80k vectors
+After fixing a tracemalloc performance bug (8x slowdown):
+- Encoding: 16,922/sec (fast)
+- Qdrant insert: 440/sec (fast with indexing disabled)
+- HNSW index build: 132.8s for 80k vectors
 
-The bottleneck is HTTP/gRPC network overhead for 4096-dim vectors. At 54/sec, inserting 1M vectors would take ~5 hours.
+The real bottleneck is the HNSW index construction, not insert. For 1M vectors, expect ~30 min indexing.
 
 **3. Query latency is acceptable**
 

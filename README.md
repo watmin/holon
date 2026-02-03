@@ -257,10 +257,10 @@ We stress-tested Holon at realistic scale with Qdrant persistence:
 
 | Metric | Result |
 |--------|--------|
-| Encode speed | 19,731/sec (10 cores) |
-| Qdrant insert | 54/sec |
-| Query latency | 35.5ms avg |
-| Peak memory | 3 GB (100k × 4096D) |
+| Encode speed | 16,922/sec (10 cores) |
+| Qdrant insert | 440/sec (indexing disabled) |
+| HNSW index build | 132s for 80k vectors |
+| Query latency | 13.5ms avg |
 
 At 1000 categories, 81.6% accuracy = 816x random baseline. The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
 
@@ -285,9 +285,9 @@ See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for detail
 **Brutal honesty:**
 - **All benchmarks use synthetic data** - Real-world accuracy is unproven
 - **Never compared to baselines** - No TF-IDF, neural embedding, or traditional ML comparisons
-- **81.6% at 1000 categories** - Still on planted signal, real data may be harder
-- **Qdrant insert is slow** - 54/sec means 1M vectors = 5 hours
-- **20k/sec encoding required 10 cores** - Single-threaded is ~4k/sec
+- **81.7% at 1000 categories** - Still on planted signal, real data may be harder
+- **HNSW index build is the bottleneck** - 132s for 80k vectors (~30 min for 1M)
+- **17k/sec encoding required 10 cores** - Single-threaded is ~4k/sec
 
 ## Challenges & Examples
 
