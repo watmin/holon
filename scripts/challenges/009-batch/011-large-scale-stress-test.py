@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Large-scale stress test - GO NUTS edition."""
+"""Large-scale stress test - GO NUTS edition with parallel encoding."""
 
 import sys
 import time
 import random
 import tracemalloc
+from multiprocessing import Pool, cpu_count, shared_memory
 import numpy as np
 
 # Force unbuffered
@@ -15,6 +16,104 @@ sys.path.insert(0, str(__file__).rsplit('/', 4)[0])
 from holon import CPUStore
 
 print("Imports done", flush=True)
+
+# Global encoder for worker processes (initialized once per worker)
+_worker_encoder = None
+_worker_dimensions = None
+
+
+def _init_worker(dimensions, atom_vectors, position_vectors):
+    """Initialize encoder in worker process with SHARED codebook."""
+    global _worker_encoder, _worker_dimensions
+    _worker_dimensions = dimensions
+    store = CPUStore(dimensions=dimensions)
+    _worker_encoder = store.encoder
+    # CRITICAL: Copy the pre-populated vectors so all workers use same symbols
+    _worker_encoder.vector_manager.atom_vectors = dict(atom_vectors)
+    _worker_encoder.vector_manager.position_vectors = dict(position_vectors)
+
+
+def _encode_batch(items_batch):
+    """Encode a batch of items in worker process."""
+    global _worker_encoder, _worker_dimensions
+    vectors = np.zeros((len(items_batch), _worker_dimensions), dtype=np.int8)
+    for i, item in enumerate(items_batch):
+        vectors[i] = _worker_encoder.encode_data(item)
+    return vectors
+
+
+def _extract_all_symbols(items):
+    """Extract all unique symbols from items to pre-populate codebook."""
+    symbols = set()
+    for item in items:
+        for key, value in item.items():
+            symbols.add(key)
+            if isinstance(value, str):
+                symbols.add(value)
+            elif isinstance(value, (int, float)):
+                symbols.add(str(value))
+            elif isinstance(value, dict):
+                for k, v in value.items():
+                    symbols.add(k)
+                    if isinstance(v, str):
+                        symbols.add(v)
+    return symbols
+
+
+def parallel_encode(items, dimensions, n_workers=10, batch_size=1000, encoder=None):
+    """Encode items in parallel using multiple processes with shared codebook."""
+    print(f"  Using {n_workers} workers, batch_size={batch_size}", flush=True)
+
+    # Step 1: Pre-populate codebook in main process
+    if encoder is None:
+        store = CPUStore(dimensions=dimensions)
+        encoder = store.encoder
+
+    print("  Pre-populating codebook...", flush=True)
+    symbols = _extract_all_symbols(items)
+    for sym in symbols:
+        encoder.vector_manager.get_vector(sym)
+    # Also need position vectors for list encoding
+    for pos in range(100):  # Reasonable max position
+        encoder.vector_manager.get_position_vector(pos)
+
+    print(f"  Codebook has {len(encoder.vector_manager.atom_vectors)} symbols", flush=True)
+
+    # Extract the codebooks to share with workers
+    atom_vectors = encoder.vector_manager.atom_vectors
+    position_vectors = encoder.vector_manager.position_vectors
+
+    # Split into batches
+    batches = []
+    for i in range(0, len(items), batch_size):
+        batches.append(items[i : i + batch_size])
+
+    print(f"  Created {len(batches)} batches", flush=True)
+
+    # Process in parallel
+    start = time.time()
+    results = []
+
+    with Pool(
+        processes=n_workers,
+        initializer=_init_worker,
+        initargs=(dimensions, atom_vectors, position_vectors),
+    ) as pool:
+        for i, batch_result in enumerate(pool.imap(_encode_batch, batches)):
+            results.append(batch_result)
+            if (i + 1) % 50 == 0:
+                done = sum(len(r) for r in results)
+                elapsed = time.time() - start
+                rate = done / elapsed
+                remaining = (len(items) - done) / rate
+                print(
+                    f"  Encoded {done:,}/{len(items):,} ({rate:.0f}/sec, {remaining:.0f}s left)",
+                    flush=True,
+                )
+
+    # Concatenate results
+    all_vectors = np.vstack(results)
+    return all_vectors, encoder
 
 
 def generate_large_data(
@@ -110,25 +209,22 @@ def main():
     X_test, y_test = items[split_idx:], labels[split_idx:]
     print(f"Split: {len(X_train):,} train, {len(X_test):,} test", flush=True)
 
-    # Create store
-    store = CPUStore(dimensions=8192)  # Larger dimensions for high cardinality
+    # Configuration
+    dimensions = 8192
+    n_workers = 10  # Use 10 cores
+
+    # Create store (for prototype building and classification)
+    store = CPUStore(dimensions=dimensions)
     print(f"Store created ({store.dimensions}D)", flush=True)
 
-    # Encode training data
-    print("\nEncoding training data...", flush=True)
+    # Encode training data IN PARALLEL
+    print(f"\nEncoding training data (PARALLEL with {n_workers} workers)...", flush=True)
     start = time.time()
-    train_vectors = np.zeros((len(X_train), store.dimensions), dtype=np.int8)
-    report_interval = max(10000, len(X_train) // 10)
-    for i, item in enumerate(X_train):
-        train_vectors[i] = store.encoder.encode_data(item)
-        if (i + 1) % report_interval == 0:
-            elapsed = time.time() - start
-            rate = (i + 1) / elapsed
-            remaining = (len(X_train) - i - 1) / rate
-            current, peak = tracemalloc.get_traced_memory()
-            print(f"  Encoded {i+1:,}/{len(X_train):,} ({rate:.0f}/sec, {remaining:.0f}s left, {peak/1024/1024:.0f}MB)", flush=True)
+    train_vectors, shared_encoder = parallel_encode(
+        X_train, dimensions, n_workers=n_workers, batch_size=1000, encoder=store.encoder
+    )
     encode_time = time.time() - start
-    print(f"Encoding took {encode_time:.1f}s ({len(X_train)/encode_time:.0f}/sec)", flush=True)
+    print(f"Encoding took {encode_time:.1f}s ({len(X_train)/encode_time:,.0f}/sec)", flush=True)
 
     # Build prototypes using efficient numpy
     print("\nBuilding prototypes...", flush=True)
@@ -154,13 +250,13 @@ def main():
     print(f"Built {len(prototypes)} prototypes in {proto_time:.1f}s", flush=True)
 
     # Classify test data using matrix ops
-    print("\nClassifying test data (batch matrix multiply)...", flush=True)
+    print(f"\nClassifying test data (parallel encode + batch matrix multiply)...", flush=True)
     classify_start = time.time()
 
-    # Encode test data
-    test_vectors = np.zeros((len(X_test), store.dimensions), dtype=np.int8)
-    for i, item in enumerate(X_test):
-        test_vectors[i] = store.encoder.encode_data(item)
+    # Encode test data IN PARALLEL (reuse shared encoder with same codebook)
+    test_vectors, _ = parallel_encode(
+        X_test, dimensions, n_workers=n_workers, batch_size=1000, encoder=shared_encoder
+    )
 
     # Matrix multiply for all similarities at once
     similarities = np.dot(test_vectors.astype(np.float32), proto_matrix.T.astype(np.float32))
@@ -188,6 +284,7 @@ Samples:          {len(items):,}
 Categories:       {len(unique_labels)}
 Dimensions:       {store.dimensions}
 Cardinality:      1000 unique values per field
+Workers:          {n_workers} (parallel encoding)
 
 Performance:
   Encode time:    {encode_time:.1f}s ({len(X_train)/encode_time:,.0f}/sec)
