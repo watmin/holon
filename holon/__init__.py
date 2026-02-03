@@ -3,6 +3,14 @@
 
 from .client import HolonClient  # noqa: F401 - re-exported for public API
 from .cpu_store import CPUStore, Store  # noqa: F401 - re-exported for public API
+
+# Distance metrics
+from .distance import (  # noqa: F401 - re-exported for public API
+    DistanceEngine,
+    DistanceMetric,
+    compare_metrics,
+    get_recommended_metric,
+)
 from .encoder import TimeResolution  # noqa: F401 - re-exported for public API
 
 # Optional Qdrant backend (requires qdrant-client)
