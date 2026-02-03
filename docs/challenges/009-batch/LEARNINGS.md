@@ -480,27 +480,104 @@ To improve accuracy at 1000 categories:
 
 ---
 
+## Phase 7: Accuracy Analysis - What Really Matters
+
+We ran extensive experiments to understand why accuracy varies across tests.
+
+### Key Finding: Samples Per Category is the Main Driver
+
+| Samples/Category | Accuracy (1000 cats, 4096D, 70% signal) |
+|------------------|----------------------------------------|
+| 10 | 71.2% |
+| 20 | 77.8% |
+| 100 | 84.2% |
+
+More training samples per category = better prototypes = higher accuracy.
+
+### Signal Strength Has Massive Impact
+
+| Signal Strength | Accuracy (100 cats, 4096D) |
+|-----------------|---------------------------|
+| 50% | 61.2% |
+| 70% | 84.2% |
+| 90% | 97.7% |
+| 100% | 100.0% |
+
+Our stress tests use 70% signal (30% noise in each field).
+
+### Dimensions Help, But Diminishing Returns
+
+| Dimensions | Accuracy (1000 cats, 10 samples/cat, 70% signal) |
+|------------|--------------------------------------------------|
+| 1024D | 66.5% |
+| 2048D | 69.2% |
+| 4096D | 71.2% |
+| 8192D | 72.4% |
+
+Going 8x on dimensions (1024 → 8192) only gains 6 percentage points.
+
+### Why Our 84% Results Make Sense
+
+The 5M sample / 1000 category test achieved 84.4% because:
+- **5000 samples per category** (very high)
+- 70% signal strength
+- 4096 dimensions
+
+The 94.5% with 100 categories worked because:
+- **10,000 samples per category**
+- Fewer categories = less prototype overlap
+
+**Bottom line**: It's not dimensions—it's samples per category and inherent data noise.
+
+---
+
+## Phase 8: Scale Testing - 5 Million Samples
+
+Pushed the system to its limits on a 14-core, 54GB RAM machine.
+
+### Results Summary
+
+| Samples | Categories | Accuracy | Encode Rate | Total Time | Memory |
+|---------|------------|----------|-------------|------------|--------|
+| 1M | 100 | **94.5%** | 25,581/sec | 44s | 3.9 GB |
+| 1M | 1,000 | **84.5%** | 29,561/sec | 68s | 3.9 GB |
+| 1M | 5,000 | **79.3%** | 29,279/sec | 199s | 3.9 GB |
+| 2M | 1,000 | **84.4%** | 28,542/sec | 132s | 7.8 GB |
+| **5M** | 1,000 | **84.4%** | 23,322/sec | **7.5 min** | **19.5 GB** |
+
+### Key Observations
+
+1. **Encoding rate is stable** at ~25-30k/sec regardless of scale
+2. **Accuracy plateaus** around 84% for 1000 categories (with 70% signal)
+3. **Memory scales linearly**: 4GB per 1M samples at 4096D
+4. **No degradation** - 5M samples performs same as 1M samples
+5. **tracemalloc kills performance** - disabling it gives 8x speedup
+
+---
+
 ## Brutal Honesty
 
 ### What We Proved
-- Encoding is fast (11k-20k/sec parallel)
-- Prototype classification works (94.5% at 100 cat, 81.6% at 1000 cat)
-- Parallelization is possible
-- Memory scales reasonably (3 GB for 100k × 4096)
-- Qdrant integration works (80k vectors, 35ms queries)
-- **1000 categories is viable** (81.6% accuracy)
+- Encoding is fast (25-30k/sec parallel, 12 cores)
+- **5 million samples in 7.5 minutes** end-to-end
+- Prototype classification works (94.5% at 100 cat, 84.4% at 1000 cat)
+- Parallelization scales well (12 workers, ~30k/sec)
+- Memory scales linearly (19.5 GB for 5M × 4096D)
+- Qdrant integration works (440/sec insert, 13.5ms queries)
+- **1000 categories is viable** (84.4% accuracy with sufficient samples)
+- **Accuracy is predictable** - depends on samples/category and signal strength
 
 ### What We Didn't Prove
 - **Real-world data**: All tests use synthetic data with planted signal
 - **vs. Baselines**: Never compared to TF-IDF, neural embeddings, or traditional ML
-- **Insert speed at scale**: 54/sec is slow for millions of vectors
 - **Edge cases**: Unknown behavior on adversarial/pathological data
+- **Very high cardinality**: 10k+ categories untested
 
 ### Remaining Open Questions
-- Does 81.6% hold on messier real data?
-- Can we improve 1000-category accuracy with more training data?
-- What's the accuracy/dimension tradeoff at 1000 categories?
-- Can we speed up Qdrant inserts? (gRPC batching, grpc streaming?)
+- Does 84% hold on messier real data?
+- What's the performance vs. a simple TF-IDF baseline?
+- Can learned weights improve accuracy beyond raw encoding?
+- At what category count does accuracy become unacceptable?
 
 ---
 
