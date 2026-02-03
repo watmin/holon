@@ -247,22 +247,23 @@ See [API Reference](docs/api_reference.md) for complete documentation.
 
 ## Scale Testing (Challenge 009)
 
-We stress-tested Holon at realistic scale with Qdrant persistence:
+We stress-tested Holon at realistic scale (14-core, 54GB RAM machine):
 
-| Test | Categories | Records | Accuracy |
-|------|------------|---------|----------|
-| In-memory | 100 | 500,000 | 94.5% |
-| Qdrant | 100 | 5,000 | 93.8% |
-| **Qdrant** | **1,000** | **100,000** | **81.6%** |
+| Samples | Categories | Accuracy | Encode Rate | Time | Memory |
+|---------|------------|----------|-------------|------|--------|
+| 1M | 100 | **94.5%** | 25,581/sec | 44s | 3.9 GB |
+| 1M | 1,000 | **84.5%** | 29,561/sec | 68s | 3.9 GB |
+| **5M** | **1,000** | **84.4%** | 23,322/sec | **7.5 min** | **19.5 GB** |
 
-| Metric | Result |
-|--------|--------|
-| Encode speed | 16,922/sec (10 cores) |
-| Qdrant insert | 440/sec (indexing disabled) |
-| HNSW index build | 132s for 80k vectors |
-| Query latency | 13.5ms avg |
+**Key finding**: Accuracy depends on samples per category, not dimensions.
 
-At 1000 categories, 81.6% accuracy = 816x random baseline. The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
+| Factor | Impact on Accuracy |
+|--------|-------------------|
+| 10 samples/cat → 100 | +13 points |
+| Signal 70% → 90% | +14 points |
+| 1024D → 8192D | +6 points |
+
+At 1000 categories, 84% accuracy = 840x random baseline. The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
 
 See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for details.
 
