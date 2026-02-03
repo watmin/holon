@@ -247,24 +247,22 @@ See [API Reference](docs/api_reference.md) for complete documentation.
 
 ## Scale Testing (Challenge 009)
 
-We stress-tested Holon at realistic scale:
+We stress-tested Holon at realistic scale with Qdrant persistence:
 
-| Parameter | Value |
-|-----------|-------|
-| Records | 500,000 |
-| Categories | 100 |
-| Unique values/field | 1,000 |
-| Fields/record | 10 |
-| Dimensions | 8,192 |
+| Test | Categories | Records | Accuracy |
+|------|------------|---------|----------|
+| In-memory | 100 | 500,000 | 94.5% |
+| Qdrant | 100 | 5,000 | 93.8% |
+| **Qdrant** | **1,000** | **100,000** | **81.6%** |
 
 | Metric | Result |
 |--------|--------|
-| Encode speed | 11,263/sec (10 cores) |
-| Total time | 59 seconds |
-| Accuracy | 94.5% |
-| Memory | 7.5 GB |
+| Encode speed | 19,731/sec (10 cores) |
+| Qdrant insert | 54/sec |
+| Query latency | 35.5ms avg |
+| Peak memory | 3 GB (100k × 4096D) |
 
-The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
+At 1000 categories, 81.6% accuracy = 816x random baseline. The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
 
 See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for details.
 
@@ -287,11 +285,9 @@ See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for detail
 **Brutal honesty:**
 - **All benchmarks use synthetic data** - Real-world accuracy is unproven
 - **Never compared to baselines** - No TF-IDF, neural embedding, or traditional ML comparisons
-- **Never benchmarked vs. vector DBs** - Pinecone, Weaviate, Qdrant comparisons don't exist
-- **94.5% is on planted signal** - Data was generated with clear category correlations
-- **7.5 GB for 500k is a lot** - That's 15 KB/record for vectors alone
-- **11k/sec required 10 cores** - Single-threaded is 3.9k/sec
-- **Qdrant integration untested at scale** - We used in-memory numpy, not actual Qdrant
+- **81.6% at 1000 categories** - Still on planted signal, real data may be harder
+- **Qdrant insert is slow** - 54/sec means 1M vectors = 5 hours
+- **20k/sec encoding required 10 cores** - Single-threaded is ~4k/sec
 
 ## Challenges & Examples
 
