@@ -158,7 +158,29 @@ The inventory (006) revealed we're only using 3 of 11+ available primitives:
 | Sequence | permute, cleanup | ✗ Underutilized |
 | Encoders | TorchHD, Enhanced, Semantic | ✗ Underutilized |
 
-### Phase 4: Real-World Testing (Future)
+### Phase 4: Distance Metrics Extension ✓ COMPLETE
+
+Added comprehensive distance metrics to Holon:
+
+| Metric | Type | Qdrant Native? | Best For |
+|--------|------|---------------|----------|
+| Cosine | Similarity | ✓ | Semantic similarity |
+| Dot Product | Similarity | ✓ | Normalized vectors |
+| Euclidean | Distance | ✓ | Geometric relationships |
+| Manhattan | Distance | ✓ | Grid-like spaces |
+| **Hamming** | Distance | ✗ | **Bipolar VSA vectors** |
+| **Overlap** | Similarity | ✗ | **Shared features** |
+| **Agreement** | Similarity | ✗ | **Balanced bipolar view** |
+| Chebyshev | Distance | ✗ | Outlier sensitivity |
+| Weighted Cosine | Similarity | ✗ | **Learned importance** |
+
+Key findings:
+- **Cosine ↔ Agreement: 100% correlated** for bipolar vectors (identical information)
+- For well-separated data, metric choice doesn't matter much
+- Metric choice matters most for edge cases and noisy data
+- Weighted metrics provide additional optimization lever for training
+
+### Phase 5: Real-World Testing (Future)
 
 Apply to existing challenges:
 - API Pattern Analyzer (batch 008)
@@ -250,7 +272,16 @@ This has practical implications for feature engineering:
 | `005-xor-debug.py` | Debug script analyzing why interactions work |
 | `006-holon-primitives-inventory.py` | Catalog of ALL Holon primitives |
 | `007-program-synthesis.py` | Genetic algorithm for program evolution |
+| `008-distance-metrics-demo.py` | Test new distance metrics on VSA vectors |
+| `009-improved-with-metrics.py` | Compare encoders with different metrics |
+| `010-weighted-metric-synthesis.py` | Learn field + dimension weights together |
 | `common.py` | Data generation, evaluation utilities |
+
+### New Holon Module
+
+| File | Purpose |
+|------|---------|
+| `holon/distance.py` | Comprehensive distance metrics for VSA vectors |
 
 ### Core Classes
 
