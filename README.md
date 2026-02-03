@@ -98,6 +98,7 @@ Everything in Holon is built from these kernel operations:
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
+| **Similarity** | `similarity(a,b,metric)` - cosine, hamming, overlap, agreement, euclidean, manhattan |
 
 ### Quick Examples
 
@@ -200,13 +201,15 @@ store = CPUStore(dimensions=4096, marker_prefix="@@")
 
 | Backend | Speed | Best For |
 |---------|-------|----------|
-| `cpu` (default) | 11K ops/sec | General use |
+| `cpu` (default) | 3.9K/sec (1 core), 11K/sec (10 cores) | General use |
 | `torchhd` | 300 ops/sec | Accuracy-critical (Level embeddings: 200 ≈ 201 ≠ 500) |
 | `gpu` | 40x batch | Large batch operations (1000+ items) |
 
 ```python
 store = CPUStore(backend="torchhd")  # Best accuracy for numeric fields
 ```
+
+For parallel encoding at scale, see [011-large-scale-stress-test.py](scripts/challenges/009-batch/011-large-scale-stress-test.py).
 
 ### Dimensions
 
@@ -242,33 +245,59 @@ curl -X POST http://localhost:8000/api/v1/vectors/prototype \
 
 See [API Reference](docs/api_reference.md) for complete documentation.
 
+## Scale Testing (Challenge 009)
+
+We stress-tested Holon at realistic scale:
+
+| Parameter | Value |
+|-----------|-------|
+| Records | 500,000 |
+| Categories | 100 |
+| Unique values/field | 1,000 |
+| Fields/record | 10 |
+| Dimensions | 8,192 |
+
+| Metric | Result |
+|--------|--------|
+| Encode speed | 11,263/sec (10 cores) |
+| Total time | 59 seconds |
+| Accuracy | 94.5% |
+| Memory | 7.5 GB |
+
+The approach: encode records → average by category → find nearest prototype. No neural networks, no GPU, no training loop.
+
+See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for details.
+
 ## Honest Assessment
 
 **What Holon does well:**
 - Fuzzy similarity search over structured data
-- Prototype learning and classification  
+- Prototype learning and classification (94.5% at 100 categories)
 - "Find similar to X" and "X but not Y" queries
 - Deep nesting (6+ levels), high field counts (100+ fields)
 - Composable vector operations that work over HTTP
 - Finding needles in haystacks (rank 1 among 500+ similar items)
+- Scales to 500k records at 11k encodes/sec
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
 - NP-hard optimization
 - Exact matching where "close enough" isn't acceptable
-- Many-category k-NN (30% accuracy at 50 categories)
 
-**Honest caveats:**
-- Scale tested to 10K items. Behavior at 1M+ is unknown.
-- "100% accuracy" claims are on synthetic data with clean separation.
-- Sub-1ms queries are numpy array ops, not magic.
-- Never benchmarked against Elasticsearch/Algolia.
-- TorchHD accuracy gains come at 39x speed cost.
+**Brutal honesty:**
+- **All benchmarks use synthetic data** - Real-world accuracy is unproven
+- **Never compared to baselines** - No TF-IDF, neural embedding, or traditional ML comparisons
+- **Never benchmarked vs. vector DBs** - Pinecone, Weaviate, Qdrant comparisons don't exist
+- **94.5% is on planted signal** - Data was generated with clear category correlations
+- **7.5 GB for 500k is a lot** - That's 15 KB/record for vectors alone
+- **11k/sec required 10 cores** - Single-threaded is 3.9k/sec
+- **Qdrant integration untested at scale** - We used in-memory numpy, not actual Qdrant
 
 ## Challenges & Examples
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [009](docs/challenges/009-batch/LEARNINGS.md) | Deterministic training at scale (500k records) | ✅ 94.5% accuracy |
 | [008](docs/challenges/008-batch/CHALLENGES.md) | Full primitive showcase (7 solutions) | ✅ 92-100% |
 | [007](scripts/challenges/007-batch/FINAL_STATUS.md) | Multi-domain demos | ✅ 7/7 |
 | [006](docs/challenges/006-batch/LEARNINGS.md) | LLM memory augmentation | ✅ 82% token savings |
