@@ -15,6 +15,7 @@ from .vector_manager import VectorManager
 # Optional TorchHD backend
 try:
     from .torchhd_encoder import TorchHDEncoder
+
     TORCHHD_AVAILABLE = True
 except ImportError:
     TorchHDEncoder = None
@@ -100,10 +101,12 @@ ANN_THRESHOLD = 1000  # Switch to ANN when > 1000 items
 
 
 class CPUStore(Store):
-    def __init__(self, dimensions: int = 16000, backend: str = "auto", marker_prefix: str = "$"):
+    def __init__(
+        self, dimensions: int = 16000, backend: str = "auto", marker_prefix: str = "$"
+    ):
         """
         Initialize a CPU-based vector store.
-        
+
         :param dimensions: Vector dimensionality (4096 recommended for most use cases)
         :param backend: "cpu", "gpu", "torchhd", or "auto"
         :param marker_prefix: Prefix for special markers like $time, $any, $gt, etc.
@@ -122,10 +125,14 @@ class CPUStore(Store):
         # Auto-select backend
         if backend == "torchhd":
             if not TORCHHD_AVAILABLE:
-                raise ImportError("TorchHD backend requested but torch-hd not installed. Run: pip install torch-hd")
+                raise ImportError(
+                    "TorchHD backend requested but torch-hd not installed. Run: pip install torch-hd"
+                )
             self.backend = "torchhd"
             self._use_torchhd = True
-            self.encoder = TorchHDEncoder(dimensions=dimensions, marker_prefix=marker_prefix)
+            self.encoder = TorchHDEncoder(
+                dimensions=dimensions, marker_prefix=marker_prefix
+            )
             self.vector_manager = None  # Not used with TorchHD
             print("🔥 Using TorchHD backend")
         elif backend == "auto":
@@ -193,7 +200,7 @@ class CPUStore(Store):
         encode_time = time.time() - start
 
         # Convert TorchHD tensors to numpy for storage
-        if self._use_torchhd and hasattr(encoded_vector, 'cpu'):
+        if self._use_torchhd and hasattr(encoded_vector, "cpu"):
             encoded_vector = encoded_vector.cpu().numpy()
 
         data_id = str(uuid.uuid4())
@@ -275,7 +282,10 @@ class CPUStore(Store):
                     # Bundle via superposition (sum + normalize) - the VSA way!
                     # Convert TorchHD tensors to numpy if needed
                     if self._use_torchhd:
-                        branch_vectors = [v.cpu().numpy() if hasattr(v, 'cpu') else v for v in branch_vectors]
+                        branch_vectors = [
+                            v.cpu().numpy() if hasattr(v, "cpu") else v
+                            for v in branch_vectors
+                        ]
                     bundled = sum(branch_vectors)
                     bundled = bundled / (np.linalg.norm(bundled) + 1e-10)
 
@@ -308,7 +318,7 @@ class CPUStore(Store):
             try:
                 probe_vector = self.encoder.encode_data(clean_probe)
                 # Convert TorchHD tensors to numpy if needed
-                if self._use_torchhd and hasattr(probe_vector, 'cpu'):
+                if self._use_torchhd and hasattr(probe_vector, "cpu"):
                     probe_vector = probe_vector.cpu().numpy()
             except Exception as e:
                 raise ValueError(
@@ -346,7 +356,7 @@ class CPUStore(Store):
         if cleaned_negations:
             neg_vector = self.encoder.encode_data(cleaned_negations)
             # Convert TorchHD tensors to numpy if needed
-            if self._use_torchhd and hasattr(neg_vector, 'cpu'):
+            if self._use_torchhd and hasattr(neg_vector, "cpu"):
                 neg_vector = neg_vector.cpu().numpy()
             probe_vector = probe_vector - neg_vector
 
@@ -704,7 +714,7 @@ class CPUStore(Store):
     def permute(self, vec: np.ndarray, k: int) -> np.ndarray:
         """
         Circular shift (permutation) of vector dimensions.
-        
+
         Used for positional encoding in sequences and "what comes after?" queries.
         """
         return self.encoder.permute(vec, k)
@@ -712,7 +722,7 @@ class CPUStore(Store):
     def cleanup(self, noisy: np.ndarray, codebook: List[np.ndarray]) -> np.ndarray:
         """
         Find the closest vector in codebook to the noisy input.
-        
+
         Returns a vector (the closest match from codebook), not data.
         Useful for denoising composed vectors before further operations.
         """
@@ -723,7 +733,7 @@ class CPUStore(Store):
     ) -> np.ndarray:
         """
         Incrementally update a prototype with a new example.
-        
+
         Avoids re-computing prototype([all_examples]) from scratch.
         Pass the current count (before adding this example).
         """
@@ -734,7 +744,7 @@ class CPUStore(Store):
     ) -> np.ndarray:
         """
         Encode a sequence of items into a single vector.
-        
+
         Modes:
             - "positional": Bind each item to position vector (default)
                            Good for: ordered lists, event sequences
@@ -745,20 +755,79 @@ class CPUStore(Store):
                       Config: n_sizes=[1,2] (unigrams + bigrams)
             - "bundle": Pure superposition, no order preserved
                        Good for: bag-of-words, unordered sets
-        
+
         Examples:
             # Event sequence (order matters)
             store.encode_sequence(["login", "view", "purchase"])
-            
+
             # Text search (fuzzy matching)
             store.encode_sequence(["quick", "brown", "fox"], mode="ngram")
-            
+
             # Tags (order doesn't matter)
             store.encode_sequence(["python", "ml", "api"], mode="bundle")
-        
+
         :param items: List of items to encode
         :param mode: Encoding mode
         :param config: Mode-specific options (e.g., n_sizes for ngram)
         :return: Encoded vector
         """
         return self.encoder.encode_list(items, mode=mode, **config)
+
+    def similarity(
+        self,
+        vec1: np.ndarray,
+        vec2: np.ndarray,
+        metric: str = "cosine",
+        **kwargs,
+    ) -> float:
+        """
+        Compute similarity between two vectors using the specified metric.
+
+        Metrics:
+            - "cosine": Cosine similarity (default, Qdrant-native)
+            - "dot": Dot product similarity (Qdrant-native)
+            - "euclidean": Euclidean distance as similarity (Qdrant-native)
+            - "manhattan": Manhattan distance as similarity (Qdrant-native)
+            - "hamming": Hamming similarity (optimal for bipolar vectors)
+            - "overlap": Overlap similarity (count of matching positions)
+            - "agreement": Agreement similarity (balanced view)
+            - "weighted_cosine": Weighted cosine (requires weights kwarg)
+
+        Examples:
+            >>> store = CPUStore()
+            >>> vec1 = store.encode({"type": "billing"})
+            >>> vec2 = store.encode({"type": "technical"})
+            >>> store.similarity(vec1, vec2)  # default cosine
+            0.35
+            >>> store.similarity(vec1, vec2, metric="hamming")
+            0.42
+
+        :param vec1: First vector
+        :param vec2: Second vector
+        :param metric: Similarity metric name
+        :param kwargs: Additional arguments (e.g., weights for weighted_cosine)
+        :return: Similarity score
+        """
+        from .distance import DistanceEngine, DistanceMetric
+
+        # Map string to enum
+        metric_map = {
+            "cosine": DistanceMetric.COSINE,
+            "dot": DistanceMetric.DOT_PRODUCT,
+            "euclidean": DistanceMetric.EUCLIDEAN,
+            "manhattan": DistanceMetric.MANHATTAN,
+            "hamming": DistanceMetric.HAMMING,
+            "overlap": DistanceMetric.OVERLAP,
+            "agreement": DistanceMetric.AGREEMENT,
+            "chebyshev": DistanceMetric.CHEBYSHEV,
+            "weighted_cosine": DistanceMetric.WEIGHTED_COSINE,
+            "weighted_euclidean": DistanceMetric.WEIGHTED_EUCLIDEAN,
+        }
+
+        if metric not in metric_map:
+            raise ValueError(
+                f"Unknown metric: {metric}. Available: {list(metric_map.keys())}"
+            )
+
+        engine = DistanceEngine()
+        return engine.similarity(vec1, vec2, metric_map[metric], **kwargs)
