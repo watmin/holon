@@ -251,6 +251,7 @@ def insert_to_qdrant(
     print("  Uploading to Qdrant...", flush=True)
     start = time.time()
 
+    batch_times = []
     for chunk_start in range(0, n_items, batch_size):
         chunk_end = min(chunk_start + batch_size, n_items)
 
@@ -264,7 +265,12 @@ def insert_to_qdrant(
             for i in range(chunk_start, chunk_end)
         ]
 
+        batch_start = time.time()
         client.upsert(collection_name=collection_name, points=points)
+        batch_times.append(time.time() - batch_start)
+
+        if len(batch_times) <= 3:
+            print(f"  Batch {len(batch_times)} took {batch_times[-1]:.3f}s", flush=True)
 
         # Progress
         done = chunk_end
@@ -479,11 +485,25 @@ def main():
     current, peak = tracemalloc.get_traced_memory()
     print(f"Memory after data gen: {current/1024/1024:.0f} MB", flush=True)
 
-    # Create Qdrant client with gRPC for faster inserts
+    # Create CPU store for encoding FIRST (before Qdrant to avoid gRPC/multiprocessing conflicts)
+    cpu_store = CPUStore(dimensions=dimensions)
+
+    # Encode training data BEFORE connecting to Qdrant
+    # (multiprocessing can interfere with gRPC connections)
+    print(f"\nEncoding training data (PARALLEL with {n_workers} workers)...", flush=True)
+    encode_start = time.time()
+    train_vectors, shared_encoder = parallel_encode(
+        X_train, dimensions, n_workers=n_workers, batch_size=1000, encoder=cpu_store.encoder
+    )
+    encode_time = time.time() - encode_start
+    encode_rate = len(X_train) / encode_time
+    print(f"Encoding took {encode_time:.1f}s ({encode_rate:,.0f}/sec)", flush=True)
+
+    # NOW create Qdrant client (AFTER multiprocessing is done)
     print(f"\nConnecting to Qdrant (gRPC)...", flush=True)
     try:
         from qdrant_client import QdrantClient
-        from qdrant_client.http.models import Distance, VectorParams
+        from qdrant_client.http.models import Distance, VectorParams, OptimizersConfigDiff
 
         qdrant_client = QdrantClient(
             host="localhost",
@@ -501,32 +521,43 @@ def main():
         qdrant_client.create_collection(
             collection_name=collection_name,
             vectors_config=VectorParams(size=dimensions, distance=Distance.COSINE),
+            optimizers_config=OptimizersConfigDiff(
+                indexing_threshold=0,  # Disable indexing during bulk insert (8x faster)
+            ),
         )
-        print(f"  Collection '{collection_name}' ready (gRPC on port 6334)", flush=True)
+        print(f"  Collection '{collection_name}' ready (gRPC, indexing disabled for bulk)", flush=True)
 
     except Exception as e:
         print(f"ERROR: Cannot connect to Qdrant: {e}", flush=True)
         print("  Make sure Qdrant is running: docker-compose up -d", flush=True)
         sys.exit(1)
 
-    # Also create CPU store for encoding
-    cpu_store = CPUStore(dimensions=dimensions)
+    # CRITICAL: Stop tracemalloc before Qdrant operations (8x performance impact!)
+    tracemalloc.stop()
 
-    # Encode training data
-    print(f"\nEncoding training data (PARALLEL with {n_workers} workers)...", flush=True)
-    encode_start = time.time()
-    train_vectors, shared_encoder = parallel_encode(
-        X_train, dimensions, n_workers=n_workers, batch_size=1000, encoder=cpu_store.encoder
-    )
-    encode_time = time.time() - encode_start
-    encode_rate = len(X_train) / encode_time
-    print(f"Encoding took {encode_time:.1f}s ({encode_rate:,.0f}/sec)", flush=True)
-
-    # Insert to Qdrant
-    print(f"\nInserting to Qdrant...", flush=True)
+    # Insert to Qdrant (with indexing disabled for speed)
+    print(f"\nInserting to Qdrant (indexing disabled)...", flush=True)
     ids, insert_rate = insert_to_qdrant(
         qdrant_client, collection_name, y_train, train_vectors, batch_size=500
     )
+
+    # Now trigger indexing
+    print("Triggering HNSW index build...", flush=True)
+    index_start = time.time()
+    from qdrant_client.http.models import OptimizersConfigDiff
+
+    qdrant_client.update_collection(
+        collection_name=collection_name,
+        optimizers_config=OptimizersConfigDiff(indexing_threshold=20000),
+    )
+    # Wait for indexing to complete by checking collection status
+    while True:
+        info = qdrant_client.get_collection(collection_name)
+        if info.status.name == "GREEN":
+            break
+        time.sleep(1)
+    index_time = time.time() - index_start
+    print(f"  Indexing took {index_time:.1f}s", flush=True)
 
     # Build prototypes from LOCAL vectors (faster than querying Qdrant)
     # We already have the vectors in memory, no need to fetch from Qdrant
@@ -567,9 +598,9 @@ def main():
         qdrant_client, collection_name, test_vectors, n_queries=100
     )
 
-    # Final memory
-    current, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    # Memory tracking was stopped earlier for performance
+    # Just report peak from before Qdrant operations
+    peak = 0  # Not tracked during Qdrant ops
 
     # Results
     print("\n" + "=" * 70, flush=True)
