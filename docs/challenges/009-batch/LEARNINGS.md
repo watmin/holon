@@ -122,20 +122,41 @@ Discovered how to find field pairs that should be bound together:
 - Successfully solves XOR (54% → 100%)
 - Automatically finds (priority, urgency) in interaction data
 
-### Phase 3: Full Program Synthesis (Future)
+### Phase 3: Full Program Synthesis ✓ COMPLETE
 
-Learn complete encoding programs using genetic programming:
+Genetic algorithm evolves encoding programs that compose primitives:
 
 ```python
-# Evolved program
-def encode(item):
-    base = bundle([
-        amplify(encode(type), 1.5),
-        negate(encode(noise_field)),
-        bind(encode(priority), encode(type)),
-    ])
-    return base
+# Actually synthesized program (from 007-program-synthesis.py):
+def encode(item, encoder):
+    vectors = []
+    # Discovered: bind(type, tier) is discriminative
+    if 'type' in item and 'tier' in item:
+        a = encoder.encode_data({'type': item['type']})
+        b = encoder.encode_data({'tier': item['tier']})
+        vectors.append(2.0 * encoder.bind(a, b))
+    # Additional components...
+    bundled = np.sum(vectors, axis=0)
+    return threshold_bipolar(bundled)
 ```
+
+Results:
+- Baseline: 83% → Synthesized: 84%
+- Correctly discovered `bind(type, tier)` as discriminative
+- Generates executable Python code from evolved programs
+
+### Primitives Inventory
+
+The inventory (006) revealed we're only using 3 of 11+ available primitives:
+
+| Category | Primitives | Used in 009? |
+|----------|------------|--------------|
+| Composition | bind, bundle | ✓ Used |
+| Learning | prototype | ✓ Used |
+| Signal | negate, amplify, resonance | ✗ Underutilized |
+| Comparison | difference, blend | ✗ Underutilized |
+| Sequence | permute, cleanup | ✗ Underutilized |
+| Encoders | TorchHD, Enhanced, Semantic | ✗ Underutilized |
 
 ### Phase 4: Real-World Testing (Future)
 
@@ -227,6 +248,8 @@ This has practical implications for feature engineering:
 | `003-hard-categories.py` | Overlapping category discrimination |
 | `004-interaction-discovery.py` | InteractionEncoder with automatic binding discovery |
 | `005-xor-debug.py` | Debug script analyzing why interactions work |
+| `006-holon-primitives-inventory.py` | Catalog of ALL Holon primitives |
+| `007-program-synthesis.py` | Genetic algorithm for program evolution |
 | `common.py` | Data generation, evaluation utilities |
 
 ### Core Classes
