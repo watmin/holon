@@ -62,7 +62,7 @@ class Encoder:
         self.backend = vector_manager.backend
         self.default_list_mode = default_list_mode
         self.marker_prefix = marker_prefix
-        
+
         # Derived marker names (user-configurable to avoid conflicts with data)
         self._time_marker = f"{marker_prefix}time"
         self._time_resolution_marker = f"{marker_prefix}time_resolution"
@@ -148,7 +148,9 @@ class Encoder:
                 if self._mode_config_marker in value:
                     encode_config = value[self._mode_config_marker]
                     # Remove the config from the value for encoding
-                    value = {k: v for k, v in value.items() if k != self._mode_config_marker}
+                    value = {
+                        k: v for k, v in value.items() if k != self._mode_config_marker
+                    }
 
             key_vector = self._encode_scalar(key)
             value_vector = self._encode_recursive(
@@ -802,7 +804,7 @@ class Encoder:
             {"$time": 1706500000}  # Unix timestamp
             {"$time": "2024-01-29T10:30:00Z"}  # ISO string
             {"$time": 1706500000, "$time_resolution": "minute"}
-            
+
         Note: The "$time" marker prefix is configurable via marker_prefix.
         """
         timestamp = value[self._time_marker]
@@ -862,7 +864,7 @@ class Encoder:
         for role_name, vec in components:
             role_vec = self.vector_manager.get_vector(f"__time_role_{role_name}__")
             # Convert to numpy for consistent math (role_vec may be cupy)
-            role_np = role_vec.get() if hasattr(role_vec, 'get') else role_vec
+            role_np = role_vec.get() if hasattr(role_vec, "get") else role_vec
             result += role_np.astype(np.float64) * vec.astype(np.float64)
 
         # Convert result to backend type before thresholding
@@ -922,14 +924,14 @@ class Encoder:
     def permute(self, vec: np.ndarray, k: int) -> np.ndarray:
         """
         Circular shift (permutation) of vector dimensions.
-        
+
         Used for positional encoding in sequences:
             sequence = bundle([permute(A, 0), permute(B, 1), permute(C, 2)])
-        
+
         And for "what comes after X?" queries:
             # If sequence = A + permute(B, 1) + permute(C, 2)
             # unbind with permute(X, -1) to get "what follows X"
-        
+
         :param vec: Input vector
         :param k: Shift amount (positive = right, negative = left)
         :return: Shifted vector
@@ -941,32 +943,32 @@ class Encoder:
     def cleanup(self, noisy: np.ndarray, codebook: List[np.ndarray]) -> np.ndarray:
         """
         Find the closest vector in codebook to the noisy input.
-        
+
         Useful for denoising composed vectors before further operations:
             query = bundle([signal1, signal2, noise])
             clean = cleanup(query, [proto_a, proto_b, proto_c])
             result = amplify(base, clean, 0.5)
-        
+
         :param noisy: Noisy or composed input vector
         :param codebook: List of clean/known vectors to match against
         :return: The codebook vector with highest similarity to noisy
         """
         if not codebook:
             return noisy
-        
+
         best_vec = codebook[0]
-        best_sim = -float('inf')
-        
+        best_sim = -float("inf")
+
         for vec in codebook:
             # Normalized dot product similarity
             noisy_norm = noisy / (np.linalg.norm(noisy) + 1e-10)
             vec_norm = vec / (np.linalg.norm(vec) + 1e-10)
             sim = float(np.dot(noisy_norm, vec_norm))
-            
+
             if sim > best_sim:
                 best_sim = sim
                 best_vec = vec
-        
+
         return best_vec
 
     def prototype_add(
@@ -974,12 +976,12 @@ class Encoder:
     ) -> np.ndarray:
         """
         Incrementally update a prototype with a new example.
-        
+
         Instead of re-computing prototype([all_examples]), you can:
             proto = prototype([ex1, ex2, ex3])  # Initial, n=3
             proto = prototype_add(proto, ex4, 3)  # Now n=4
             proto = prototype_add(proto, ex5, 4)  # Now n=5
-        
+
         :param prototype: Existing prototype vector
         :param example: New example to incorporate
         :param count: Number of examples already in prototype (before this one)
@@ -990,3 +992,81 @@ class Encoder:
         weighted = prototype.astype(np.float32) * count + example.astype(np.float32)
         averaged = weighted / (count + 1)
         return self._threshold_bipolar(averaged)
+
+    # =========================================================================
+    # Accumulator Primitives (Frequency-Preserving)
+    # =========================================================================
+
+    def accumulate(self, accumulator: np.ndarray, example: np.ndarray) -> np.ndarray:
+        """
+        Add example to a running sum WITHOUT thresholding.
+
+        Unlike prototype_add() which thresholds after each update (losing
+        frequency information), accumulate() preserves the actual frequency
+        signal by keeping a float sum.
+
+        Use case: Anomaly detection where high-frequency patterns should
+        dominate the prototype. With 99% benign and 1% malicious traffic,
+        benign patterns contribute 99x more to the accumulator.
+
+        Usage:
+            # Initialize accumulator
+            accum = np.zeros(dimensions, dtype=np.float64)
+
+            # Stream observations
+            for record in stream:
+                vec = encoder.encode_data(record)
+                accum = encoder.accumulate(accum, vec)
+
+            # Query similarity using normalized accumulator
+            query_vec = encoder.encode_data(new_record)
+            similarity = cosine(query_vec, encoder.normalize_accumulator(accum))
+
+        :param accumulator: Running float sum (np.float64 recommended)
+        :param example: New vector to add (bipolar int8)
+        :return: Updated accumulator (float64)
+
+        See also: normalize_accumulator(), threshold_accumulator()
+        """
+        return accumulator + example.astype(np.float64)
+
+    def normalize_accumulator(self, accumulator: np.ndarray) -> np.ndarray:
+        """
+        Normalize an accumulator for similarity queries.
+
+        Returns a unit-normalized float vector suitable for cosine similarity.
+        This preserves the frequency weighting: dimensions with high agreement
+        (many +1s or many -1s) have larger magnitudes.
+
+        :param accumulator: Float accumulator from accumulate()
+        :return: Unit-normalized float32 vector
+        """
+        norm = np.linalg.norm(accumulator)
+        if norm < 1e-10:
+            return np.zeros(len(accumulator), dtype=np.float32)
+        return (accumulator / norm).astype(np.float32)
+
+    def threshold_accumulator(self, accumulator: np.ndarray) -> np.ndarray:
+        """
+        Threshold an accumulator to bipolar {-1, 0, 1}.
+
+        Converts the float accumulator back to a standard bipolar vector.
+        Use this if you need to compose with other VSA operations.
+
+        Note: This loses some frequency information compared to using
+        normalize_accumulator() for similarity queries.
+
+        :param accumulator: Float accumulator from accumulate()
+        :return: Bipolar int8 vector
+        """
+        return self._threshold_bipolar(accumulator)
+
+    def create_accumulator(self) -> np.ndarray:
+        """
+        Create a new empty accumulator.
+
+        Convenience method to create a properly-sized zero vector.
+
+        :return: Zero-initialized float64 accumulator
+        """
+        return np.zeros(self.vector_manager.dimensions, dtype=np.float64)
