@@ -97,6 +97,7 @@ Everything in Holon is built from these kernel operations:
 | **Encoding** | `encode_data(json)`, `encode_sequence(items, mode)` |
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
+| **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `normalize_accumulator(acc)` |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
 | **Similarity** | `similarity(a,b,metric)` - cosine, hamming, overlap, agreement, euclidean, manhattan |
 
@@ -267,6 +268,72 @@ At 1000 categories, 84% accuracy = 840x random baseline. The approach: encode re
 
 See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for details.
 
+## Network Anomaly Detection (Challenge 010)
+
+We built a complete streaming anomaly detection system with **deterministic consensus**:
+
+### HTTP Request Detection
+
+| Metric | Value |
+|--------|-------|
+| **F1 Score** | **1.000** |
+| **Throughput** | **8,339 req/sec** |
+| **Latency** | **0.12 ms** |
+
+Detects SQL injection, XSS, path traversal, command injection - using either:
+- **Rule-based**: Explicit patterns (~95% of detections)
+- **Headless**: Pure frequency+decay on character class bitmasks (no attack knowledge)
+
+### DDoS Detection (Two-Phase)
+
+| Attack | Detected | Classified | Throughput |
+|--------|----------|------------|------------|
+| SYN Flood | ✅ | ✅ | 3,193/sec |
+| DNS Reflection | ✅ | ✅ | 3,962/sec |
+| NTP Amplification | ✅ | ✅ | 1,752/sec |
+| ICMP Flood | ✅ | ✅ | 6,258/sec |
+
+**Key insight**: DDoS = variance drop + mean similarity rise (homogeneous attack traffic).
+
+### Distributed Consensus
+
+All nodes with the same `global_seed` generate identical vectors:
+
+```python
+# Node A (Tokyo)
+vm = DeterministicVectorManager(global_seed=42)
+vec_a = vm.get_vector("admin'--")
+
+# Node B (NYC)
+vm = DeterministicVectorManager(global_seed=42)
+vec_b = vm.get_vector("admin'--")
+
+assert np.array_equal(vec_a, vec_b)  # ✅ Always true
+```
+
+No synchronization needed - mathematical agreement enables parallel stream processing.
+
+### Accumulator Primitives
+
+New primitives for frequency-preserving learning:
+
+```python
+# Create accumulator (float64, no thresholding)
+accum = encoder.create_accumulator()
+
+# Stream observations
+for request in stream:
+    vec = encoder.encode_data(request)
+    accum = encoder.accumulate(accum, vec)
+
+# Get normalized for similarity queries
+prototype = encoder.normalize_accumulator(accum)
+```
+
+Why it works: `prototype_add()` thresholds → loses frequency. Accumulator preserves frequency → 99% benign dominates → F1=1.000.
+
+See [Challenge 010 Learnings](docs/challenges/010-batch/LEARNINGS.md) for complete details.
+
 ## Honest Assessment
 
 **What Holon does well:**
@@ -277,6 +344,9 @@ See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for detail
 - Composable vector operations that work over HTTP
 - Finding needles in haystacks (rank 1 among 500+ similar items)
 - Scales to 500k records at 11k encodes/sec
+- Streaming anomaly detection (F1=1.000 at 8k req/sec)
+- DDoS detection with attack classification (100% accuracy)
+- Distributed consensus without synchronization
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
@@ -294,6 +364,7 @@ See [Challenge 009 Learnings](docs/challenges/009-batch/LEARNINGS.md) for detail
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [010](docs/challenges/010-batch/LEARNINGS.md) | Network anomaly & DDoS detection | ✅ 100% detection |
 | [009](docs/challenges/009-batch/LEARNINGS.md) | Deterministic training at scale (500k records) | ✅ 94.5% accuracy |
 | [008](docs/challenges/008-batch/CHALLENGES.md) | Full primitive showcase (7 solutions) | ✅ 92-100% |
 | [007](scripts/challenges/007-batch/FINAL_STATUS.md) | Multi-domain demos | ✅ 7/7 |
