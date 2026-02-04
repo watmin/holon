@@ -1195,44 +1195,198 @@ def classify_attack():
 4. **Two-phase works** - Detect → Classify is practical
 5. **3,800 pkt/sec throughput** - Production viable
 
+## Phase 11: Explainability - WHY is this suspicious?
+
+### The Problem
+
+Pure similarity-based detection answers "IS this suspicious?" but not "WHY?"
+
+Security analysts need actionable information:
+- Which part of the request triggered the flag?
+- What specifically is unusual?
+- Is this a false positive worth investigating?
+
+### The Solution: Component-Level Analysis + Boosting
+
+**1. Component-Level Analysis**
+
+VSA encoding is compositional. The full vector is a superposition:
+```
+full_vec = encode({method, bitmasks, path_depth, query, ...})
+```
+
+We can encode each component separately and compare to the reference:
+```python
+method_vec = encode({"method": "GET"})
+method_sim = cosine(method_vec, reference)  # How "normal" is the method?
+
+bitmask_vec = encode({"bitmasks": [1, 30]})
+bitmask_sim = cosine(bitmask_vec, reference)  # How "normal" are the char classes?
+```
+
+Components with low similarity or novel values are flagged as suspicious.
+
+**2. Component-Based Boosting**
+
+Key insight: Suspicious components should RAISE the detection threshold.
+
+```python
+boosted_threshold = base_threshold + (n_suspicious * boost_factor)
+
+# Example:
+# Base threshold: 0.55
+# 1 suspicious component: 0.55 + 0.15 = 0.70
+# 2 suspicious components: 0.55 + 0.30 = 0.85
+```
+
+**Before boosting**: SQL injection in path ALLOWED (sim=0.614 >= 0.55)
+**After boosting**: SQL injection in path FLAGGED (sim=0.614 < 0.70)
+
+This catches attacks that are "borderline" on similarity but have suspicious structural features.
+
+**3. Dimension Analysis**
+
+Beyond component-level, we can analyze individual vector dimensions:
+
+```python
+def analyze_dimensions(request_vec, reference):
+    agreeing = 0      # Both positive or both negative
+    disagreeing = 0   # Opposite signs
+    neutral = 0       # One or both zero
+
+    for i in range(len(request_vec)):
+        if same_sign(request_vec[i], reference[i]):
+            agreeing += 1
+        elif opposite_sign(...):
+            disagreeing += 1
+        else:
+            neutral += 1
+```
+
+| Request Type | Agreeing | Disagreeing | Verdict |
+|--------------|----------|-------------|---------|
+| Normal | 70.7% | 9.9% | ✅ |
+| SQL injection | 64.2% | 16.1% | 🚨 |
+| XSS | 58.6% | 22.0% | 🚨 |
+| Path traversal | 60.1% | 21.1% | 🚨 |
+
+Higher disagreement % = more anomalous.
+
+### Results with Boosting
+
+| Attack Type | Without Boosting | With Boosting |
+|-------------|------------------|---------------|
+| SQL in path | ALLOWED | **FLAGGED** |
+| SQL in query | FLAGGED | FLAGGED |
+| XSS | FLAGGED | FLAGGED |
+| Path traversal | FLAGGED | FLAGGED |
+| Hidden file | ALLOWED | **FLAGGED** |
+| Command injection | FLAGGED | FLAGGED |
+| Unusual method | FLAGGED | FLAGGED |
+
+**Detection improved from 5/7 to 7/7** by using component analysis to boost threshold.
+
+### What We CAN Deduce
+
+Given (reference_vec, request, request_vec):
+
+| Signal | How We Detect It |
+|--------|------------------|
+| ABNORMAL characters | Bitmask with bit 16 set |
+| Novel character classes | Bitmask not seen in training |
+| Unusual method | Method not in learned set |
+| Path depth anomaly | Depth bucket not in training |
+| Long values | Length bucket 4+ (>12 chars) |
+| Dimension divergence | High % of disagreeing dims |
+
+### What We CANNOT Deduce
+
+- **Specific payload content** - We encode structure, not semantics
+- **Attack semantics** - "This is SQL injection" requires domain knowledge
+- **Intent** - Why the attacker sent this request
+
+### Brutal Honesty
+
+**This is NOT magic explainability.** We're not reverse-engineering the vector to recover the original input. We're:
+
+1. Tracking metadata during training (learned_methods, learned_bitmasks)
+2. Encoding components separately at inference time
+3. Comparing each component to the reference
+4. Using structural heuristics (bit 16 = ABNORMAL chars)
+
+The "explainability" comes from:
+- **Compositional encoding** - we control how data becomes vectors
+- **Metadata tracking** - we remember what we learned
+- **Structural analysis** - we extract features we understand
+
+A pure "black box" approach (just vectors, no metadata) would give us similarity scores but no explanations.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `031-explainability-demo.py` | Component analysis + boosting demo |
+
 ## Final Conclusions
 
-1. **Deterministic consensus works** - Same global_seed → same vectors → same decisions
+### What Works
 
+1. **Deterministic consensus** - Same global_seed → same vectors → same decisions across nodes
 2. **Accumulator > prototype_add()** - Preserves frequency signal for better separation
+3. **Multi-signal detection** - Single prototype fails; component-level analysis catches more
+4. **F1 = 1.000 achievable** - With proper architecture (boosting, multi-signal)
+5. **Production performance** - 4,000-8,000 req/sec on CPU, sub-millisecond latency
+6. **Continuous learning** - Decaying accumulator adapts without retraining
+7. **Headless detection** - Character class bitmask works without content knowledge
+8. **DDoS detection** - Variance + mean shift detects, packet analysis classifies
+9. **Explainability** - Component-level analysis answers "WHY is this suspicious?"
+10. **Boosting from explainability** - Suspicious components raise threshold, improves detection
 
-3. **Multi-signal detection is required** - Single prototype fails for content-level attacks
+### What Doesn't Work (Brutal Honesty)
 
-4. **Value-level matching is key** - Encode attack VALUES as atoms, check body content directly
+1. **Not true XAI** - We track metadata and use heuristics, not reverse-engineering vectors
+2. **Domain knowledge required** - "bit 16 = ABNORMAL" is a human-defined rule
+3. **PCAP harder than HTTP** - Attacks share structure with benign traffic (F1=0.114 raw)
+4. **Warmup vulnerability** - Attacker can poison during warmup period
+5. **Threshold tuning needed** - Different domains need different thresholds
+6. **Fingerprinting helps** - Raw encoding works but explicit features improve results
 
-5. **F1 = 1.000 is achievable** - With proper architecture and multi-signal scoring
+### The Real Achievement
 
-6. **Production-ready performance** - 8,000+ req/sec, distributed-friendly
+In ~3 hours and ~$30 of API credits, we built:
 
-7. **Complete streaming solution validated** - Training → Distribution → Real-time scoring
+| Feature | Status |
+|---------|--------|
+| Deterministic AI | ✅ No random init, no gradients, reproducible |
+| Explainable | ✅ Component-level "why" with boosting |
+| High-performance | ✅ 8k req/sec, CPU-only |
+| Streaming | ✅ Continuous learning with decay |
+| DDoS detection | ✅ 100% detection + classification |
+| Distributed | ✅ No sync needed, mathematical consensus |
 
-8. **Continuous learning works** - Decaying accumulator enables passive learning without batch training
+**All using pure math**: sparse bipolar vectors, bind/bundle/permute, cosine similarity.
 
-9. **Concept drift handled** - New patterns automatically learned, no retraining needed
+No neural networks. No backprop. No GPUs. No training loops.
 
-10. **Hybrid detection optimal** - Rules (95%) + Similarity (5%) catches known and unknown attacks
+### Limitations to Acknowledge
 
-11. **Truly headless detection achievable** - Character class bitmask without content knowledge
+1. **All benchmarks are synthetic** - Real-world accuracy unproven
+2. **No comparison to baselines** - Haven't tested against ML/rule-based alternatives
+3. **Explainability is partial** - We explain structure, not semantics
+4. **Requires understanding your data** - Need to know what features matter
+5. **Not a silver bullet** - Works for anomaly detection, not constraint satisfaction
 
-12. **Structural fingerprinting works** - [length_bucket, char_bitmask] captures attack signatures
+### What This Proves
 
-13. **Pure frequency+decay achieves F1=1.000** - No rules, no flags, just learned distribution
+VSA/HDC can deliver "deterministic AI" that is:
+- **Reproducible** across machines
+- **Explainable** at the component level
+- **Fast** enough for production
+- **Simple** enough to reason about
 
-14. **Bitmask as primary signal is key** - Making bitmasks prominent in encoding enables clean separation
-
-15. **DDoS detection via variance+mean** - Homogeneous attack traffic → low variance, high mean
-
-16. **Two-phase DDoS: Detect then Classify** - 100% detection and classification accuracy
-
-17. **Detection mode matters** - SYN flood = high_sim, UDP reflection = low_sim (anomaly!)
-
-18. **Raw packet encoding works** - Holon handles structured data natively, fingerprinting adds cardinality control
+The trade-off: You need to understand your encoding. The vectors don't magically learn semantics - they capture the structure you define.
 
 ---
 
-*Updated: February 2026*
+*Challenge 010 completed: February 2026*
+*~3 hours, ~$30, 31 scripts, 1 library extension (accumulator primitives)*
