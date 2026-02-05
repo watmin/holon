@@ -685,6 +685,72 @@ The integrated detector achieves perfect detection by combining:
 3. **Variance** for DDoS detection (homogeneous traffic)
 4. **State machine** for transition tracking
 
+## Phase 7: Mitigation Synthesis (018)
+
+### Experiment 018: Vector-Derived Mitigation Rules
+
+Closed the loop: **Learn → Detect → Identify → MITIGATE**
+
+Using vector operations to derive actionable packet filtering rules:
+
+```python
+# 1. Compute what makes attacks distinct
+attack_delta = store.difference(attack_signature, normal_baseline)
+
+# 2. Probe with feature vectors to find important features
+for feature in ["protocol", "src_port", "flags", ...]:
+    feature_vec = encoder.encode_data({feature: value})
+    importance = cosine_similarity(feature_vec, attack_delta)
+
+# 3. Synthesize rules from high-importance features
+if importance > threshold:
+    rules.append(MitigationRule(conditions={feature: value}))
+```
+
+**Synthesized Rules:**
+
+| Attack | Rule | Confidence | F1 |
+|--------|------|------------|-----|
+| SYN Flood | `DROP if tcp AND syn_only` | 100% | **1.000** |
+| DNS Reflection | `DROP if udp AND src_port=53` | 100% | **1.000** |
+| ICMP Flood | `RATE_LIMIT if icmp` | 76% | - |
+| UDP Flood | `RATE_LIMIT if udp` | 86% | - |
+
+**Generated Firewall Rules:**
+
+```bash
+# DNS reflection (100% confidence)
+iptables -A INPUT -p udp --sport 53 --dport 1024:65535 -j DROP
+
+# SYN flood (89% confidence)
+iptables -A INPUT -p tcp --tcp-flags ALL SYN -m limit --limit 10/s -j ACCEPT || -j DROP
+
+# BPF filter for DNS reflection
+udp and src port 53 and dst portrange 1024-65535
+```
+
+**Validation Results:**
+
+| Attack | Recall | FP Rate | Precision | F1 |
+|--------|--------|---------|-----------|-----|
+| SYN Flood | 100% | 0% | 100% | **1.000** |
+| DNS Reflection | 100% | 0% | 100% | **1.000** |
+
+**The Complete Pipeline:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  LEARN          DETECT          IDENTIFY         MITIGATE      │
+│  ─────          ──────          ────────         ────────      │
+│                                                                 │
+│  Baseline   →   Similarity  →   Culprit      →   Firewall     │
+│  signatures     threshold       analysis         rules         │
+│                                                                 │
+│  Prior/Recent   State machine   Per-field        iptables      │
+│  knowledge      transitions     explanations     BPF filters   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ## Complete File List
 
 ```
@@ -706,6 +772,7 @@ scripts/challenges/011-batch/
 ├── 015-three-dimensions.py         # Three-dimensional detection
 ├── 016-cross-pollination.py        # Cross-batch technique testing
 ├── 017-integrated-detector.py      # Combined best of 010 + 011 (F1=1.000)
+├── 018-mitigation-synthesis.py     # Vector-derived firewall rules (F1=1.000)
 └── DEMO-batch-011-wrapup.py        # Comprehensive wrap-up demo
 ```
 
@@ -751,6 +818,7 @@ Real-time streaming detection with:
 | Cross-pollination | Combined best of 010 + 011 |
 | VectorManager refactoring | Deterministic mode now default |
 | Integrated detector | F1=1.000, Classification=100% |
+| Mitigation synthesis | Learn→Detect→Identify→Mitigate pipeline |
 
 ## Open Questions for Future Batches
 

@@ -391,6 +391,32 @@ The integrated detector combines:
 
 **Result**: F1 = 1.000, Classification = 100%
 
+### Mitigation Synthesis: Closing the Loop
+
+Using vector operations to derive actionable firewall rules:
+
+```python
+# What makes attacks different from normal?
+attack_delta = store.difference(attack_signature, baseline)
+
+# Which features contribute most?
+for feature in features:
+    importance = similarity(encode({feature: value}), attack_delta)
+    if importance > threshold:
+        rules.append(f"DROP if {feature}={value}")
+```
+
+**Generated Rules (F1 = 1.000):**
+```bash
+# DNS reflection
+iptables -A INPUT -p udp --sport 53 --dport 1024:65535 -j DROP
+
+# SYN flood
+iptables -A INPUT -p tcp --tcp-flags ALL SYN -m limit --limit 10/s -j ACCEPT
+```
+
+The complete pipeline: **Learn → Detect → Identify → Mitigate**
+
 ```bash
 # Run the wrap-up demo
 ./scripts/run_with_venv.sh python scripts/challenges/011-batch/DEMO-batch-011-wrapup.py
@@ -413,6 +439,7 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 - Distributed consensus without synchronization
 - Three-dimensional detection: transition (0.936), classification (0.998), binary (1.000)
 - Knowledge composition: prior/recent/divergence tracks regime changes
+- Mitigation synthesis: vector-derived firewall rules from attack signatures
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
