@@ -46,7 +46,8 @@ def test_invalid_probe():
 def test_no_results():
     store = CPUStore()
     store.insert('{"user": "alice"}')
-    results = store.query(probe='{"user": "bob"}')
+    # Use small threshold to filter out near-zero noise from random vectors
+    results = store.query(probe='{"user": "bob"}', threshold=0.01)
     assert len(results) == 0
 
 

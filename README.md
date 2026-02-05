@@ -334,6 +334,70 @@ Why it works: `prototype_add()` thresholds → loses frequency. Accumulator pres
 
 See [Challenge 010 Learnings](docs/challenges/010-batch/LEARNINGS.md) for complete details.
 
+## Packet Analysis & Structural Detection (Challenge 011)
+
+Building on Challenge 010, we discovered **the critical importance of structural encoding**:
+
+### The Key Insight: Use Holon's Structural Encoding
+
+```python
+# WRONG: Naive atom bundling (loses structure)
+atoms = ["proto:tcp", "dst_port:80", "flags:PA"]
+vec = sum(vm.get_vector(atom) for atom in atoms)
+# Result: F1 = 0.368 ❌
+
+# RIGHT: Structural encoding (preserves structure)
+structure = {"l4": {"proto": "tcp", "dst_port": 80, "flags": "PA"}}
+vec = encoder.encode_data(structure)
+# Result: F1 = 1.000 ✅
+```
+
+**Why it works**: Role-filler binding (`key ⊛ value`) preserves that `{dst_port: 80}` is different from `{src_port: 80}` - they share "80" but are bound to different roles.
+
+### Three-Dimensional Detection
+
+| Dimension | Purpose | F1 Score |
+|-----------|---------|----------|
+| **Transition** | Attack beginning/ending | **0.936** |
+| **Classification** | SYN flood, DNS reflection, etc. | **0.998** |
+| **Binary** | Is this an attack? | **1.000** |
+
+### Knowledge Composition
+
+```python
+# Three knowledge sources work together
+prior_sim = 0.96    # Frozen baseline (survives attacks)
+recent_sim = 0.84   # Adaptive with decay (tracks current traffic)
+divergence = 0.30   # Prior/recent divergence (regime change signal)
+```
+
+| Phase | Prior Similarity | Divergence |
+|-------|------------------|------------|
+| Normal | 0.96 | 0.99 (stable) |
+| Attack | 0.16 | 0.30 (regime change!) |
+| Recovery | 0.75 | 0.93 (returning) |
+
+### Cross-Pollination: Best of Both Batches
+
+The integrated detector combines:
+
+| From Batch 010 | From Batch 011 |
+|----------------|----------------|
+| Port bucketing | Structural encoding |
+| IP prefix levels | Prior/recent separation |
+| Payload bitmask | State machine transitions |
+| Rule-based detection | Sample-based signatures |
+| Variance-based DDoS | Culprit identification |
+
+**Result**: F1 = 1.000, Classification = 100%
+
+```bash
+# Run the wrap-up demo
+./scripts/run_with_venv.sh python scripts/challenges/011-batch/DEMO-batch-011-wrapup.py
+```
+
+See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for complete details.
+
 ## Honest Assessment
 
 **What Holon does well:**
@@ -347,6 +411,8 @@ See [Challenge 010 Learnings](docs/challenges/010-batch/LEARNINGS.md) for comple
 - Streaming anomaly detection (F1=1.000 at 8k req/sec)
 - DDoS detection with attack classification (100% accuracy)
 - Distributed consensus without synchronization
+- Three-dimensional detection: transition (0.936), classification (0.998), binary (1.000)
+- Knowledge composition: prior/recent/divergence tracks regime changes
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
@@ -364,6 +430,7 @@ See [Challenge 010 Learnings](docs/challenges/010-batch/LEARNINGS.md) for comple
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [011](docs/challenges/011-batch/LEARNINGS.md) | Structural detection & cross-pollination | ✅ F1=1.000 |
 | [010](docs/challenges/010-batch/LEARNINGS.md) | Network anomaly & DDoS detection | ✅ 100% detection |
 | [009](docs/challenges/009-batch/LEARNINGS.md) | Deterministic training at scale (500k records) | ✅ 94.5% accuracy |
 | [008](docs/challenges/008-batch/CHALLENGES.md) | Full primitive showcase (7 solutions) | ✅ 92-100% |

@@ -22,6 +22,11 @@ class TestMathematicalAPIEndpoints:
     @pytest.fixture
     def client(self):
         """Create test client with semantic encoder."""
+        import scripts.server.holon_server as server_module
+
+        # Save original store to restore after test
+        original_store = server_module.store
+
         # Override the global store with semantic-enabled store
         vector_manager = VectorManager(dimensions=1000)
         semantic_encoder = SemanticEncoder(vector_manager)
@@ -29,12 +34,13 @@ class TestMathematicalAPIEndpoints:
         global_store.encoder = semantic_encoder
 
         # Replace the global store in the app
-        import scripts.server.holon_server as server_module
-
         server_module.store = global_store
 
         with TestClient(app) as test_client:
             yield test_client
+
+        # Restore original store
+        server_module.store = original_store
 
     def test_encode_mathematical_primitive_endpoint(self, client):
         """Test mathematical primitive encoding via /encode/mathematical endpoint."""

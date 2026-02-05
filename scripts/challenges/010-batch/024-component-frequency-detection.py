@@ -32,7 +32,7 @@ import numpy as np
 
 sys.path.insert(0, str(__file__).rsplit("/", 4)[0])
 
-from deterministic_codebook import DeterministicVectorManager
+from holon import DeterministicVectorManager
 from holon.encoder import Encoder
 
 

@@ -13,6 +13,12 @@ from .distance import (  # noqa: F401 - re-exported for public API
 )
 from .encoder import TimeResolution  # noqa: F401 - re-exported for public API
 
+# Vector managers
+from .vector_manager import (  # noqa: F401 - re-exported for public API
+    DeterministicVectorManager,
+    VectorManager,
+)
+
 # Optional Qdrant backend (requires qdrant-client)
 try:
     from .qdrant_store import QdrantStore  # noqa: F401 - re-exported for public API
