@@ -612,6 +612,60 @@ FALSE POSITIVE RATE                          4%
 
 The detector learned what's "normal" and detects deviations. All interpretation is left to the human operator.
 
+## Performance Benchmark
+
+Single-core performance at 4096 dimensions:
+
+```bash
+./scripts/run_with_venv.sh python scripts/challenges/012-batch/BENCHMARK-performance.py
+```
+
+### Throughput
+
+| Phase | Packets/sec | Latency |
+|-------|-------------|---------|
+| Detection | **~3,100** | ~320 µs/pkt |
+| Warmup | ~2,350 | ~425 µs/pkt |
+
+### Component Breakdown
+
+| Component | Time | Notes |
+|-----------|------|-------|
+| `encode_data()` | 182 µs | **Main bottleneck** - structural encoding |
+| `encode_scalar_log()` | 100 µs | Rate encoding |
+| `similarity()` x2 | 22 µs | Fast |
+| `accumulate()` | 2.6 µs | Very fast |
+| Other overhead | ~16 µs | Z-scores, state updates |
+
+**Bottleneck**: `encode_data()` is pure Python/NumPy. A Rust/C extension could likely achieve 10-50x improvement.
+
+### Sampling Rates
+
+| Link Speed | Approx PPS | Sample Rate | Coverage |
+|------------|-----------|-------------|----------|
+| 1 Gbps | 1.5M pps | 1:489 | 0.2% |
+| 10 Gbps | 15M pps | 1:4,885 | 0.02% |
+| 100 Gbps | 150M pps | 1:48,851 | 0.002% |
+
+For DDoS detection, 1:500 sampling is sufficient - attack traffic dominates and will be captured.
+
+### Multi-Core Projection
+
+| Cores | Projected Throughput |
+|-------|---------------------|
+| 4 | ~12,000 pkt/sec |
+| 8 | ~25,000 pkt/sec |
+| 16 | ~49,000 pkt/sec |
+
+Linear scaling assumed (embarrassingly parallel - each packet independent).
+
+### Future Optimizations
+
+1. **Rust/C encoder**: 10-50x speedup potential
+2. **Batch encoding**: Amortize Python overhead
+3. **Reduced dimensions**: 2048D for 2x encoding speedup
+4. **Pre-computed role vectors**: Cache field name encodings
+
 ## Summary
 
 Batch 012 demonstrated that **zero-hardcode anomaly detection is viable** with holon's primitives:
@@ -620,6 +674,8 @@ Batch 012 demonstrated that **zero-hardcode anomaly detection is viable** with h
 |--------|-------------|
 | Attack Recall | **100%** |
 | False Positive Rate | **4%** |
+| Throughput (single core) | **~3,100 pkt/sec** |
+| Per-packet latency | **~320 µs** |
 | Domain knowledge required | **None** |
 | Explainability | **Field + value + z-score** |
 | Lifecycle support | **5+ waves, all recovered** |
