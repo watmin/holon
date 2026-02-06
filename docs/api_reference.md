@@ -555,6 +555,32 @@ text_vector = client.encode_vectors_json({
 # Note: Client interface abstracts vector operations for typical use cases
 ```
 
+### Continuous Value Encoding
+
+Encode continuous scalar values where similar values produce similar vectors:
+
+```python
+# Log-scale encoding (rates, sizes, counts)
+# Equal ratios produce equal similarity: 100→1000 ≈ 1000→10000
+rate_vec = store.encode_scalar_log(1000.0)
+
+# Linear encoding (positions, temperatures)
+temp_vec = store.encode_scalar(72.5, mode="linear")
+
+# Circular encoding (angles, hours - wraps around)
+# Hour 23.5 is similar to hour 0.5
+hour_vec = store.encode_scalar(23.5, mode="circular", period=24.0)
+
+# Also available on encoder directly
+rate_vec = encoder.encode_scalar_log(1000.0)
+angle_vec = encoder.encode_scalar(45.0, mode="circular", period=360.0)
+```
+
+**Use cases**:
+- Rate-based anomaly detection without hardcoded thresholds
+- Time-of-day similarity (23:30 similar to 00:30)
+- Geographic coordinates, compass bearings
+
 ## Error Handling
 
 ### HTTP Status Codes

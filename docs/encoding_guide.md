@@ -272,3 +272,71 @@ Performance Branch: What matters most?
 - **Resource Constraints**: Balance memory vs quality
 
 Basic bigrams (`n_sizes: [2]`) work best for general substring matching, but the full configuration space enables optimization for specific use cases.
+
+## Continuous Value Encoding
+
+For continuous scalar values (not text), Holon provides specialized encoding methods:
+
+### Log-Scale Encoding
+
+For multiplicative quantities where ratios matter (rates, sizes, counts):
+
+```python
+# Equal ratios produce equal similarity
+rate_100 = store.encode_scalar_log(100)
+rate_1000 = store.encode_scalar_log(1000)
+rate_10000 = store.encode_scalar_log(10000)
+
+store.similarity(rate_100, rate_1000)   # ~0.94 (10x ratio)
+store.similarity(rate_1000, rate_10000) # ~0.92 (10x ratio)
+store.similarity(rate_100, rate_10000)  # ~0.86 (100x ratio)
+```
+
+**Use cases**: Network traffic rates, file sizes, request counts, prices
+
+### Linear Encoding
+
+For additive quantities where absolute differences matter:
+
+```python
+temp_72 = store.encode_scalar(72.0, mode="linear")
+temp_75 = store.encode_scalar(75.0, mode="linear")
+temp_100 = store.encode_scalar(100.0, mode="linear")
+
+# 72°F similar to 75°F, less similar to 100°F
+```
+
+**Use cases**: Temperatures, positions, coordinates
+
+### Circular Encoding
+
+For cyclic/periodic values that wrap around:
+
+```python
+# Hours on a 24-hour clock
+hour_23 = store.encode_scalar(23.0, mode="circular", period=24.0)
+hour_1 = store.encode_scalar(1.0, mode="circular", period=24.0)
+
+# 23:00 and 01:00 are only 2 hours apart!
+store.similarity(hour_23, hour_1)  # High similarity
+
+# Compass bearings (0° = 360°)
+north = store.encode_scalar(5.0, mode="circular", period=360.0)
+almost_north = store.encode_scalar(355.0, mode="circular", period=360.0)
+store.similarity(north, almost_north)  # High similarity
+```
+
+**Use cases**: Time of day, day of week, compass bearings, angles, phase
+
+### Choosing the Right Mode
+
+| Data Type | Mode | Period | Example |
+|-----------|------|--------|---------|
+| Network rates | `log` | - | 100 pps vs 100,000 pps |
+| File sizes | `log` | - | 1 KB vs 1 GB |
+| Temperatures | `linear` | - | 72°F vs 100°F |
+| X/Y coordinates | `linear` | - | Position (10, 20) |
+| Hour of day | `circular` | 24.0 | 23:30 near 00:30 |
+| Day of week | `circular` | 7.0 | Sunday near Monday |
+| Compass bearing | `circular` | 360.0 | 5° near 355° |
+| Month of year | `circular` | 12.0 | December near January |

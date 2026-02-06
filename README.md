@@ -95,6 +95,7 @@ Everything in Holon is built from these kernel operations:
 | Category | Primitives |
 |----------|-----------|
 | **Encoding** | `encode_data(json)`, `encode_sequence(items, mode)` |
+| **Continuous** | `encode_scalar(v, mode)`, `encode_scalar_log(v)` - linear, circular, log-scale |
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
 | **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `normalize_accumulator(acc)` |
@@ -127,6 +128,30 @@ base_query = store.encoder.encode_data({"topic": "security"})
 priority_signal = store.encoder.encode_data({"severity": "critical"})
 boosted = store.amplify(base_query, priority_signal, strength=2.0)
 ```
+
+### Continuous Value Encoding (Challenge 012)
+
+Encode continuous values where similar values produce similar vectors:
+
+```python
+# Log-scale encoding: equal ratios = equal similarity
+rate_100 = store.encode_scalar_log(100)
+rate_1000 = store.encode_scalar_log(1000)
+rate_10000 = store.encode_scalar_log(10000)
+
+# 100→1000 similarity ≈ 1000→10000 similarity (both 10x)
+store.similarity(rate_100, rate_1000)   # ~0.94
+store.similarity(rate_1000, rate_10000) # ~0.92
+
+# Linear encoding for positions, temperatures, etc.
+temp_vec = store.encode_scalar(72.5, mode="linear")
+
+# Circular encoding for angles, hours (wraps around)
+hour_vec = store.encode_scalar(23.5, mode="circular", period=24.0)
+# hour 23.5 is similar to hour 0.5 (they're close on the clock)
+```
+
+**Why it matters**: Eliminates hardcoded discretization like `{rate: "high"}`. A rate of 100 pps is naturally similar to 150 pps and dissimilar from 100,000 pps.
 
 ### Config Drift Detection (The Coolest Thing We Built)
 
@@ -440,6 +465,8 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 - Three-dimensional detection: transition (0.936), classification (0.998), binary (1.000)
 - Knowledge composition: prior/recent/divergence tracks regime changes
 - Mitigation synthesis: vector-derived firewall rules from attack signatures
+- Zero-hardcode detection: 100% recall, 4% FP without domain knowledge (Challenge 012)
+- Continuous value encoding: log-scale rates, circular angles with smooth similarity
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
@@ -457,6 +484,7 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [012](docs/challenges/012-batch/LEARNINGS.md) | Zero-hardcode anomaly detection | ✅ 100% recall, 4% FP |
 | [011](docs/challenges/011-batch/LEARNINGS.md) | Structural detection & cross-pollination | ✅ F1=1.000 |
 | [010](docs/challenges/010-batch/LEARNINGS.md) | Network anomaly & DDoS detection | ✅ 100% detection |
 | [009](docs/challenges/009-batch/LEARNINGS.md) | Deterministic training at scale (500k records) | ✅ 94.5% accuracy |
