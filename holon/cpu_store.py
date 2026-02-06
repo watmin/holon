@@ -831,3 +831,65 @@ class CPUStore(Store):
 
         engine = DistanceEngine()
         return engine.similarity(vec1, vec2, metric_map[metric], **kwargs)
+
+    def encode_scalar(
+        self,
+        value: float,
+        mode: str = "linear",
+        scale: float = 10000.0,
+        period: float = None,
+        seed: int = 42,
+    ) -> np.ndarray:
+        """
+        Encode a continuous scalar value into a vector.
+
+        Unlike structured data encoding (where {"x": 5} is unrelated to {"x": 6}),
+        continuous encoding creates vectors where NEARBY VALUES are SIMILAR.
+
+        Modes:
+            - "linear": Nearby values have similar vectors, no wrapping.
+                        Good for: rate, distance, temperature, price
+            - "circular": Values wrap at period (0 ≈ period).
+                         Good for: angle, hour of day, day of week
+
+        Args:
+            value: The scalar value to encode
+            mode: "linear" or "circular"
+            scale: For linear mode, controls similarity decay rate.
+            period: For circular mode, the period of wrapping (required).
+            seed: Random seed for circular mode phase generation.
+
+        Returns:
+            Bipolar vector encoding of the value
+
+        Example:
+            >>> store = CPUStore()
+            >>> v100 = store.encode_scalar(100, mode="linear")
+            >>> v110 = store.encode_scalar(110, mode="linear")
+            >>> store.similarity(v100, v110)  # High - nearby values
+            0.95
+        """
+        return self.encoder.encode_scalar(value, mode, scale, period, seed)
+
+    def encode_scalar_log(self, value: float, scale: float = 1000.0) -> np.ndarray:
+        """
+        Encode a scalar on log scale (common for rates, frequencies, magnitudes).
+
+        Equal ratios have equal similarity:
+            100 → 1000 is same "distance" as 1000 → 10000
+
+        Args:
+            value: The scalar value (must be > 0)
+            scale: Controls similarity decay rate
+
+        Returns:
+            Bipolar vector encoding of log10(value)
+
+        Example:
+            >>> store = CPUStore()
+            >>> v100 = store.encode_scalar_log(100)    # log10 = 2
+            >>> v1000 = store.encode_scalar_log(1000)  # log10 = 3
+            >>> store.similarity(v100, v1000)
+            0.92
+        """
+        return self.encoder.encode_scalar_log(value, scale)

@@ -918,6 +918,95 @@ class Encoder:
             return np.where(vector > 0, 1, np.where(vector < 0, -1, 0)).astype(np.int8)
 
     # =========================================================================
+    # Continuous Value Encoding
+    # =========================================================================
+
+    def encode_scalar(
+        self,
+        value: float,
+        mode: str = "linear",
+        scale: float = 10000.0,
+        period: float = None,
+        seed: int = 42,
+    ) -> np.ndarray:
+        """
+        Encode a continuous scalar value into a vector.
+
+        Unlike structured data encoding (where {"x": 5} is unrelated to {"x": 6}),
+        continuous encoding creates vectors where NEARBY VALUES are SIMILAR.
+
+        Modes:
+            - "linear": Nearby values have similar vectors, no wrapping.
+                        Good for: rate, distance, temperature, price
+            - "circular": Values wrap at period (0 ≈ period).
+                         Good for: angle, hour of day, day of week
+
+        Args:
+            value: The scalar value to encode
+            mode: "linear" or "circular"
+            scale: For linear mode, controls similarity decay rate.
+                   Larger scale = slower decay = more similar nearby values.
+            period: For circular mode, the period of wrapping (required).
+            seed: Random seed for circular mode phase generation.
+
+        Returns:
+            Bipolar vector encoding of the value
+
+        Examples:
+            # Rate encoding (100 pps similar to 110 pps)
+            v100 = encoder.encode_scalar(100, mode="linear")
+            v110 = encoder.encode_scalar(110, mode="linear")
+            # similarity(v100, v110) ≈ 0.95
+
+            # Hour of day (hour 23 similar to hour 0)
+            h23 = encoder.encode_scalar(23, mode="circular", period=24)
+            h0 = encoder.encode_scalar(0, mode="circular", period=24)
+            # similarity(h23, h0) ≈ 0.90
+        """
+        dim = self.vector_manager.dimensions
+
+        if mode == "linear":
+            return self._encode_positional(value, dim, scale)
+        elif mode == "circular":
+            if period is None:
+                raise ValueError("period is required for circular mode")
+            return self._encode_circular(value, period, dim, seed)
+        else:
+            raise ValueError(f"Unknown mode: {mode}. Use 'linear' or 'circular'.")
+
+    def encode_scalar_log(
+        self,
+        value: float,
+        scale: float = 1000.0,
+    ) -> np.ndarray:
+        """
+        Encode a scalar on log scale (common for rates, frequencies, magnitudes).
+
+        This is equivalent to encode_scalar(log10(value), mode="linear").
+
+        Benefit: Equal ratios have equal similarity.
+            100 → 1000 is same "distance" as 1000 → 10000
+
+        Args:
+            value: The scalar value (must be > 0)
+            scale: Controls similarity decay rate
+
+        Returns:
+            Bipolar vector encoding of log10(value)
+
+        Example:
+            # Rate encoding where 10x change is consistent similarity drop
+            v100 = encoder.encode_scalar_log(100)
+            v1000 = encoder.encode_scalar_log(1000)
+            v10000 = encoder.encode_scalar_log(10000)
+            # similarity(v100, v1000) ≈ similarity(v1000, v10000)
+        """
+        if value <= 0:
+            value = 1e-10  # Avoid log(0)
+        log_value = np.log10(value)
+        return self._encode_positional(log_value, self.vector_manager.dimensions, scale)
+
+    # =========================================================================
     # Additional Primitives
     # =========================================================================
 
