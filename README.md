@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Rust](https://img.shields.io/badge/rust_version-holon--rs-orange.svg)](https://github.com/watmin/holon-rs)
 
 <div align="center">
 <img src="assets/superposition-incantation.gif" alt="Superposition Incantation">
@@ -520,6 +521,10 @@ Named after Arthur Koestler's concept - a *holon* is a self-contained whole that
 
 *From mystical runes to mathematical vectors. The power endures.*
 </div>
+
+## See Also
+
+- **[holon-rs](https://github.com/watmin/holon-rs)** — Rust implementation with 12x performance boost and SIMD acceleration. Same VSA foundations, same API patterns, faster execution.
 
 ---
 
