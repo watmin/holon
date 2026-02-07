@@ -147,3 +147,6 @@ test_results/
 
 # Qdrant storage volume
 qdrant_storage/
+
+# Rust implementation (separate repo)
+holon-rs/
