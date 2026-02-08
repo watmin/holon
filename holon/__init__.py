@@ -36,6 +36,21 @@ from .vector_manager import (  # noqa: F401 - re-exported for public API
     VectorManager,
 )
 
+# Walkable interface for zero-serialization encoding
+from .walkable import (  # noqa: F401 - re-exported for public API
+    Walkable,
+    WalkableDict,
+    WalkableList,
+    WalkableScalar,
+    WalkableSet,
+    WalkType,
+    as_walkable,
+    is_walkable,
+    register_walkable,
+    register_walkable_adapter,
+    walk_iter,
+)
+
 # Optional Qdrant backend (requires qdrant-client)
 try:
     from .qdrant_store import QdrantStore  # noqa: F401 - re-exported for public API

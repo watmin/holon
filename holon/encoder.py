@@ -7,6 +7,7 @@ import numpy as np
 from edn_format.immutable_dict import ImmutableDict
 
 from .vector_manager import VectorManager
+from .walkable import Walkable, WalkType, as_walkable
 
 
 class TimeResolution(str, Enum):
@@ -93,6 +94,159 @@ class Encoder:
         :return: Encoded vector.
         """
         return self._encode_recursive(data)
+
+    def encode_walkable(self, data: Any) -> np.ndarray:
+        """
+        Encode any in-memory data structure using the Walkable interface.
+
+        This is the zero-serialization path: your objects don't need to be
+        converted to JSON/EDN strings first. Any object implementing the
+        Walkable protocol can be encoded directly.
+
+        Native Python types (dict, list, set, scalars) work automatically.
+        Custom types can implement Walkable for custom traversal.
+
+        :param data: Any data structure (Walkable, dict, list, set, or scalar)
+        :return: Encoded vector
+
+        Example:
+            # Native types work automatically
+            vec = encoder.encode_walkable({"name": "Alice", "scores": [95, 87, 92]})
+
+            # Custom types implement Walkable
+            class Person(Walkable):
+                def walk_type(self): return WalkType.MAP
+                def walk_map_items(self):
+                    yield "name", self.name
+                    yield "age", self.age
+
+            vec = encoder.encode_walkable(Person("Alice", 30))
+        """
+        return self._encode_walkable_recursive(data)
+
+    def _encode_walkable_recursive(
+        self, data: Any, list_mode=None, **kwargs
+    ) -> np.ndarray:
+        """
+        Recursively encode using the Walkable interface.
+
+        This mirrors _encode_recursive() but uses the Walkable protocol
+        instead of isinstance() checks, enabling extensibility.
+        """
+        walkable = as_walkable(data)
+        wtype = walkable.walk_type()
+
+        if wtype == WalkType.MAP:
+            return self._encode_walkable_map(walkable, list_mode=list_mode, **kwargs)
+        elif wtype == WalkType.LIST:
+            mode = list_mode if list_mode is not None else self.default_list_mode
+            return self._encode_walkable_list(walkable, mode=mode, **kwargs)
+        elif wtype == WalkType.SET:
+            return self._encode_walkable_set(walkable)
+        else:  # WalkType.SCALAR
+            return self._encode_walkable_scalar(walkable)
+
+    def _encode_walkable_map(
+        self, walkable: Walkable, list_mode=None, **kwargs
+    ) -> np.ndarray:
+        """Encode a map-type walkable by binding keys to values."""
+        bound_vectors = []
+
+        for key, value in walkable.walk_map_items():
+            # Check for encoding mode hints in nested dicts
+            effective_list_mode = list_mode
+            encode_config = {}
+
+            # Handle special markers if value is a dict
+            if isinstance(value, dict):
+                # Check for $time marker
+                if self._time_marker in value:
+                    value_vector = self._encode_time(value)
+                    key_vector = self._encode_walkable_scalar(as_walkable(key))
+                    bound = key_vector * value_vector
+                    bound_vectors.append(bound)
+                    continue
+
+                # Check for $mode marker (sequence encoding mode)
+                if self._mode_marker in value:
+                    mode_str = value[self._mode_marker]
+                    if mode_str in [m.value for m in ListEncodeMode]:
+                        effective_list_mode = ListEncodeMode(mode_str)
+                    value = {k: v for k, v in value.items() if k != self._mode_marker}
+
+                # Check for $mode_config marker
+                if self._mode_config_marker in value:
+                    encode_config = value[self._mode_config_marker]
+                    value = {
+                        k: v for k, v in value.items() if k != self._mode_config_marker
+                    }
+
+            key_vector = self._encode_walkable_scalar(as_walkable(key))
+            value_vector = self._encode_walkable_recursive(
+                value, list_mode=effective_list_mode, **encode_config, **kwargs
+            )
+            bound = key_vector * value_vector
+            bound_vectors.append(bound)
+
+        if not bound_vectors:
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+
+        bundled = self.xp.sum(self.xp.stack(bound_vectors), axis=0)
+        return self._threshold_bipolar(bundled)
+
+    def _encode_walkable_list(
+        self, walkable: Walkable, mode: ListEncodeMode, **config
+    ) -> np.ndarray:
+        """Encode a list-type walkable using the specified mode."""
+        items = list(walkable.walk_list_items())
+        if not items:
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+
+        item_vecs = [self._encode_walkable_recursive(item) for item in items]
+
+        if mode == ListEncodeMode.BUNDLE:
+            bundled = self.xp.sum(self.xp.stack(item_vecs), axis=0)
+            return self._threshold_bipolar(bundled)
+
+        elif mode == ListEncodeMode.POSITIONAL:
+            bound_vectors = []
+            for i, item_vector in enumerate(item_vecs):
+                pos_vector = self.vector_manager.get_position_vector(i)
+                bound = item_vector * pos_vector
+                bound_vectors.append(bound)
+            bundled = self.xp.sum(self.xp.stack(bound_vectors), axis=0)
+            return self._threshold_bipolar(bundled)
+
+        elif mode == ListEncodeMode.CHAINED:
+            if len(item_vecs) == 0:
+                return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+            chained = item_vecs[-1]
+            for prev in reversed(item_vecs[:-1]):
+                chained = self.bind(prev, chained)
+            return chained
+
+        elif mode == ListEncodeMode.NGRAM:
+            return self._encode_ngram_enhanced(item_vecs, **config)
+
+        else:
+            raise ValueError(f"Unknown encoding mode: {mode}")
+
+    def _encode_walkable_set(self, walkable: Walkable) -> np.ndarray:
+        """Encode a set-type walkable by bundling items with set indicator."""
+        items = list(walkable.walk_set_items())
+        if not items:
+            return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+
+        set_indicator = self.vector_manager.get_vector("set_indicator")
+        item_vectors = [self._encode_walkable_recursive(item) for item in items]
+        bundled_items = self.xp.sum(self.xp.stack(item_vectors), axis=0)
+        bundled_items = self._threshold_bipolar(bundled_items)
+        return set_indicator * bundled_items
+
+    def _encode_walkable_scalar(self, walkable: Walkable) -> np.ndarray:
+        """Encode a scalar-type walkable."""
+        value = walkable.walk_scalar_value()
+        return self._encode_scalar(value)
 
     def _encode_recursive(self, data: Any, list_mode=None, **kwargs) -> np.ndarray:
         """

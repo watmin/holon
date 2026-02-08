@@ -12,6 +12,7 @@ See the main [README.md](../README.md) for overview and quick start.
 |----------|-------------|
 | [API Reference](api_reference.md) | Complete HTTP and Python API documentation |
 | [Encoding Guide](encoding_guide.md) | How structured data becomes vectors |
+| [Walkable Extension](walkable-extension.md) | Zero-serialization encoding for custom types |
 | [Dimension Selection](dimension_selection.md) | Choosing optimal vector dimensions for accuracy vs memory |
 | [Performance Guide](performance.md) | Scaling, benchmarks, optimization |
 | [Similarity Methods](similarity_methods.md) | Similarity algorithms and when to use them |
@@ -42,6 +43,7 @@ Each batch contains problem statements and learnings:
 | Example | Description |
 |---------|-------------|
 | [basic_usage.py](../examples/basic_usage.py) | Getting started with JSON/EDN |
+| [walkable_demo.py](../examples/walkable_demo.py) | Zero-serialization encoding with custom types |
 | [advanced_queries.py](../examples/advanced_queries.py) | Guards, negations, $or logic |
 | [bulk_operations.py](../examples/bulk_operations.py) | Efficient large-scale handling |
 | [geometric_reasoning.py](../examples/geometric_reasoning.py) | Pattern completion |

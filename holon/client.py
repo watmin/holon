@@ -520,6 +520,40 @@ class HolonClient:
         parsed = parse_data(data_str, data_type)
         return self._store.encoder.encode_data(parsed)
 
+    def encode_walkable(self, data: Any) -> np.ndarray:
+        """
+        Encode any in-memory data structure using the Walkable interface.
+
+        This is the zero-serialization path: your objects don't need to be
+        converted to JSON/EDN strings first. Any object implementing the
+        Walkable protocol can be encoded directly.
+
+        Native Python types (dict, list, set, scalars) work automatically.
+        Custom types can implement Walkable for custom traversal.
+
+        Args:
+            data: Any data structure (Walkable, dict, list, set, or scalar)
+
+        Returns:
+            Encoded vector as numpy array (int8 bipolar: {-1, 0, 1})
+
+        Example:
+            >>> client = HolonClient()
+            >>> vec = client.encode_walkable({"type": "billing", "amount": 100})
+            >>> vec.shape
+            (4096,)
+
+            # Custom types work too
+            >>> class Person(Walkable):
+            ...     def walk_type(self): return WalkType.MAP
+            ...     def walk_map_items(self):
+            ...         yield "name", self.name
+            ...         yield "age", self.age
+            >>> vec = client.encode_walkable(Person("Alice", 30))
+        """
+        self._ensure_local("encode_walkable")
+        return self._store.encoder.encode_walkable(data)
+
     # =========================================================================
     # VSA Primitives - The Core Operations
     # =========================================================================
