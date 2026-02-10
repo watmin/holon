@@ -150,3 +150,4 @@ qdrant_storage/
 
 # Rust implementation (separate repo)
 holon-rs/
+holon-lab-ddos/
