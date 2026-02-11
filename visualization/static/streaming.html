@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holon Streaming Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            padding-top: 4px; /* Space for status bar */
+        }
+
+        .pane {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid #333;
+            overflow: hidden;
+        }
+
+        .pane:last-child {
+            border-right: none;
+        }
+
+        .pane canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .pane-legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            gap: 15px;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        #tooltip {
+            position: fixed;
+            display: none;
+            background: rgba(15, 15, 25, 0.95);
+            border: 1px solid rgba(100, 150, 255, 0.4);
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #ddd;
+            max-width: 280px;
+            z-index: 1000;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        #tooltip .tooltip-title {
+            font-weight: bold;
+            color: #8af;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        #tooltip .tooltip-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        #tooltip .tooltip-type.key { background: rgba(136, 170, 255, 0.3); color: #8af; }
+        #tooltip .tooltip-type.value { background: rgba(68, 255, 68, 0.3); color: #4f4; }
+        #tooltip .tooltip-type.binding { background: rgba(255, 170, 68, 0.3); color: #fa4; }
+        #tooltip .tooltip-type.composite { background: rgba(255, 255, 68, 0.3); color: #ff4; }
+        #tooltip .tooltip-type.anomaly { background: rgba(255, 68, 68, 0.3); color: #f44; }
+        #tooltip .tooltip-info {
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .pane-header {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(20, 20, 30, 0.9);
+            border: 1px solid rgba(100, 100, 150, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            z-index: 100;
+        }
+
+        .pane-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #8888ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .pane-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            color: #666;
+            text-transform: uppercase;
+            font-size: 9px;
+        }
+
+        .stat-value {
+            color: #aaf;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .stat-value.anomaly {
+            color: #f66;
+        }
+
+        .stat-value.normal {
+            color: #6f6;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 30, 0.95);
+            border: 1px solid rgba(100, 100, 150, 0.3);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .control-label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #4444aa, #6666cc);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #5555bb, #7777dd);
+            transform: translateY(-1px);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #44aa44, #66cc66);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #aa4444, #cc6666);
+        }
+
+        button.warning {
+            background: linear-gradient(135deg, #aa8844, #ccaa66);
+        }
+
+        input[type="range"] {
+            width: 100px;
+        }
+
+        .similarity-meter {
+            position: absolute;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 30, 0.9);
+            border: 1px solid rgba(100, 100, 150, 0.3);
+            border-radius: 8px;
+            padding: 12px 20px;
+            text-align: center;
+            z-index: 150;
+            min-width: 200px;
+        }
+
+        .similarity-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .similarity-value {
+            font-size: 32px;
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .similarity-value.high { color: #4f4; }
+        .similarity-value.medium { color: #ff4; }
+        .similarity-value.low { color: #f44; }
+
+        .similarity-bar {
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .similarity-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s, background 0.3s;
+        }
+
+        .drift-indicator {
+            margin-top: 10px;
+            font-size: 11px;
+        }
+
+        .drift-indicator .label {
+            color: #888;
+        }
+
+        .drift-indicator .value {
+            font-family: monospace;
+            color: #aaf;
+        }
+
+        #record-display {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            background: rgba(20, 30, 20, 0.9);
+            border: 1px solid rgba(80, 120, 80, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #8f8;
+            max-width: 280px;
+            white-space: pre-wrap;
+            z-index: 100;
+        }
+
+        #record-display .record-header {
+            color: #888;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        /* Packet display styling */
+        .pkt-phase {
+            font-weight: bold;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        .pkt-phase.normal { background: #1a3a1a; color: #6f6; }
+        .pkt-phase.attack { background: #3a1a1a; color: #f66; }
+        .pkt-phase.warmup { background: #1a2a3a; color: #6af; }
+
+        .pkt-flow {
+            font-family: monospace;
+            font-size: 11px;
+            color: #adf;
+            margin: 4px 0;
+        }
+        .pkt-meta {
+            font-size: 10px;
+            color: #888;
+        }
+        .pkt-http, .pkt-dns, .pkt-sql {
+            font-size: 9px;
+            color: #8a8;
+            margin-top: 2px;
+            font-family: monospace;
+            margin-bottom: 6px;
+        }
+
+        .trail-point {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        #status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #222;
+            z-index: 300;
+        }
+
+        #status-bar.streaming {
+            background: linear-gradient(90deg, #4f4, #484, #4f4);
+            background-size: 200% 100%;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        #status-bar.attack {
+            background: linear-gradient(90deg, #f44, #844, #f44);
+            background-size: 200% 100%;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        #status-bar.warmup {
+            background: linear-gradient(90deg, #48f, #448, #48f);
+            background-size: 200% 100%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        #status-bar.paused {
+            background: #664;
+        }
+
+        /* Detection status panel - top left, mirrored from record-display on right */
+        #detection-panel {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            background: rgba(20, 20, 30, 0.9);
+            border: 1px solid rgba(80, 80, 120, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaf;
+            min-width: 380px;
+            z-index: 100;
+        }
+
+        #detection-panel .panel-header {
+            color: #888;
+            font-size: 9px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        #phase-indicator {
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            display: inline-block;
+        }
+        #phase-indicator.normal { background: #1a3a1a; color: #6f6; border: 1px solid #3a5a3a; }
+        #phase-indicator.attack { background: #3a1a1a; color: #f66; border: 1px solid #5a3a3a; }
+        #phase-indicator.warmup { background: #1a2a3a; color: #6af; border: 1px solid #3a4a5a; }
+        #phase-indicator.paused { background: #2a2a2a; color: #888; border: 1px solid #444; }
+
+        /* Assessment indicator */
+        #assessment-indicator {
+            padding: 4px 10px;
+            font-size: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            display: block;
+        }
+        #assessment-indicator.true_positive { background: #0a4a0a; color: #4f4; border: 1px solid #2a6a2a; }
+        #assessment-indicator.true_negative { background: #0a4a0a; color: #4f4; border: 1px solid #2a6a2a; }
+        #assessment-indicator.false_positive { background: #4a0a0a; color: #f44; border: 1px solid #6a2a2a; }
+        #assessment-indicator.false_negative { background: #4a0a0a; color: #f44; border: 1px solid #6a2a2a; }
+        #assessment-indicator.warmup { background: #1a2a3a; color: #6af; border: 1px solid #3a4a5a; }
+        #assessment-indicator.hidden { display: none; }
+
+        @keyframes pulse {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="status-bar" class="paused"></div>
+
+    <!-- Detection Panel - top left (mirrored from Latest Record on right) -->
+    <div id="detection-panel">
+        <div class="panel-header">Detection Status</div>
+        <div id="phase-indicator" class="paused">PAUSED</div>
+        <div id="assessment-indicator" class="hidden">--</div>
+    </div>
+
+    <div id="container">
+        <!-- Left Pane: Baseline -->
+        <div class="pane" id="baseline-pane">
+            <div class="pane-header">
+                <div class="pane-title">Baseline + Drift</div>
+                <div class="pane-stats">
+                    <div class="stat">
+                        <span class="stat-label">Records</span>
+                        <span class="stat-value" id="baseline-count">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Pos</span>
+                        <span class="stat-value" id="baseline-pos" style="font-size: 0.7em;">[0,0,0]</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Status</span>
+                        <span class="stat-value" id="baseline-status">Learning</span>
+                    </div>
+                </div>
+            </div>
+            <canvas id="baseline-canvas"></canvas>
+            <div class="pane-legend">
+                <span style="color:#4488ff">● Baseline</span>
+                <span style="color:#44ff44">● Incoming</span>
+                <span style="color:#4488ff; opacity:0.3">• Evolution Trail</span>
+            </div>
+        </div>
+
+        <!-- Right Pane: Incoming Stream -->
+        <div class="pane" id="stream-pane">
+            <div class="pane-header">
+                <div class="pane-title">Incoming Stream</div>
+                <div class="pane-stats">
+                    <div class="stat">
+                        <span class="stat-label">Total</span>
+                        <span class="stat-value" id="stream-total">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Anomalies</span>
+                        <span class="stat-value anomaly" id="stream-anomalies">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Rate</span>
+                        <span class="stat-value" id="stream-rate">0/s</span>
+                    </div>
+                </div>
+            </div>
+            <canvas id="stream-canvas"></canvas>
+            <div class="pane-legend">
+                <span style="color:#88aaff">● Keys</span>
+                <span style="color:#44ff44">●</span><span style="color:#ffff00">●</span><span style="color:#ff4444">● Similarity</span>
+                <span style="color:#ffaa44">◆ Bindings</span>
+                <span>◈ Composite</span>
+            </div>
+
+            <div id="record-display">
+                <div class="record-header">Latest Record</div>
+                <div id="record-json">Waiting for data...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Similarity Meter (centered between panes) -->
+    <div class="similarity-meter">
+        <div class="similarity-label">Similarity to Baseline</div>
+        <div class="similarity-value high" id="similarity-value">--</div>
+        <div class="similarity-bar">
+            <div class="similarity-bar-fill" id="similarity-bar" style="width: 0%; background: #4f4;"></div>
+        </div>
+        <div class="drift-indicator">
+            <span class="label">Drift:</span>
+            <span class="value" id="drift-value">0.00</span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+        <button id="btn-play" onclick="togglePlay()">▶ Play</button>
+        <button id="btn-step" onclick="stepOne()">Step</button>
+
+        <div class="control-group">
+            <span class="control-label">Speed</span>
+            <input type="range" id="speed" min="0.5" max="10" step="0.5" value="2" onchange="setSpeed(this.value)">
+            <span id="speed-value">2/s</span>
+        </div>
+
+        <button id="btn-freeze" onclick="toggleFreeze()">Freeze Baseline</button>
+        <button class="warning" onclick="injectAttack()">Inject Attack</button>
+        <button class="danger" onclick="resetAll()">Reset</button>
+        <button onclick="resetCamera()">⌂ Home View</button>
+    </div>
+
+    <!-- Three.js -->
+    <!-- Tooltip for hover info -->
+    <div id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-type"></div>
+        <div class="tooltip-info"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // ====================================================================
+        // Three.js Setup - Two Scenes
+        // ====================================================================
+
+        let baselineScene, baselineCamera, baselineRenderer, baselineControls;
+        let streamScene, streamCamera, streamRenderer, streamControls;
+
+        let baselineMesh = null;      // The baseline accumulator point
+        let baselineTrail = [];       // Trail showing baseline movement
+        let baselineTrailEdges = [];  // Edges connecting trail points
+        let streamGraphs = [];        // Array of record graphs (atoms + edges)
+        let ghostPoint = null;        // Ghost of current point on baseline
+        let lastBaselinePos = null;   // Track baseline movement
+        const MAX_GRAPHS = 15;        // Max number of record graphs to keep
+
+        // Tooltip/hover
+        let streamRaycaster = null;
+        let streamMouse = new THREE.Vector2();
+        let hoveredMesh = null;
+        let hoverRing = null;
+        let baselineRing = null;     // Selection ring for left pane
+        let activeGraph = null;      // The most recent/active graph
+        let activeCompositeMesh = null;  // The composite mesh of active graph
+
+        const MAX_TRAIL_POINTS = 50;
+
+        let eventSource = null;
+        let isPlaying = false;
+        let baselineFrozen = false;
+        let lastRecordTime = Date.now();
+        let recordsLastSecond = 0;
+
+        // Assessment accuracy tracking
+        let correctCount = 0;
+        let incorrectCount = 0;
+
+        function initThree() {
+            // Baseline pane
+            const baselinePane = document.getElementById('baseline-pane');
+            const baselineCanvas = document.getElementById('baseline-canvas');
+            const baselineWidth = baselinePane.clientWidth;
+            const baselineHeight = baselinePane.clientHeight;
+
+            baselineScene = new THREE.Scene();
+            baselineScene.background = new THREE.Color(0x0a0a12);
+
+            // Orthographic camera for isometric view
+            const frustumSize = 40;
+            const baselineAspect = baselineWidth / baselineHeight;
+            baselineCamera = new THREE.OrthographicCamera(
+                -frustumSize * baselineAspect / 2, frustumSize * baselineAspect / 2,
+                frustumSize / 2, -frustumSize / 2,
+                0.1, 1000
+            );
+            baselineCamera.position.set(30, 30, 30);
+            baselineCamera.lookAt(0, 0, 0);
+
+            baselineRenderer = new THREE.WebGLRenderer({ canvas: baselineCanvas, antialias: true });
+            baselineRenderer.setSize(baselineWidth, baselineHeight);
+            baselineRenderer.setPixelRatio(window.devicePixelRatio);
+
+            baselineControls = new THREE.OrbitControls(baselineCamera, baselineRenderer.domElement);
+            baselineControls.enableDamping = true;
+
+            // Add grid, axes, and lights to baseline
+            baselineScene.add(new THREE.GridHelper(40, 20, 0x333355, 0x222233));
+
+            // Add axis arrows (R=X, G=Y, B=Z)
+            const axisLength = 8;
+            const axisHelper1 = new THREE.AxesHelper(axisLength);
+            baselineScene.add(axisHelper1);
+
+            // Add Z arrow indicator (cyan arrow pointing up)
+            const zArrowGeo = new THREE.ConeGeometry(0.3, 1, 8);
+            const zArrowMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const zArrow = new THREE.Mesh(zArrowGeo, zArrowMat);
+            zArrow.position.set(0, 0, axisLength + 0.5);
+            zArrow.rotation.x = Math.PI / 2;
+            baselineScene.add(zArrow);
+
+            baselineScene.add(new THREE.AmbientLight(0x404040, 0.5));
+            const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            light1.position.set(10, 20, 10);
+            baselineScene.add(light1);
+
+            // Baseline point (sphere) - represents accumulated "normal"
+            const baselineGeo = new THREE.SphereGeometry(0.6, 16, 16);
+            const baselineMat = new THREE.MeshPhongMaterial({
+                color: 0x4488ff,
+                transparent: true,
+                opacity: 0.9,
+                emissive: 0x224488,
+            });
+            baselineMesh = new THREE.Mesh(baselineGeo, baselineMat);
+            baselineMesh.visible = false;
+            baselineScene.add(baselineMesh);
+
+            // Ghost point (incoming record projected onto baseline view) - same shape as composite on right
+            const ghostGeo = new THREE.IcosahedronGeometry(0.35, 0);
+            const ghostMat = new THREE.MeshPhongMaterial({
+                color: 0x44ff44,
+                transparent: true,
+                opacity: 0.7,
+                emissive: 0x113311,
+            });
+            ghostPoint = new THREE.Mesh(ghostGeo, ghostMat);
+            ghostPoint.visible = false;
+            baselineScene.add(ghostPoint);
+
+            // Selection ring for ghost point on baseline pane
+            const baselineRingGeo = new THREE.RingGeometry(0.4, 0.5, 32);
+            const baselineRingMat = new THREE.MeshBasicMaterial({
+                color: 0x00ff88,
+                transparent: true,
+                opacity: 0.9,
+                side: THREE.DoubleSide,
+            });
+            baselineRing = new THREE.Mesh(baselineRingGeo, baselineRingMat);
+            baselineRing.visible = false;
+            baselineScene.add(baselineRing);
+
+            // Baseline trail (shows movement history) - same size, fading alpha
+            baselineTrail = [];
+            baselineTrailEdges = [];
+            for (let i = 0; i < 30; i++) {
+                const trailGeo = new THREE.SphereGeometry(0.6, 16, 16);  // Same size as baseline
+                const trailMat = new THREE.MeshPhongMaterial({
+                    color: 0x4488ff,
+                    transparent: true,
+                    opacity: 0.4 * (1 - i / 30),
+                    emissive: 0x112244,
+                });
+                const trail = new THREE.Mesh(trailGeo, trailMat);
+                trail.visible = false;
+                baselineScene.add(trail);
+                baselineTrail.push(trail);
+
+                // Trajectory edge connecting trail points
+                if (i < 29) {
+                    const edgeMat = new THREE.LineBasicMaterial({
+                        color: 0x66aaff,  // Brighter blue
+                        transparent: true,
+                        opacity: 0.7 * (1 - i / 30),  // Higher alpha
+                    });
+                    const edgeGeo = new THREE.BufferGeometry();
+                    const edge = new THREE.Line(edgeGeo, edgeMat);
+                    edge.visible = false;
+                    baselineScene.add(edge);
+                    baselineTrailEdges.push(edge);
+                }
+            }
+
+            // Stream pane
+            const streamPane = document.getElementById('stream-pane');
+            const streamCanvas = document.getElementById('stream-canvas');
+            const streamWidth = streamPane.clientWidth;
+            const streamHeight = streamPane.clientHeight;
+
+            streamScene = new THREE.Scene();
+            streamScene.background = new THREE.Color(0x0a120a);
+
+            // Orthographic camera for isometric view
+            const streamAspect = streamWidth / streamHeight;
+            streamCamera = new THREE.OrthographicCamera(
+                -frustumSize * streamAspect / 2, frustumSize * streamAspect / 2,
+                frustumSize / 2, -frustumSize / 2,
+                0.1, 1000
+            );
+            streamCamera.position.set(30, 30, 30);
+            streamCamera.lookAt(0, 0, 0);
+
+            streamRenderer = new THREE.WebGLRenderer({ canvas: streamCanvas, antialias: true });
+            streamRenderer.setSize(streamWidth, streamHeight);
+            streamRenderer.setPixelRatio(window.devicePixelRatio);
+
+            streamControls = new THREE.OrbitControls(streamCamera, streamRenderer.domElement);
+            streamControls.enableDamping = true;
+
+            // Sync controls between left and right panes (including orthographic zoom)
+            let isSyncing = false;
+
+            baselineControls.addEventListener('change', () => {
+                if (isSyncing) return;
+                isSyncing = true;
+                streamCamera.position.copy(baselineCamera.position);
+                streamCamera.quaternion.copy(baselineCamera.quaternion);
+                streamCamera.zoom = baselineCamera.zoom;
+                streamCamera.updateProjectionMatrix();
+                streamControls.target.copy(baselineControls.target);
+                isSyncing = false;
+            });
+
+            streamControls.addEventListener('change', () => {
+                if (isSyncing) return;
+                isSyncing = true;
+                baselineCamera.position.copy(streamCamera.position);
+                baselineCamera.quaternion.copy(streamCamera.quaternion);
+                baselineCamera.zoom = streamCamera.zoom;
+                baselineCamera.updateProjectionMatrix();
+                baselineControls.target.copy(streamControls.target);
+                isSyncing = false;
+            });
+
+            // Add grid, axes, and lights to stream
+            streamScene.add(new THREE.GridHelper(40, 20, 0x335533, 0x223322));
+
+            // Add axis arrows (R=X, G=Y, B=Z)
+            const axisLength2 = 8;
+            const axisHelper2 = new THREE.AxesHelper(axisLength2);
+            streamScene.add(axisHelper2);
+
+            // Add Z arrow indicator
+            const zArrowGeo2 = new THREE.ConeGeometry(0.3, 1, 8);
+            const zArrowMat2 = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const zArrow2 = new THREE.Mesh(zArrowGeo2, zArrowMat2);
+            zArrow2.position.set(0, 0, axisLength2 + 0.5);
+            zArrow2.rotation.x = Math.PI / 2;
+            streamScene.add(zArrow2);
+
+            streamScene.add(new THREE.AmbientLight(0x404040, 0.5));
+            const light2 = new THREE.DirectionalLight(0xffffff, 0.8);
+            light2.position.set(10, 20, 10);
+            streamScene.add(light2);
+
+            // Raycaster for tooltips on stream pane
+            streamRaycaster = new THREE.Raycaster();
+
+            // Hover ring (glowing ring around hovered point)
+            const ringGeometry = new THREE.RingGeometry(0.4, 0.5, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff88,
+                transparent: true,
+                opacity: 0.9,
+                side: THREE.DoubleSide,
+            });
+            hoverRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            hoverRing.visible = false;
+            streamScene.add(hoverRing);
+
+            // Mouse move for tooltips (streamCanvas already defined above)
+            streamCanvas.addEventListener('mousemove', onStreamMouseMove);
+            streamCanvas.addEventListener('mouseleave', () => {
+                document.getElementById('tooltip').style.display = 'none';
+                hoveredMesh = null;
+                hoverRing.visible = false;
+            });
+
+            // Handle resize
+            window.addEventListener('resize', onResize);
+
+            animate();
+        }
+
+        function onStreamMouseMove(event) {
+            const streamPane = document.getElementById('stream-pane');
+            const rect = streamPane.getBoundingClientRect();
+
+            // Calculate mouse position in normalized device coordinates
+            streamMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            streamMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Update tooltip position
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = (event.clientX + 15) + 'px';
+            tooltip.style.top = (event.clientY + 15) + 'px';
+
+            // Raycast
+            streamRaycaster.setFromCamera(streamMouse, streamCamera);
+
+            // Collect all meshes from graphs
+            const meshes = [];
+            for (const graph of streamGraphs) {
+                graph.traverse(obj => {
+                    if (obj.isMesh && obj.userData.atomData) {
+                        meshes.push(obj);
+                    }
+                });
+            }
+
+            const intersects = streamRaycaster.intersectObjects(meshes);
+
+            if (intersects.length > 0) {
+                const mesh = intersects[0].object;
+                if (mesh !== hoveredMesh) {
+                    hoveredMesh = mesh;
+                    showAtomTooltip(mesh.userData.atomData);
+                }
+                // Update hover ring
+                hoverRing.visible = true;
+                hoverRing.position.copy(mesh.position);
+                hoverRing.lookAt(streamCamera.position);
+                document.body.style.cursor = 'pointer';
+            } else {
+                tooltip.style.display = 'none';
+                hoveredMesh = null;
+                hoverRing.visible = false;
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function showAtomTooltip(data) {
+            const tooltip = document.getElementById('tooltip');
+
+            const titleEl = tooltip.querySelector('.tooltip-title');
+            const typeEl = tooltip.querySelector('.tooltip-type');
+            const infoEl = tooltip.querySelector('.tooltip-info');
+
+            if (data.type === 'composite') {
+                const pkt = data.record;
+                const simPct = (data.similarity * 100).toFixed(0);
+
+                titleEl.textContent = data.isAnomaly ? '⚠ ANOMALY' : '✓ Normal';
+                typeEl.textContent = `Similarity: ${simPct}%`;
+                typeEl.className = 'tooltip-type ' + (data.isAnomaly ? 'anomaly' : 'composite');
+
+                // Format packet info nicely (matching veth-lab style)
+                let info = `<div style="font-family: monospace; font-size: 10px;">`;
+                info += `<div style="color: #adf;">${pkt.src_ip}:${pkt.src_port || '?'} → ${pkt.dst_ip}:${pkt.dst_port}</div>`;
+                info += `<div style="color: #888;">${pkt.protocol?.toUpperCase() || 'TCP'}`;
+                if (pkt.flags) info += ` [${pkt.flags}]`;
+                info += ` | ${pkt.size}B</div>`;
+                if (pkt.attack_type) {
+                    info += `<div style="color: #f88; font-weight: bold;">Attack: ${pkt.attack_type}</div>`;
+                }
+                info += `</div>`;
+                infoEl.innerHTML = info;
+            } else if (data.type === 'binding') {
+                titleEl.textContent = data.name;
+                typeEl.textContent = 'BINDING (key ⊙ value)';
+                typeEl.className = 'tooltip-type binding';
+                infoEl.textContent = `bind("${data.key}", "${data.value}")`;
+            } else if (data.type === 'key') {
+                titleEl.textContent = data.name;
+                typeEl.textContent = 'KEY (Field Name)';
+                typeEl.className = 'tooltip-type key';
+                infoEl.textContent = 'Atom vector for field name';
+            } else if (data.type === 'value') {
+                titleEl.textContent = String(data.value);
+                typeEl.textContent = 'VALUE';
+                typeEl.className = 'tooltip-type value';
+                infoEl.textContent = `Field: ${data.key}`;
+            }
+
+            tooltip.style.display = 'block';
+        }
+
+        function onResize() {
+            const baselinePane = document.getElementById('baseline-pane');
+            const streamPane = document.getElementById('stream-pane');
+
+            const baselineWidth = baselinePane.clientWidth;
+            const baselineHeight = baselinePane.clientHeight;
+            const streamWidth = streamPane.clientWidth;
+            const streamHeight = streamPane.clientHeight;
+
+            const frustumSize = 40;
+
+            // Update orthographic camera frustums
+            const baselineAspect = baselineWidth / baselineHeight;
+            baselineCamera.left = -frustumSize * baselineAspect / 2;
+            baselineCamera.right = frustumSize * baselineAspect / 2;
+            baselineCamera.top = frustumSize / 2;
+            baselineCamera.bottom = -frustumSize / 2;
+            baselineCamera.updateProjectionMatrix();
+            baselineRenderer.setSize(baselineWidth, baselineHeight);
+
+            const streamAspect = streamWidth / streamHeight;
+            streamCamera.left = -frustumSize * streamAspect / 2;
+            streamCamera.right = frustumSize * streamAspect / 2;
+            streamCamera.top = frustumSize / 2;
+            streamCamera.bottom = -frustumSize / 2;
+            streamCamera.updateProjectionMatrix();
+            streamRenderer.setSize(streamWidth, streamHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            baselineControls.update();
+            streamControls.update();
+
+            // Animate the baseline (pulse and slow rotation)
+            if (baselineMesh.visible) {
+                const pulse = 1 + 0.05 * Math.sin(Date.now() * 0.002);
+                baselineMesh.scale.setScalar(pulse);
+                baselineMesh.rotation.y += 0.005;
+            }
+
+            // Animate hover ring on right pane (pulse and face camera)
+            if (hoverRing.visible) {
+                // Follow hovered mesh if hovering, otherwise follow active composite
+                const targetMesh = hoveredMesh || activeCompositeMesh;
+                if (targetMesh) {
+                    hoverRing.position.copy(targetMesh.position);
+                    hoverRing.lookAt(streamCamera.position);
+                    const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.008);
+                    hoverRing.scale.setScalar(pulse);
+                }
+            }
+
+            // Animate baseline ring on left pane (pulse and face camera)
+            if (baselineRing.visible && ghostPoint.visible) {
+                baselineRing.position.copy(ghostPoint.position);
+                baselineRing.lookAt(baselineCamera.position);
+                const pulse = 1 + 0.15 * Math.sin(Date.now() * 0.008);
+                baselineRing.scale.setScalar(pulse);
+            }
+
+            // Fade out old record graphs
+            const now = Date.now();
+            for (let i = streamGraphs.length - 1; i >= 0; i--) {
+                const graph = streamGraphs[i];
+                const age = now - graph.userData.createdAt;
+                const fadeStart = 3000;  // Start fading after 3 seconds
+                const fadeEnd = 8000;    // Fully faded after 8 seconds
+
+                if (age > fadeStart) {
+                    const fadeProgress = Math.min(1, (age - fadeStart) / (fadeEnd - fadeStart));
+                    const opacity = 1 - fadeProgress;
+
+                    // Update all materials in the group
+                    graph.traverse(obj => {
+                        if (obj.material) {
+                            obj.material.opacity = opacity;
+                        }
+                    });
+
+                    // Remove if fully faded
+                    if (opacity < 0.02) {
+                        streamScene.remove(graph);
+                        graph.traverse(obj => {
+                            if (obj.geometry) obj.geometry.dispose();
+                            if (obj.material) obj.material.dispose();
+                        });
+                        streamGraphs.splice(i, 1);
+                    }
+                }
+            }
+
+            baselineRenderer.render(baselineScene, baselineCamera);
+            streamRenderer.render(streamScene, streamCamera);
+        }
+
+        // ====================================================================
+        // SSE Event Handling
+        // ====================================================================
+
+        function connectSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('/api/stream/events');
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'record') {
+                    handleRecord(data);
+                }
+            };
+
+            eventSource.onerror = () => {
+                console.error('SSE connection error, reconnecting...');
+                setTimeout(connectSSE, 2000);
+            };
+        }
+
+        // Get color based on similarity score (1.0=green, 0.5=yellow, 0.0=red)
+        function getSimilarityColor(similarity) {
+            // Clamp to 0-1
+            const s = Math.max(0, Math.min(1, similarity));
+
+            let r, g, b;
+            if (s > 0.5) {
+                // Green to yellow (0.5 to 1.0)
+                const t = (s - 0.5) * 2;  // 0 to 1
+                r = Math.round(255 * (1 - t));
+                g = 255;
+                b = 0;
+            } else {
+                // Yellow to red (0.0 to 0.5)
+                const t = s * 2;  // 0 to 1
+                r = 255;
+                g = Math.round(255 * t);
+                b = 0;
+            }
+
+            return (r << 16) | (g << 8) | b;
+        }
+
+        function getSimilarityEmissive(similarity) {
+            const s = Math.max(0, Math.min(1, similarity));
+
+            if (s > 0.7) {
+                return 0x113311;  // Green glow
+            } else if (s > 0.4) {
+                return 0x332211;  // Yellow/orange glow
+            } else {
+                return 0x331111;  // Red glow
+            }
+        }
+
+        function handleRecord(data) {
+            // Update stats
+            document.getElementById('baseline-count').textContent = data.stats.baseline_count;
+            document.getElementById('stream-total').textContent = data.stats.total_records;
+
+            // Debug: show baseline position
+            if (data.baseline_position) {
+                const bp = data.baseline_position;
+                document.getElementById('baseline-pos').textContent =
+                    `[${bp[0].toFixed(1)},${bp[1].toFixed(1)},${bp[2].toFixed(1)}]`;
+            }
+            document.getElementById('stream-anomalies').textContent = data.stats.anomaly_count;
+
+            // Update baseline status
+            const statusEl = document.getElementById('baseline-status');
+            if (data.stats.baseline_frozen) {
+                statusEl.textContent = 'Frozen';
+                statusEl.className = 'stat-value';
+            } else {
+                statusEl.textContent = 'Learning';
+                statusEl.className = 'stat-value normal';
+            }
+
+            // Update similarity meter
+            const similarity = data.similarity;
+            const simEl = document.getElementById('similarity-value');
+            const simBar = document.getElementById('similarity-bar');
+
+            simEl.textContent = (similarity * 100).toFixed(1) + '%';
+            simBar.style.width = (similarity * 100) + '%';
+
+            if (similarity > 0.7) {
+                simEl.className = 'similarity-value high';
+                simBar.style.background = '#4f4';
+            } else if (similarity > 0.4) {
+                simEl.className = 'similarity-value medium';
+                simBar.style.background = '#ff4';
+            } else {
+                simEl.className = 'similarity-value low';
+                simBar.style.background = '#f44';
+            }
+
+            // Update drift
+            document.getElementById('drift-value').textContent = data.drift.toFixed(3);
+
+            // Update baseline mesh position with trail
+            if (data.baseline_position) {
+                const newPos = new THREE.Vector3(...data.baseline_position);
+
+                // Add to trail if position changed (lower threshold for gradual evolution)
+                if (lastBaselinePos && newPos.distanceTo(lastBaselinePos) > 0.01) {
+                    // Shift trail spheres
+                    for (let i = baselineTrail.length - 1; i > 0; i--) {
+                        baselineTrail[i].position.copy(baselineTrail[i-1].position);
+                        baselineTrail[i].visible = baselineTrail[i-1].visible;
+                    }
+                    baselineTrail[0].position.copy(lastBaselinePos);
+                    baselineTrail[0].visible = true;
+
+                    // Update trajectory edges
+                    for (let i = 0; i < baselineTrailEdges.length; i++) {
+                        const edge = baselineTrailEdges[i];
+                        if (i === 0) {
+                            // First edge: baseline -> trail[0]
+                            if (baselineTrail[0].visible) {
+                                edge.geometry.dispose();
+                                edge.geometry = new THREE.BufferGeometry().setFromPoints([
+                                    newPos, baselineTrail[0].position
+                                ]);
+                                edge.visible = true;
+                            }
+                        } else {
+                            // Other edges: trail[i-1] -> trail[i]
+                            if (baselineTrail[i].visible && baselineTrail[i-1].visible) {
+                                edge.geometry.dispose();
+                                edge.geometry = new THREE.BufferGeometry().setFromPoints([
+                                    baselineTrail[i-1].position, baselineTrail[i].position
+                                ]);
+                                edge.visible = true;
+                            }
+                        }
+                    }
+                }
+
+                baselineMesh.position.copy(newPos);
+                baselineMesh.visible = true;
+                lastBaselinePos = newPos.clone();
+            }
+
+            // Update ghost point on baseline pane - colored by similarity
+            ghostPoint.position.set(...data.position);
+            ghostPoint.visible = true;
+            ghostPoint.material.opacity = 0.7;
+            ghostPoint.material.color.setHex(getSimilarityColor(data.similarity));
+            ghostPoint.material.emissive.setHex(getSimilarityEmissive(data.similarity));
+
+            // Update baseline ring to match ghost point
+            baselineRing.visible = true;
+            baselineRing.position.copy(ghostPoint.position);
+            baselineRing.lookAt(baselineCamera.position);
+            baselineRing.material.color.setHex(getSimilarityColor(data.similarity));
+
+            // Create atom graph for this record
+            if (data.atoms && data.atoms.length > 0) {
+                // Hide edges on old graphs, dim nodes
+                for (const oldGraph of streamGraphs) {
+                    oldGraph.traverse(obj => {
+                        if (obj.isLine) {
+                            obj.visible = false;  // Hide edges completely
+                        } else if (obj.material) {
+                            obj.material.opacity *= 0.4;  // Dim nodes more
+                        }
+                    });
+                }
+
+                const graphGroup = new THREE.Group();
+                graphGroup.userData.createdAt = Date.now();
+                graphGroup.userData.isAnomaly = data.is_anomaly;
+                graphGroup.userData.similarity = data.similarity;
+                graphGroup.userData.edges = [];  // Track edges for this graph
+
+                // Color based on similarity (green=high, yellow=medium, red=low)
+                const similarity = data.similarity || 0;
+                const simColor = getSimilarityColor(similarity);
+                const simEmissive = getSimilarityEmissive(similarity);
+
+                const atomMeshes = {};
+                const bindingMeshes = {};
+
+                // Edge material for active graph - colored by similarity
+                const edgeMat = new THREE.LineBasicMaterial({
+                    color: simColor,
+                    transparent: true,
+                    opacity: 0.5,
+                });
+
+                // Add atom spheres (keys and values)
+                for (const atom of data.atoms) {
+                    const geo = new THREE.SphereGeometry(0.2, 10, 10);
+                    const mat = new THREE.MeshPhongMaterial({
+                        color: atom.type === 'key' ? 0x88aaff : simColor,
+                        transparent: true,
+                        opacity: 1.0,
+                        emissive: atom.type === 'key' ? 0x223344 : simEmissive,
+                    });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(...atom.position);
+
+                    mesh.userData.atomData = {
+                        type: atom.type,
+                        name: atom.name,
+                        key: atom.key || null,
+                        value: atom.name,
+                        isAnomaly: data.is_anomaly,
+                    };
+
+                    graphGroup.add(mesh);
+                    atomMeshes[atom.id] = mesh;
+                }
+
+                // Add binding nodes (octahedrons) - intermediary between atoms and composite
+                // Bindings get a blend of orange and similarity color
+                const bindingColor = similarity > 0.5 ? 0xffaa44 : 0xff8844;
+                if (data.bindings) {
+                    for (const binding of data.bindings) {
+                        const geo = new THREE.OctahedronGeometry(0.25);
+                        const mat = new THREE.MeshPhongMaterial({
+                            color: bindingColor,
+                            transparent: true,
+                            opacity: 1.0,
+                            emissive: simEmissive,
+                        });
+                        const mesh = new THREE.Mesh(geo, mat);
+                        mesh.position.set(...binding.position);
+
+                        mesh.userData.atomData = {
+                            type: 'binding',
+                            name: binding.name,
+                            key: binding.key,
+                            value: binding.value,
+                            isAnomaly: data.is_anomaly,
+                        };
+
+                        graphGroup.add(mesh);
+                        bindingMeshes[binding.id] = mesh;
+
+                        // Edge: key → binding
+                        const keyMesh = atomMeshes['key:' + binding.key];
+                        if (keyMesh) {
+                            const edgeGeo = new THREE.BufferGeometry().setFromPoints([
+                                keyMesh.position, mesh.position
+                            ]);
+                            const edge = new THREE.Line(edgeGeo, edgeMat.clone());
+                            graphGroup.add(edge);
+                            graphGroup.userData.edges.push(edge);
+                        }
+
+                        // Edge: value → binding
+                        const valMesh = atomMeshes['val:' + binding.key + ':' + binding.value];
+                        if (valMesh) {
+                            const edgeGeo = new THREE.BufferGeometry().setFromPoints([
+                                valMesh.position, mesh.position
+                            ]);
+                            const edge = new THREE.Line(edgeGeo, edgeMat.clone());
+                            graphGroup.add(edge);
+                            graphGroup.userData.edges.push(edge);
+                        }
+                    }
+                }
+
+                // Add central composite point - colored by similarity
+                const compositeGeo = new THREE.IcosahedronGeometry(0.35, 0);
+                const compositeMat = new THREE.MeshPhongMaterial({
+                    color: simColor,
+                    transparent: true,
+                    opacity: 1.0,
+                    emissive: simEmissive,
+                });
+                const compositeMesh = new THREE.Mesh(compositeGeo, compositeMat);
+                compositeMesh.position.set(...data.position);
+
+                compositeMesh.userData.atomData = {
+                    type: 'composite',
+                    record: data.data,
+                    isAnomaly: data.is_anomaly,
+                    similarity: data.similarity,
+                };
+                graphGroup.add(compositeMesh);
+                graphGroup.userData.compositeMesh = compositeMesh;
+
+                // Connect composite to all bindings (not directly to atoms)
+                if (data.bindings) {
+                    for (const binding of data.bindings) {
+                        const bindMesh = bindingMeshes[binding.id];
+                        if (bindMesh) {
+                            const edgeGeo = new THREE.BufferGeometry().setFromPoints([
+                                compositeMesh.position, bindMesh.position
+                            ]);
+                            const edge = new THREE.Line(edgeGeo, edgeMat.clone());
+                            graphGroup.add(edge);
+                            graphGroup.userData.edges.push(edge);
+                        }
+                    }
+                }
+
+                streamScene.add(graphGroup);
+                streamGraphs.push(graphGroup);
+
+                // Set this as the active graph and auto-select the composite
+                activeGraph = graphGroup;
+                activeCompositeMesh = compositeMesh;
+
+                // Position the hover ring on the active composite and color by similarity
+                hoverRing.visible = true;
+                hoverRing.position.copy(compositeMesh.position);
+                hoverRing.lookAt(streamCamera.position);
+                hoverRing.material.color.setHex(simColor);
+
+                // Remove old graphs
+                while (streamGraphs.length > MAX_GRAPHS) {
+                    const old = streamGraphs.shift();
+                    streamScene.remove(old);
+                    old.traverse(obj => {
+                        if (obj.geometry) obj.geometry.dispose();
+                        if (obj.material) obj.material.dispose();
+                    });
+                }
+            }
+
+            // Update record display with formatted packet info
+            const pkt = data.data;
+            const phase = data.phase || 'unknown';
+            const phaseClass = phase === 'attack' ? 'attack' : (phase === 'warmup' ? 'warmup' : 'normal');
+
+            // Update phase indicator and status bar
+            const phaseIndicator = document.getElementById('phase-indicator');
+            const assessmentIndicator = document.getElementById('assessment-indicator');
+            const statusBar = document.getElementById('status-bar');
+            phaseIndicator.className = phaseClass;
+            statusBar.className = phaseClass;
+            const warmupProgress = data.stats?.warmup_progress || 0;
+            const threshold = data.stats?.threshold || 0.55;
+            const simPct = (data.similarity * 100).toFixed(0);
+
+            if (phase === 'attack' && data.attack_type) {
+                phaseIndicator.textContent = `⚠ ATTACK: ${data.attack_type.replace('_', ' ')} | Sim: ${simPct}%`;
+            } else if (phase === 'warmup') {
+                const pct = (warmupProgress * 100).toFixed(0);
+                phaseIndicator.textContent = `◐ WARMUP ${pct}% (Learning Baseline)`;
+            } else {
+                phaseIndicator.textContent = `✓ NORMAL | Similarity: ${simPct}% (threshold: ${(threshold*100).toFixed(0)}%)`;
+            }
+
+            // Update assessment indicator (shows if detection was correct)
+            const assessment = data.assessment || 'warmup';
+            const isCorrect = data.correct;
+            assessmentIndicator.className = assessment;
+
+            // Update accuracy counters
+            if (isCorrect === true) correctCount++;
+            else if (isCorrect === false) incorrectCount++;
+
+            const totalAssessed = correctCount + incorrectCount;
+            const accuracy = totalAssessed > 0 ? ((correctCount / totalAssessed) * 100).toFixed(1) : '--';
+
+            // Assessment labels
+            const assessmentLabels = {
+                'true_positive': '✓ TRUE POSITIVE - Attack Detected!',
+                'true_negative': '✓ TRUE NEGATIVE - Normal Traffic OK',
+                'false_positive': '✗ FALSE POSITIVE - False Alarm',
+                'false_negative': '✗ FALSE NEGATIVE - Attack Missed!',
+                'warmup': '◐ Learning baseline...'
+            };
+
+            assessmentIndicator.textContent = `${assessmentLabels[assessment] || assessment} | Accuracy: ${accuracy}% (${correctCount}/${totalAssessed})`;
+
+            let recordHtml = `<div class="pkt-phase ${phaseClass}">${phase.toUpperCase()}${data.attack_type ? ` (${data.attack_type})` : ''}</div>`;
+            recordHtml += `<div class="pkt-flow">${pkt.src_ip}:${pkt.src_port || '?'} → ${pkt.dst_ip}:${pkt.dst_port}</div>`;
+            recordHtml += `<div class="pkt-meta">${pkt.protocol?.toUpperCase() || 'TCP'}`;
+            if (pkt.flags) recordHtml += ` [${pkt.flags}]`;
+            recordHtml += ` | ${pkt.size}B`;
+            if (pkt.ttl) recordHtml += ` | TTL:${pkt.ttl}`;
+            recordHtml += `</div>`;
+
+            // Show attack type if present
+            if (pkt.attack_type) {
+                recordHtml += `<div class="pkt-attack" style="color: #f88; font-size: 10px;">Attack: ${pkt.attack_type}</div>`;
+            }
+
+            // Show concentrated fields (attack indicators)
+            if (data.concentrated_fields && data.concentrated_fields.length > 0) {
+                recordHtml += `<div class="pkt-concentration" style="margin-top: 4px; color: #f88; font-size: 9px;">`;
+                recordHtml += `<strong>⚠ Concentrated:</strong> `;
+                recordHtml += data.concentrated_fields
+                    .map(f => `${f.field}=${f.value} (${(f.concentration*100).toFixed(0)}%)`)
+                    .join(', ');
+                recordHtml += `</div>`;
+            }
+
+            document.getElementById('record-json').innerHTML = recordHtml;
+
+            // Update rate counter
+            recordsLastSecond++;
+        }
+
+        // Rate calculation
+        setInterval(() => {
+            document.getElementById('stream-rate').textContent = recordsLastSecond + '/s';
+            recordsLastSecond = 0;
+        }, 1000);
+
+        // ====================================================================
+        // Controls
+        // ====================================================================
+
+        async function togglePlay() {
+            isPlaying = !isPlaying;
+            const btn = document.getElementById('btn-play');
+            const statusBar = document.getElementById('status-bar');
+
+            await fetch('/api/stream/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: isPlaying ? 'play' : 'pause' }),
+            });
+
+            const phaseIndicator = document.getElementById('phase-indicator');
+            const assessmentIndicator = document.getElementById('assessment-indicator');
+            if (isPlaying) {
+                btn.textContent = '⏸ Pause';
+                btn.classList.add('active');
+                statusBar.className = 'streaming';
+                phaseIndicator.className = 'normal';
+                phaseIndicator.textContent = 'STREAMING...';
+                assessmentIndicator.className = 'warmup';
+                assessmentIndicator.textContent = 'Starting...';
+            } else {
+                btn.textContent = '▶ Play';
+                btn.classList.remove('active');
+                statusBar.className = 'paused';
+                phaseIndicator.className = 'paused';
+                phaseIndicator.textContent = 'PAUSED';
+                // Keep assessment indicator visible when paused
+            }
+        }
+
+        async function stepOne() {
+            await fetch('/api/stream/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'step' }),
+            });
+        }
+
+        async function setSpeed(value) {
+            document.getElementById('speed-value').textContent = value + '/s';
+            await fetch('/api/stream/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speed: parseFloat(value) }),
+            });
+        }
+
+        async function toggleFreeze() {
+            baselineFrozen = !baselineFrozen;
+            const btn = document.getElementById('btn-freeze');
+
+            await fetch('/api/stream/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: baselineFrozen ? 'freeze_baseline' : 'unfreeze_baseline' }),
+            });
+
+            btn.textContent = baselineFrozen ? 'Unfreeze Baseline' : 'Freeze Baseline';
+            btn.classList.toggle('active', baselineFrozen);
+        }
+
+        async function injectAttack() {
+            await fetch('/api/stream/inject/attack', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count: 15 }),
+            });
+        }
+
+        async function resetAll() {
+            await fetch('/api/stream/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'reset' }),
+            });
+
+            // Clear local state - remove all graphs
+            for (const graph of streamGraphs) {
+                streamScene.remove(graph);
+                graph.traverse(obj => {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                });
+            }
+            streamGraphs = [];
+            activeGraph = null;
+            activeCompositeMesh = null;
+            hoverRing.visible = false;
+
+            // Reset baseline trail
+            for (const trail of baselineTrail) {
+                trail.visible = false;
+            }
+            for (const edge of baselineTrailEdges) {
+                edge.visible = false;
+            }
+            lastBaselinePos = null;
+
+            baselineMesh.visible = false;
+            ghostPoint.visible = false;
+            baselineRing.visible = false;
+
+            document.getElementById('similarity-value').textContent = '--';
+            document.getElementById('similarity-bar').style.width = '0%';
+            document.getElementById('drift-value').textContent = '0.00';
+            document.getElementById('baseline-count').textContent = '0';
+            document.getElementById('baseline-pos').textContent = '[0,0,0]';
+            document.getElementById('stream-total').textContent = '0';
+            document.getElementById('stream-anomalies').textContent = '0';
+            document.getElementById('record-json').textContent = 'Waiting for data...';
+
+            isPlaying = false;
+            baselineFrozen = false;
+            document.getElementById('btn-play').textContent = '▶ Play';
+            document.getElementById('btn-play').classList.remove('active');
+            document.getElementById('btn-freeze').textContent = 'Freeze Baseline';
+            document.getElementById('btn-freeze').classList.remove('active');
+            document.getElementById('status-bar').className = 'paused';
+            document.getElementById('phase-indicator').className = 'paused';
+            document.getElementById('phase-indicator').textContent = 'PAUSED';
+            document.getElementById('assessment-indicator').className = 'hidden';
+            document.getElementById('assessment-indicator').textContent = '--';
+
+            // Reset accuracy counters
+            correctCount = 0;
+            incorrectCount = 0;
+        }
+
+        function resetCamera() {
+            // Reset to home/default isometric view
+            const homePos = new THREE.Vector3(30, 30, 30);
+            const homeTarget = new THREE.Vector3(0, 0, 0);
+
+            baselineCamera.position.copy(homePos);
+            baselineCamera.lookAt(homeTarget);
+            baselineCamera.zoom = 1;
+            baselineCamera.updateProjectionMatrix();
+            baselineControls.target.copy(homeTarget);
+
+            streamCamera.position.copy(homePos);
+            streamCamera.lookAt(homeTarget);
+            streamCamera.zoom = 1;
+            streamCamera.updateProjectionMatrix();
+            streamControls.target.copy(homeTarget);
+        }
+
+        // ====================================================================
+        // Init
+        // ====================================================================
+
+        let initialized = false;
+
+        function init() {
+            if (initialized) return;
+            initialized = true;
+
+            // Small delay to ensure layout is complete
+            setTimeout(() => {
+                initThree();
+                connectSSE();
+                onResize();
+            }, 50);
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            init();
+        } else {
+            window.addEventListener('DOMContentLoaded', init);
+        }
+    </script>
+</body>
+</html>
