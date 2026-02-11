@@ -144,6 +144,10 @@ class Encoder:
         self._exists_marker = f"{marker_prefix}exists"
         self._mode_marker = f"{marker_prefix}mode"
         self._mode_config_marker = f"{marker_prefix}mode_config"
+        # Numeric scalar markers (for magnitude-aware encoding)
+        self._log_marker = f"{marker_prefix}log"
+        self._linear_marker = f"{marker_prefix}linear"
+        self._scale_marker = f"{marker_prefix}scale"
 
     @property
     def xp(self):
@@ -197,6 +201,13 @@ class Encoder:
             if isinstance(value, dict):
                 if self._time_marker in value:
                     value_vector = self._encode_time(value)
+                    key_vector = self._encode_walkable_scalar(as_walkable(key))
+                    bound = key_vector * value_vector
+                    bound_vectors.append(bound)
+                    continue
+
+                if self._is_numeric_scalar_marker(value):
+                    value_vector = self._encode_numeric_scalar(value)
                     key_vector = self._encode_walkable_scalar(as_walkable(key))
                     bound = key_vector * value_vector
                     bound_vectors.append(bound)
@@ -303,6 +314,9 @@ class Encoder:
         if self._time_marker in data:
             return self._encode_time(data)
 
+        if self._is_numeric_scalar_marker(data):
+            return self._encode_numeric_scalar(data)
+
         bound_vectors = []
         for key, value in data.items():
             effective_list_mode = list_mode
@@ -310,6 +324,13 @@ class Encoder:
             if isinstance(value, dict):
                 if self._time_marker in value:
                     value_vector = self._encode_time(value)
+                    key_vector = self._encode_scalar(key)
+                    bound = key_vector * value_vector
+                    bound_vectors.append(bound)
+                    continue
+
+                if self._is_numeric_scalar_marker(value):
+                    value_vector = self._encode_numeric_scalar(value)
                     key_vector = self._encode_scalar(key)
                     bound = key_vector * value_vector
                     bound_vectors.append(bound)
@@ -507,6 +528,48 @@ class Encoder:
             return self.vector_manager.get_vector(str(data))
         else:
             return self.vector_manager.get_vector(str(data))
+
+    # =========================================================================
+    # Numeric Scalar Encoding (magnitude-aware)
+    # =========================================================================
+
+    def _encode_numeric_scalar(self, value: dict) -> np.ndarray:
+        """
+        Encode a numeric value with magnitude-aware encoding.
+
+        Supports two markers:
+        - {"$log": 1000} → Log10 encoding (equal ratios = equal similarity)
+        - {"$linear": 1000} → Linear positional encoding (equal differences = equal similarity)
+
+        Optional scale parameter:
+        - {"$log": 1000, "$scale": 500} → Custom scale for similarity decay
+
+        Args:
+            value: Dict with $log or $linear marker
+
+        Returns:
+            Bipolar vector where similar magnitudes have similar encodings
+        """
+        scale = value.get(self._scale_marker, 1000.0)
+
+        if self._log_marker in value:
+            num = value[self._log_marker]
+            return scalar_module.encode_scalar_log(
+                num, self.vector_manager.dimensions, scale
+            )
+        elif self._linear_marker in value:
+            num = value[self._linear_marker]
+            return scalar_module.encode_positional(
+                num, self.vector_manager.dimensions, scale
+            )
+        else:
+            raise ValueError("_encode_numeric_scalar called without $log or $linear")
+
+    def _is_numeric_scalar_marker(self, value: Any) -> bool:
+        """Check if value is a numeric scalar marker dict."""
+        if not isinstance(value, dict):
+            return False
+        return self._log_marker in value or self._linear_marker in value
 
     # =========================================================================
     # Time Encoding

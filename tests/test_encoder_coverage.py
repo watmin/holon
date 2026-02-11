@@ -100,9 +100,7 @@ class TestEncoderModes:
 
     def test_encode_mode_hint_in_dict(self, encoder):
         """Test encoding mode hints in dictionaries."""
-        data = {
-            "sequence": {"$mode": "ngram", "data": ["word1", "word2", "word3"]}
-        }
+        data = {"sequence": {"$mode": "ngram", "data": ["word1", "word2", "word3"]}}
         result = encoder.encode_data(data)
         assert isinstance(result, np.ndarray)
         assert np.all(np.isin(result, [-1, 0, 1]))
@@ -457,3 +455,155 @@ class TestEncoderModes:
         assert sim_to_A >= sim_to_B, "Resonance should favor the reference pattern"
         assert isinstance(a_part, np.ndarray)
         assert np.all(np.isin(a_part, [-1, 0, 1]))
+
+    # ==========================================================================
+    # Numeric Scalar Marker Tests ($log, $linear)
+    # ==========================================================================
+
+    def test_log_marker_basic(self, encoder):
+        """Test basic $log marker encoding produces valid vector."""
+        result = encoder.encode_data({"$log": 1000})
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1000,)
+        assert result.dtype == np.int8
+        assert np.all(np.isin(result, [-1, 0, 1]))
+
+    def test_log_marker_magnitude_similarity(self, encoder):
+        """Test that similar magnitudes have high similarity with $log."""
+        v100 = encoder.encode_data({"$log": 100})
+        v200 = encoder.encode_data({"$log": 200})
+        v10000 = encoder.encode_data({"$log": 10000})
+
+        sim_close = np.dot(v100.astype(float), v200.astype(float)) / 1000
+        sim_far = np.dot(v100.astype(float), v10000.astype(float)) / 1000
+
+        assert sim_close > sim_far, "Closer magnitudes should have higher similarity"
+        assert sim_close > 0.9, "2x ratio should have high similarity"
+
+    def test_log_marker_equal_ratios(self, encoder):
+        """Test that equal ratios produce similar similarity drops."""
+        v100 = encoder.encode_data({"$log": 100})
+        v1000 = encoder.encode_data({"$log": 1000})
+        v10000 = encoder.encode_data({"$log": 10000})
+
+        # 100→1000 is 10x, 1000→10000 is also 10x
+        sim_100_1000 = np.dot(v100.astype(float), v1000.astype(float)) / 1000
+        sim_1000_10000 = np.dot(v1000.astype(float), v10000.astype(float)) / 1000
+
+        # Should be approximately equal (within 10%)
+        ratio = sim_100_1000 / sim_1000_10000
+        assert 0.9 < ratio < 1.1, "Equal ratios should give similar similarity"
+
+    def test_log_marker_in_record(self, encoder):
+        """Test $log marker works correctly in record context."""
+        record1 = {"rate_pps": {"$log": 1000}, "src_ip": "10.0.0.1"}
+        record2 = {"rate_pps": {"$log": 1100}, "src_ip": "10.0.0.1"}
+        record3 = {"rate_pps": {"$log": 100000}, "src_ip": "10.0.0.1"}
+
+        v1 = encoder.encode_data(record1)
+        v2 = encoder.encode_data(record2)
+        v3 = encoder.encode_data(record3)
+
+        sim_close = np.dot(v1.astype(float), v2.astype(float)) / 1000
+        sim_far = np.dot(v1.astype(float), v3.astype(float)) / 1000
+
+        assert sim_close > sim_far, "Similar rates should match better"
+        # In record context, similarity is diluted by other fields
+        assert sim_close > 0.5, "Similar rates should have reasonable similarity"
+
+    def test_log_marker_with_scale(self, encoder):
+        """Test $log marker with custom $scale parameter."""
+        # Smaller scale = faster similarity decay
+        v100_small = encoder.encode_data({"$log": 100, "$scale": 100})
+        v1000_small = encoder.encode_data({"$log": 1000, "$scale": 100})
+
+        v100_large = encoder.encode_data({"$log": 100, "$scale": 5000})
+        v1000_large = encoder.encode_data({"$log": 1000, "$scale": 5000})
+
+        sim_small_scale = np.dot(v100_small.astype(float), v1000_small.astype(float))
+        sim_large_scale = np.dot(v100_large.astype(float), v1000_large.astype(float))
+
+        assert (
+            sim_large_scale > sim_small_scale
+        ), "Larger scale should give higher similarity"
+
+    def test_log_marker_handles_small_values(self, encoder):
+        """Test $log marker handles small positive values."""
+        v_small = encoder.encode_data({"$log": 0.001})
+        v_one = encoder.encode_data({"$log": 1})
+
+        assert isinstance(v_small, np.ndarray)
+        assert np.all(np.isin(v_small, [-1, 0, 1]))
+
+        # They should still have reasonable similarity structure
+        sim = np.dot(v_small.astype(float), v_one.astype(float)) / 1000
+        assert sim > 0, "Should have positive similarity"
+
+    def test_log_marker_handles_zero(self, encoder):
+        """Test $log marker handles zero (edge case)."""
+        # Zero should not crash - uses small epsilon internally
+        v_zero = encoder.encode_data({"$log": 0})
+        assert isinstance(v_zero, np.ndarray)
+        assert np.all(np.isin(v_zero, [-1, 0, 1]))
+
+    def test_linear_marker_basic(self, encoder):
+        """Test basic $linear marker encoding produces valid vector."""
+        result = encoder.encode_data({"$linear": 100})
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (1000,)
+        assert result.dtype == np.int8
+        assert np.all(np.isin(result, [-1, 0, 1]))
+
+    def test_linear_marker_equal_differences(self, encoder):
+        """Test that closer values have higher similarity with $linear."""
+        v0 = encoder.encode_data({"$linear": 0})
+        v10 = encoder.encode_data({"$linear": 10})
+        v100 = encoder.encode_data({"$linear": 100})
+
+        sim_close = np.dot(v0.astype(float), v10.astype(float)) / 1000
+        sim_far = np.dot(v0.astype(float), v100.astype(float)) / 1000
+
+        # Closer values should have higher similarity
+        assert sim_close > sim_far, "Closer values should have higher similarity"
+        assert sim_close > 0, "Close values should have positive similarity"
+
+    def test_linear_marker_in_record(self, encoder):
+        """Test $linear marker works correctly in record context."""
+        record = {"temperature": {"$linear": 72.5}, "unit": "fahrenheit"}
+        result = encoder.encode_data(record)
+
+        assert isinstance(result, np.ndarray)
+        assert np.all(np.isin(result, [-1, 0, 1]))
+
+    def test_string_encoding_vs_log_encoding(self, encoder):
+        """Test that string encoding has no magnitude relationship."""
+        # String encoding (default for numbers)
+        s100 = encoder.encode_data(100)
+        s200 = encoder.encode_data(200)
+
+        # Log encoding
+        l100 = encoder.encode_data({"$log": 100})
+        l200 = encoder.encode_data({"$log": 200})
+
+        sim_string = np.dot(s100.astype(float), s200.astype(float)) / 1000
+        sim_log = np.dot(l100.astype(float), l200.astype(float)) / 1000
+
+        # String encoding should be near-orthogonal
+        assert abs(sim_string) < 0.1, "String encoding should be orthogonal"
+        # Log encoding should have high similarity
+        assert sim_log > 0.9, "Log encoding should preserve magnitude similarity"
+
+    def test_is_numeric_scalar_marker_detection(self, encoder):
+        """Test _is_numeric_scalar_marker correctly identifies markers."""
+        assert encoder._is_numeric_scalar_marker({"$log": 100}) is True
+        assert encoder._is_numeric_scalar_marker({"$linear": 100}) is True
+        assert encoder._is_numeric_scalar_marker({"$log": 100, "$scale": 500}) is True
+        assert encoder._is_numeric_scalar_marker({"foo": "bar"}) is False
+        assert encoder._is_numeric_scalar_marker({"$time": 12345}) is False
+        assert encoder._is_numeric_scalar_marker(100) is False
+        assert encoder._is_numeric_scalar_marker("string") is False
+
+    def test_encode_numeric_scalar_invalid(self, encoder):
+        """Test _encode_numeric_scalar raises on invalid input."""
+        with pytest.raises(ValueError, match="without \\$log or \\$linear"):
+            encoder._encode_numeric_scalar({"foo": "bar"})

@@ -275,9 +275,63 @@ Basic bigrams (`n_sizes: [2]`) work best for general substring matching, but the
 
 ## Continuous Value Encoding
 
-For continuous scalar values (not text), Holon provides specialized encoding methods:
+For continuous scalar values (not text), Holon provides specialized encoding methods.
 
-### Log-Scale Encoding
+### Inline Markers (Recommended)
+
+Use `$log` and `$linear` markers directly in your data structures for the most natural API:
+
+```python
+# Log encoding: equal ratios → equal similarity
+data = {
+    "event": "traffic",
+    "src_ip": "10.0.0.1",
+    "rate_pps": {"$log": 1000},      # Magnitude-aware
+    "bytes": {"$log": 1500000}       # Magnitude-aware
+}
+client.insert_json(data)
+
+# Linear encoding: equal differences → equal similarity
+data = {
+    "sensor": "temp-1",
+    "temperature": {"$linear": 72.5},  # Distance-aware
+    "latency_ms": {"$linear": 15}      # Distance-aware
+}
+client.insert_json(data)
+
+# Custom decay rate with $scale
+data = {"rate": {"$log": 1000, "$scale": 500}}  # Faster similarity decay
+```
+
+**Why use inline markers?**
+- Numbers without markers encode as strings (no magnitude relationship)
+- With markers, similar magnitudes produce similar vectors
+- Works naturally in nested structures
+
+### Comparison: Default vs Markers
+
+```python
+# WITHOUT markers (default string encoding)
+{"rate": 100}   # Random vector for string "100"
+{"rate": 200}   # Unrelated random vector for string "200"
+# similarity ≈ 0.0 (orthogonal)
+
+# WITH $log marker
+{"rate": {"$log": 100}}
+{"rate": {"$log": 200}}
+# similarity ≈ 0.98 (2x ratio = very similar)
+
+# WITH $linear marker
+{"latency": {"$linear": 100}}
+{"latency": {"$linear": 110}}
+# similarity depends on scale (absolute +10 difference)
+```
+
+### Method-Based Encoding (Alternative)
+
+For direct vector manipulation, use the method-based API:
+
+#### Log-Scale Encoding
 
 For multiplicative quantities where ratios matter (rates, sizes, counts):
 
@@ -330,13 +384,43 @@ store.similarity(north, almost_north)  # High similarity
 
 ### Choosing the Right Mode
 
-| Data Type | Mode | Period | Example |
-|-----------|------|--------|---------|
-| Network rates | `log` | - | 100 pps vs 100,000 pps |
-| File sizes | `log` | - | 1 KB vs 1 GB |
-| Temperatures | `linear` | - | 72°F vs 100°F |
-| X/Y coordinates | `linear` | - | Position (10, 20) |
-| Hour of day | `circular` | 24.0 | 23:30 near 00:30 |
-| Day of week | `circular` | 7.0 | Sunday near Monday |
-| Compass bearing | `circular` | 360.0 | 5° near 355° |
-| Month of year | `circular` | 12.0 | December near January |
+| Data Type | Inline Marker | Method API | Period | Example |
+|-----------|---------------|------------|--------|---------|
+| Network rates | `{"$log": 1000}` | `encode_scalar_log(1000)` | - | 100 pps vs 100,000 pps |
+| File sizes | `{"$log": 1048576}` | `encode_scalar_log(size)` | - | 1 KB vs 1 GB |
+| Prices | `{"$log": 99.99}` | `encode_scalar_log(price)` | - | $10 vs $10,000 |
+| Latency | `{"$linear": 50}` | `encode_scalar(50, "linear")` | - | 10ms vs 100ms |
+| Temperatures | `{"$linear": 72.5}` | `encode_scalar(72.5, "linear")` | - | 72°F vs 100°F |
+| X/Y coordinates | `{"$linear": 10}` | `encode_scalar(10, "linear")` | - | Position (10, 20) |
+| Hour of day | - | `encode_scalar(23.5, "circular", period=24)` | 24.0 | 23:30 near 00:30 |
+| Day of week | - | `encode_scalar(6, "circular", period=7)` | 7.0 | Sunday near Monday |
+| Compass bearing | - | `encode_scalar(5, "circular", period=360)` | 360.0 | 5° near 355° |
+| Month of year | - | `encode_scalar(11, "circular", period=12)` | 12.0 | December near January |
+| User IDs | (none - default) | - | - | Exact match only |
+| Port numbers | (none - default) | - | - | Exact match only |
+| Status codes | (none - default) | - | - | Exact match only |
+
+**Note**: Circular encoding is currently only available via the method API.
+Use `$log` and `$linear` for inline encoding in data structures.
+
+### The $scale Parameter
+
+The `$scale` parameter controls how quickly similarity decays with distance:
+
+```python
+# Default scale (1000) - moderate decay
+{"rate": {"$log": 100}}
+{"rate": {"$log": 1000}}   # similarity ~0.94
+
+# Smaller scale (100) - faster decay
+{"rate": {"$log": 100, "$scale": 100}}
+{"rate": {"$log": 1000, "$scale": 100}}  # similarity ~0.91
+
+# Larger scale (5000) - slower decay
+{"rate": {"$log": 100, "$scale": 5000}}
+{"rate": {"$log": 1000, "$scale": 5000}}  # similarity ~0.95
+```
+
+**Rule of thumb**:
+- Smaller scale → values need to be closer to match
+- Larger scale → more tolerant of distance

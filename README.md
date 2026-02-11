@@ -215,8 +215,39 @@ Special `$`-prefixed keys control encoding behavior:
 |--------|---------|---------|
 | `$time` | Temporal similarity | `{"created": {"$time": 1706500000}}` |
 | `$mode` | Sequence encoding | `{"events": {"$mode": "ngram", "sequence": [...]}}` |
+| `$log` | Magnitude-aware (ratios) | `{"rate_pps": {"$log": 1000}}` |
+| `$linear` | Distance-aware (differences) | `{"latency_ms": {"$linear": 50}}` |
 | `$any` | Wildcard | `{"role": {"$any": True}}` |
 | `$or` | Disjunction | `{"$or": [{"a": 1}, {"b": 2}]}` |
+
+### Numeric Encoding Markers (Challenge 015)
+
+By default, numbers encode as strings - `100` and `200` are orthogonal (no similarity).
+Use `$log` or `$linear` markers for magnitude-aware encoding:
+
+```python
+# Without markers: no relationship between numeric values
+client.insert_json({"rate": 100})   # Random vector for "100"
+client.insert_json({"rate": 200})   # Unrelated random vector for "200"
+
+# With $log: similar magnitudes → similar vectors
+client.insert_json({"rate": {"$log": 100}})
+client.insert_json({"rate": {"$log": 200}})   # Similar to 100 (2x ratio)
+client.insert_json({"rate": {"$log": 10000}}) # Less similar (100x ratio)
+
+# With $linear: similar values → similar vectors
+client.insert_json({"latency": {"$linear": 10}})
+client.insert_json({"latency": {"$linear": 20}})   # Similar (+10ms)
+client.insert_json({"latency": {"$linear": 100}})  # Less similar (+90ms)
+
+# Custom decay rate with $scale
+client.insert_json({"rate": {"$log": 1000, "$scale": 500}})  # Faster decay
+```
+
+**When to use each:**
+- `$log`: Packet rates, byte counts, prices, resource usage (ratios matter)
+- `$linear`: Latency, temperature, positions (absolute differences matter)
+- Default (string): IDs, ports, status codes (exact match needed)
 
 ### Sequence Modes
 
@@ -497,6 +528,7 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 - Mitigation synthesis: vector-derived firewall rules from attack signatures
 - Zero-hardcode detection: 100% recall, 4% FP without domain knowledge (Challenge 012)
 - Continuous value encoding: log-scale rates, circular angles with smooth similarity
+- Inline magnitude markers: `$log` and `$linear` for magnitude-aware encoding in data structures (Challenge 015)
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
@@ -514,6 +546,9 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [015](docs/challenges/015-batch/LEARNINGS.md) | Magnitude-aware numeric encoding | ✅ `$log`/`$linear` markers |
+| [014](docs/challenges/014-batch/LEARNINGS.md) | Extended primitives for explainable VSA | ✅ 9 new primitives |
+| [013](docs/challenges/013-batch/LEARNINGS.md) | Vector-derived rate limiting | ✅ No scalar state |
 | [012](docs/challenges/012-batch/LEARNINGS.md) | Zero-hardcode anomaly detection | ✅ 100% recall, 4% FP |
 | [011](docs/challenges/011-batch/LEARNINGS.md) | Structural detection & cross-pollination | ✅ F1=1.000 |
 | [010](docs/challenges/010-batch/LEARNINGS.md) | Network anomaly & DDoS detection | ✅ 100% detection |
