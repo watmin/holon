@@ -516,3 +516,179 @@ class TestSimilarity:
 
         # Should be identical
         assert np.array_equal(vec_dict, vec_record)
+
+
+class TestMagnitudeAwareScalars:
+    """Tests for LogScale and LinearScale wrappers in walkable encoding."""
+
+    @pytest.fixture
+    def encoder(self):
+        from holon import Encoder
+        from holon.vector_manager import VectorManager
+
+        vm = VectorManager(dimensions=4096, global_seed=42)
+        return Encoder(vm)
+
+    def cosine_similarity(self, a, b):
+        """Compute cosine similarity between two vectors."""
+        # Cast to float64 to avoid int8 overflow in dot product
+        a = a.astype(np.float64)
+        b = b.astype(np.float64)
+        a_norm = np.linalg.norm(a)
+        b_norm = np.linalg.norm(b)
+        if a_norm == 0 or b_norm == 0:
+            return 0.0
+        return float(np.dot(a, b) / (a_norm * b_norm))
+
+    def test_log_scale_basic(self, encoder):
+        """LogScale wrapper produces valid vectors and self-similarity is 1.0."""
+        from holon import LogScale, Walkable, WalkType
+
+        # Use only the rate field to isolate the log encoding effect
+        class RateRecord(Walkable):
+            def __init__(self, rate: float):
+                self.rate = rate
+
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "rate", LogScale(self.rate)
+
+        r1 = RateRecord(1000)
+        r2 = RateRecord(1000)  # Same as r1
+
+        v1 = encoder.encode_walkable(r1)
+        v2 = encoder.encode_walkable(r2)
+
+        # Self-similarity should be 1.0
+        self_sim = self.cosine_similarity(v1, v2)
+        assert (
+            abs(self_sim - 1.0) < 0.001
+        ), f"Same values should be identical, got {self_sim}"
+
+        # Vector should be non-zero and have correct dimensions
+        assert v1.shape == (4096,)
+        assert np.any(v1 != 0), "Vector should be non-zero"
+
+    def test_linear_scale_basic(self, encoder):
+        """LinearScale wrapper encodes values with linear similarity."""
+        from holon import LinearScale, Walkable, WalkType
+
+        class Measurement(Walkable):
+            def __init__(self, sensor: str, temp: float):
+                self.sensor = sensor
+                self.temp = temp
+
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "sensor", self.sensor
+                yield "temp", LinearScale(self.temp)
+
+        m1 = Measurement("room_a", 20.0)
+        m2 = Measurement("room_a", 22.0)  # Close to m1
+        m3 = Measurement("room_a", 50.0)  # Far from m1
+
+        v1 = encoder.encode_walkable(m1)
+        v2 = encoder.encode_walkable(m2)
+        v3 = encoder.encode_walkable(m3)
+
+        sim_close = self.cosine_similarity(v1, v2)
+        sim_far = self.cosine_similarity(v1, v3)
+
+        # Similar temperatures should produce higher similarity
+        assert sim_close > sim_far, f"Expected {sim_close} > {sim_far}"
+
+    def test_log_scale_ratio_preservation(self, encoder):
+        """Log encoding: equal ratios should produce similar similarity drops."""
+        from holon import LogScale, Walkable, WalkType
+
+        class RateRecord(Walkable):
+            def __init__(self, rate: float):
+                self.rate = rate
+
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "rate", LogScale(self.rate)
+
+        # 10x ratios
+        r100 = RateRecord(100)
+        r1000 = RateRecord(1000)
+        r10000 = RateRecord(10000)
+
+        v100 = encoder.encode_walkable(r100)
+        v1000 = encoder.encode_walkable(r1000)
+        v10000 = encoder.encode_walkable(r10000)
+
+        sim_100_1000 = self.cosine_similarity(v100, v1000)
+        sim_1000_10000 = self.cosine_similarity(v1000, v10000)
+
+        # 10x ratios should produce approximately equal similarity drops
+        diff = abs(sim_100_1000 - sim_1000_10000)
+        assert diff < 0.15, f"Expected similar drops for 10x ratios, got diff={diff}"
+
+    def test_log_vs_string_encoding(self, encoder):
+        """LogScale and string encoding produce different vectors."""
+        from holon import LogScale, Walkable, WalkType
+
+        class LogRecord(Walkable):
+            def __init__(self, rate: float):
+                self.rate = rate
+
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "rate", LogScale(self.rate)
+
+        # Log encoding should produce different vectors than string encoding
+        v_log = encoder.encode_walkable(LogRecord(100))
+        v_str = encoder.encode_walkable({"rate": 100})
+
+        # They should be different (log encoding vs string "100")
+        sim = self.cosine_similarity(v_log, v_str)
+        assert sim < 0.9, f"Log and string encoding should differ, got similarity {sim}"
+
+        # But both should be valid non-zero vectors
+        assert np.any(v_log != 0), "Log vector should be non-zero"
+        assert np.any(v_str != 0), "String vector should be non-zero"
+
+    def test_log_scale_with_custom_scale(self, encoder):
+        """Higher scale parameter should produce higher similarity for same ratio."""
+        from holon import LogScale, Walkable, WalkType
+
+        class ScaledRecord(Walkable):
+            def __init__(self, rate: float, scale: float):
+                self.rate = rate
+                self.scale = scale
+
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "rate", LogScale(self.rate, scale=self.scale)
+
+        # Default scale
+        r1_default = ScaledRecord(100, scale=1000)
+        r2_default = ScaledRecord(1000, scale=1000)
+
+        # Higher scale
+        r1_high = ScaledRecord(100, scale=5000)
+        r2_high = ScaledRecord(1000, scale=5000)
+
+        v1_d = encoder.encode_walkable(r1_default)
+        v2_d = encoder.encode_walkable(r2_default)
+        v1_h = encoder.encode_walkable(r1_high)
+        v2_h = encoder.encode_walkable(r2_high)
+
+        sim_default = self.cosine_similarity(v1_d, v2_d)
+        sim_high = self.cosine_similarity(v1_h, v2_h)
+
+        # Higher scale should produce higher similarity for same ratio
+        assert (
+            sim_high > sim_default
+        ), f"Expected high scale > default: {sim_high} > {sim_default}"

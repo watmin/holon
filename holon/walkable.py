@@ -182,6 +182,87 @@ class WalkableScalar(Walkable):
         return self._value
 
 
+# =============================================================================
+# Magnitude-Aware Numeric Scalars
+# =============================================================================
+
+
+class LogScale:
+    """Wrapper for log-scale numeric encoding.
+
+    Equal ratios produce equal similarity drops:
+    - 100 → 1000 (10x) has same drop as 1000 → 10000 (10x)
+
+    Use for: packet rates, file sizes, frequencies, byte counts.
+
+    Example:
+        class TrafficRecord(Walkable):
+            def __init__(self, rate: float):
+                self.rate = rate
+
+            def walk_type(self) -> WalkType:
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "type", "traffic"
+                yield "rate", LogScale(self.rate)  # Log-encoded
+    """
+
+    __slots__ = ("value", "scale")
+
+    def __init__(self, value: float, scale: float = 1000.0):
+        """Create a log-scale numeric wrapper.
+
+        Args:
+            value: The numeric value to encode (must be > 0)
+            scale: Controls similarity decay rate (default 1000.0).
+                   Higher scale = slower similarity decay for same ratio.
+        """
+        self.value = float(value)
+        self.scale = float(scale)
+
+    def __repr__(self) -> str:
+        return f"LogScale({self.value}, scale={self.scale})"
+
+
+class LinearScale:
+    """Wrapper for linear positional encoding.
+
+    Equal absolute differences produce equal similarity drops:
+    - 10 → 20 (+10) has same drop as 100 → 110 (+10)
+
+    Use for: temperatures, positions, timestamps, coordinates.
+
+    Example:
+        class Measurement(Walkable):
+            def __init__(self, temp: float):
+                self.temp = temp
+
+            def walk_type(self) -> WalkType:
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "sensor", "room_a"
+                yield "temp", LinearScale(self.temp)  # Linear-encoded
+    """
+
+    __slots__ = ("value", "scale")
+
+    def __init__(self, value: float, scale: float = 1000.0):
+        """Create a linear-scale numeric wrapper.
+
+        Args:
+            value: The numeric value to encode
+            scale: Controls similarity decay rate (default 1000.0).
+                   Higher scale = slower similarity decay for same difference.
+        """
+        self.value = float(value)
+        self.scale = float(scale)
+
+    def __repr__(self) -> str:
+        return f"LinearScale({self.value}, scale={self.scale})"
+
+
 class WalkableDict(Walkable):
     """Wrapper for dict-like objects."""
 

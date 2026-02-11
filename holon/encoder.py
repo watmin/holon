@@ -28,7 +28,7 @@ from . import primitives as prim
 from . import scalar as scalar_module
 from .distance import cosine_similarity
 from .vector_manager import VectorManager
-from .walkable import Walkable, WalkType, as_walkable
+from .walkable import LinearScale, LogScale, Walkable, WalkType, as_walkable
 
 
 class TimeResolution(str, Enum):
@@ -197,6 +197,26 @@ class Encoder:
         for key, value in walkable.walk_map_items():
             effective_list_mode = list_mode
             encode_config = {}
+
+            # Handle LogScale wrapper for magnitude-aware log encoding
+            if isinstance(value, LogScale):
+                value_vector = self._encode_numeric_scalar(
+                    {self._log_marker: value.value, self._scale_marker: value.scale}
+                )
+                key_vector = self._encode_walkable_scalar(as_walkable(key))
+                bound = key_vector * value_vector
+                bound_vectors.append(bound)
+                continue
+
+            # Handle LinearScale wrapper for magnitude-aware linear encoding
+            if isinstance(value, LinearScale):
+                value_vector = self._encode_numeric_scalar(
+                    {self._linear_marker: value.value, self._scale_marker: value.scale}
+                )
+                key_vector = self._encode_walkable_scalar(as_walkable(key))
+                bound = key_vector * value_vector
+                bound_vectors.append(bound)
+                continue
 
             if isinstance(value, dict):
                 if self._time_marker in value:

@@ -89,6 +89,8 @@ from .vector_manager import (  # noqa: F401 - re-exported for public API
 
 # Walkable interface for zero-serialization encoding
 from .walkable import (  # noqa: F401 - re-exported for public API
+    LinearScale,
+    LogScale,
     Walkable,
     WalkableDict,
     WalkableList,
