@@ -2,6 +2,8 @@
 
 Interactive visualization of Holon's high-dimensional vector space projected to 3D.
 
+https://github.com/user-attachments/assets/89e1524b-45de-4cda-9f36-dd14e8b53400
+
 ## Quick Start
 
 ```bash
