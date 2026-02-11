@@ -99,8 +99,10 @@ Everything in Holon is built from these kernel operations:
 | **Continuous** | `encode_scalar(v, mode)`, `encode_scalar_log(v)` - linear, circular, log-scale |
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
-| **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `normalize_accumulator(acc)` |
+| **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `decay(acc,f)`, `normalize_accumulator(acc)` |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
+| **Extended** | `attend(q,m,s,mode)`, `analogy(a,b,c)`, `project(v,subspace)`, `conditional_bind(a,b,gate)` |
+| **Analysis** | `similarity_profile(a,b)`, `complexity(v)`, `segment(stream,w,t)`, `invert(v,codebook)` |
 | **Similarity** | `similarity(a,b,metric)` - cosine, hamming, overlap, agreement, euclidean, manhattan |
 
 ### Quick Examples
@@ -128,6 +130,33 @@ unknown_errors = store.negate(all_errors, known_bugs)
 base_query = store.encoder.encode_data({"topic": "security"})
 priority_signal = store.encoder.encode_data({"severity": "critical"})
 boosted = store.amplify(base_query, priority_signal, strength=2.0)
+```
+
+### Extended Primitives (Challenge 014)
+
+New primitives for explainable anomaly forensics:
+
+```python
+from holon.primitives import segment, invert, complexity, attend, analogy
+
+# Find WHEN behavior changed in a stream
+breakpoints = segment(packet_vectors, window=100, threshold=0.3)
+# → [0, 145, 312] - traffic changed at indices 145 and 312
+
+# Measure HOW "mixed" a vector is (0.0 = clean, 1.0 = superposition)
+c = complexity(anomaly_vec)  # → 0.45 (fairly clean signal)
+
+# Decompose WHAT patterns explain an anomaly
+codebook = [("normal", normal_proto), ("scan", scan_proto), ("exfil", exfil_proto)]
+components = invert(anomaly_vec, codebook, top_k=3)
+# → [("scan", 0.78), ("normal", 0.35)] - "78% scan, 35% normal"
+
+# Soft attention: focus on attack-relevant dimensions
+attended = attend(attack_signature, packet_vec, strength=2.0, mode="soft")
+
+# Pattern transfer: A is to B as C is to ?
+port_443_exfil = analogy(port_80_scan, port_443_scan, port_80_exfil)
+# Generalizes attack patterns across contexts
 ```
 
 ### Continuous Value Encoding (Challenge 012)
