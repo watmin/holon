@@ -228,11 +228,61 @@ suspicious_ip = conditional_bind(
 - `invert()` correctly identifies top-1 pattern for each attack type
 - `similarity_profile()` shows higher disagreement for more different attacks
 
+### 002: Improved Detection with Pattern Attribution
+
+**Goal**: Improve Batch 012's detection by adding attribution.
+
+**Improvements over Batch 012-013**:
+1. Auto-segmentation via `segment()` instead of manual warmup counting
+2. Pattern attribution via `invert()` - "78% DNS reflection + 22% unknown"
+3. Dimension localization via `similarity_profile()` - show WHICH fields differ
+4. Complexity as additional detection signal
+5. Attack subspace classification via `project()`
+
+**Results**:
+- F1: 0.897 (up from baseline 0.822)
+- Attribution accuracy: 100% for all attack types
+- Disagreement ratio provides clear normal/attack separation
+
+### 003: Targeted Rate Limiting with similarity_profile()
+
+**Goal**: Create wider separation between legitimate and attack traffic.
+
+**Approach**: Use `similarity_profile()` to identify anomalous dimensions, then scale rate factor:
+```python
+rate_factor = baseline_similarity * (1 - anomalous_ratio)
+```
+
+**Results**:
+| Metric | Old Approach | Targeted Approach |
+|--------|--------------|-------------------|
+| Separation Gap | 0.171 | **0.337 (2x wider!)** |
+| Attacks blocked (< 0.3) | 0% | **100%** |
+
+**Key insight**: Weighting by anomalous_ratio creates multiplicative penalty that widens the gap between legitimate and attack traffic.
+
+### 004: Attack Variant Detection with analogy()
+
+**Goal**: Detect UNSEEN attack variants using analogy.
+
+**Approach**:
+- Train on ONE attack type (DNS reflection)
+- Use analogy(): `DNS_attack - DNS_port + NTP_port = NTP_attack (inferred)`
+- Detect variants without explicit training
+
+**Results**:
+| Traffic Type | Training | Detection | Analogy Similarity |
+|--------------|----------|-----------|-------------------|
+| Normal | Yes | 0% FP | 0.02 |
+| DNS reflection | Yes | 100% | - |
+| NTP (UNSEEN) | No | 100% | 0.77 |
+| SSDP (UNSEEN) | No | 100% | 0.49 |
+| CHARGEN (UNSEEN) | No | 100% | 0.77 |
+
+**Key finding**: Zero-shot detection of attack variants by learning structure from one example.
+
 ### Future Experiments
 
-- **002**: Real-time segment detection (streaming breakpoints)
-- **003**: Attack family clustering via complexity + projection
-- **004**: Zero-shot attack detection via analogy transfer
 - **005**: Explainability dashboard for SOC analysts
 
 ## What We're Building Toward
