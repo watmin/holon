@@ -41,6 +41,7 @@ from .distance import (  # noqa: F401 - re-exported for public API
     compare_metrics,
     cosine_similarity,
     get_recommended_metric,
+    significance,
 )
 
 # Encoder and encoding modes
@@ -60,14 +61,18 @@ from .primitives import (  # noqa: F401 - re-exported for public API
     bind,
     blend,
     bundle,
+    bundle_with_confidence,
     centroid,
     cleanup,
+    coherence,
     complexity,
     conditional_bind,
     cross_correlate,
     difference,
+    drift_rate,
     entropy,
     flip,
+    grover_amplify,
     invert,
     negate,
     permute,
@@ -76,6 +81,8 @@ from .primitives import (  # noqa: F401 - re-exported for public API
     prototype,
     prototype_add,
     random_project,
+    reflect_about_mean,
+    reject,
     resonance,
     segment,
     similarity_matrix,
@@ -88,6 +95,7 @@ from .primitives import (  # noqa: F401 - re-exported for public API
 
 # Scalar encoding (mirrors holon-rs/src/scalar.rs)
 from .scalar import (  # noqa: F401 - re-exported for public API
+    decode_scalar_log,
     encode_circular,
     encode_positional,
     encode_scalar,

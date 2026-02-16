@@ -552,6 +552,38 @@ def get_recommended_metric(use_case: str) -> DistanceMetric:
     return recommendations.get(use_case, DistanceMetric.COSINE)
 
 
+def significance(similarity: float, dimensions: int) -> float:
+    """
+    Convert cosine similarity to statistical significance (z-score).
+
+    In high dimensions, random bipolar vectors are nearly orthogonal
+    with cosine similarity ≈ N(0, 1/√d). This function converts a
+    raw similarity score into a z-score indicating how many standard
+    deviations it is from random chance.
+
+    Rules of thumb:
+        - |z| > 2.0: likely meaningful (p < 0.05)
+        - |z| > 3.0: very significant (p < 0.003)
+        - |z| > 5.0: essentially certain
+
+    Args:
+        similarity: Raw cosine similarity value
+        dimensions: Vector dimensionality
+
+    Returns:
+        Z-score (positive = similar, negative = anti-similar)
+
+    Example:
+        z = significance(0.05, 4096)
+        # z ≈ 3.2 — highly significant at 4096 dimensions
+        z = significance(0.05, 64)
+        # z ≈ 0.4 — not significant at 64 dimensions
+    """
+    if dimensions <= 0:
+        return 0.0
+    return similarity * (dimensions**0.5)
+
+
 def compare_metrics(
     vec1: np.ndarray,
     vec2: np.ndarray,

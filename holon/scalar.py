@@ -157,3 +157,76 @@ def encode_scalar_log(
         value = 1e-10  # Avoid log(0)
     log_value = np.log10(value)
     return encode_positional(log_value, dimensions, scale)
+
+
+def decode_scalar_log(
+    vec: np.ndarray,
+    lo: float = 1e-2,
+    hi: float = 1e10,
+    dimensions: int = None,
+    scale: float = 1000.0,
+    num_probes: int = 500,
+    refine_steps: int = 200,
+) -> float:
+    """
+    Decode a scalar value from a log-scale encoded vector.
+
+    The inverse of encode_scalar_log: recovers the original scalar value
+    by grid search over the log10 range, then refinement around the best
+    candidate. Uses agreement count (matching signs) instead of cosine
+    similarity to avoid norm bias from the zero dimensions that positional
+    encoding produces at log10(value) = 0.
+
+    Args:
+        vec: The encoded vector to decode
+        lo: Lower bound of the search range (must be > 0)
+        hi: Upper bound of the search range
+        dimensions: Vector dimensionality (inferred from vec if None)
+        scale: Must match the scale used during encoding
+        num_probes: Number of grid points for coarse search
+        refine_steps: Number of refinement steps around best candidate
+
+    Returns:
+        Decoded scalar value (the value whose encoding best matches vec)
+
+    Example:
+        v = encode_scalar_log(500.0, 4096)
+        decoded = decode_scalar_log(v)
+        # decoded ≈ 500.0
+    """
+    if dimensions is None:
+        dimensions = len(vec)
+
+    log_lo = np.log10(max(lo, 1e-10))
+    log_hi = np.log10(hi)
+    target = vec.astype(np.int8)
+
+    def _score(log_val: float) -> int:
+        candidate = encode_positional(log_val, dimensions, scale)
+        # Agreement count: non-zero dimensions where signs match
+        both_nonzero = (target != 0) & (candidate != 0)
+        return int(np.sum((target == candidate) & both_nonzero))
+
+    # Coarse grid search
+    best_log = log_lo
+    best_score = -1
+
+    probes = np.linspace(log_lo, log_hi, num_probes)
+    for log_val in probes:
+        score = _score(log_val)
+        if score > best_score:
+            best_score = score
+            best_log = log_val
+
+    # Refine around best candidate
+    step = (log_hi - log_lo) / num_probes
+    ref_lo = best_log - step
+    ref_hi = best_log + step
+
+    for log_val in np.linspace(ref_lo, ref_hi, refine_steps):
+        score = _score(log_val)
+        if score > best_score:
+            best_score = score
+            best_log = log_val
+
+    return 10.0**best_log

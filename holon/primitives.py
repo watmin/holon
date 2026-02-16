@@ -43,6 +43,13 @@ Mirrors holon-rs/src/primitives.rs for cross-language parity.
 - `power(vec, exponent)` → Continuous binding strength
 - `autocorrelate(stream, max_lag)` → Periodicity detection
 - `cross_correlate(a, b, max_lag)` → Causal relationship detection
+
+### Advanced Operations
+- `reject(vec, subspace)` → Orthogonal complement of project
+- `bundle_with_confidence(vectors)` → Bundle + per-dimension margins
+- `coherence(vectors)` → Mean pairwise similarity (cluster tightness)
+- `grover_amplify(signal, background, iters)` → Iterative amplitude amplification
+- `drift_rate(stream, window)` → Temporal derivative of similarity
 """
 
 from typing import List, Tuple, Union
@@ -970,3 +977,239 @@ def cross_correlate(
         xcf.append(float(np.mean(sims)) if sims else 0.0)
 
     return xcf
+
+
+# =============================================================================
+# Advanced Operations
+# =============================================================================
+
+
+def reject(
+    vec: np.ndarray,
+    subspace: List[np.ndarray],
+    orthogonalize: bool = True,
+) -> np.ndarray:
+    """
+    Orthogonal complement of project: everything NOT explained by the subspace.
+
+    While project(vec, basis) extracts what's IN the subspace,
+    reject(vec, basis) extracts what's OUTSIDE it — the residual signal.
+
+    For anomaly detection: "what part of this traffic can't be explained
+    by the normal baseline?"
+
+    Computation is done in float space before thresholding, preserving
+    the subtle residual that difference(project(...), vec) would lose.
+
+    Args:
+        vec: Vector to reject from
+        subspace: List of exemplar vectors defining the subspace to remove
+        orthogonalize: Whether to orthogonalize subspace first (Gram-Schmidt)
+
+    Returns:
+        Residual vector (bipolar) — what remains after removing the subspace
+    """
+    if not subspace:
+        return vec.copy()
+
+    v = vec.astype(np.float64)
+    basis = [u.astype(np.float64) for u in subspace]
+
+    if orthogonalize and len(basis) > 1:
+        ortho_basis = []
+        for u in basis:
+            for prev in ortho_basis:
+                prev_norm = np.linalg.norm(prev)
+                if prev_norm > 1e-10:
+                    proj = np.dot(u, prev) / (prev_norm**2) * prev
+                    u = u - proj
+            if np.linalg.norm(u) > 1e-10:
+                ortho_basis.append(u)
+        basis = ortho_basis
+
+    # Compute projection
+    projection = np.zeros_like(v)
+    for u in basis:
+        norm_u = np.linalg.norm(u)
+        if norm_u > 1e-10:
+            coeff = np.dot(v, u) / (norm_u**2)
+            projection += coeff * u
+
+    # Residual = original - projection
+    residual = v - projection
+    return threshold_bipolar(residual)
+
+
+def bundle_with_confidence(
+    vectors: List[np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Bundle vectors and return per-dimension agreement margins.
+
+    Unlike bundle (which discards the raw sums after thresholding),
+    this returns both the voted vector AND the margin of victory
+    per dimension. A 512-to-512 vote is very different from 1000-to-24.
+
+    The margins can feed into weighted_cosine_similarity (trust high-confidence
+    dimensions more) or guide sparsify (zero out low-confidence dimensions).
+
+    Args:
+        vectors: List of vectors to bundle
+
+    Returns:
+        Tuple of (bundled_vector, confidence_margins)
+        - bundled_vector: bipolar {-1, 0, 1}
+        - confidence_margins: float64 array, abs(sum) / n per dimension
+          (0.0 = perfect tie, 1.0 = unanimous agreement)
+    """
+    if not vectors:
+        raise ValueError("Cannot bundle empty list")
+
+    n = len(vectors)
+    sums = np.sum(np.stack([v.astype(np.float64) for v in vectors]), axis=0)
+
+    bundled = threshold_bipolar(sums)
+    margins = np.abs(sums) / n
+
+    return bundled, margins
+
+
+def coherence(vectors: List[np.ndarray]) -> float:
+    """
+    Mean pairwise cosine similarity of a set of vectors.
+
+    Measures cluster tightness / concentration:
+    - 1.0 = all vectors identical
+    - 0.0 = vectors are random / orthogonal
+    - Negative = vectors are anti-correlated
+
+    For DDoS detection: high coherence in a traffic window means
+    concentrated/homogeneous traffic (potential attack signal).
+
+    Args:
+        vectors: List of vectors to measure
+
+    Returns:
+        Mean pairwise similarity (scalar)
+    """
+    n = len(vectors)
+    if n < 2:
+        return 1.0
+
+    total = 0.0
+    count = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            total += cosine_similarity(vectors[i], vectors[j])
+            count += 1
+
+    return float(total / count)
+
+
+def reflect_about_mean(vec: np.ndarray) -> np.ndarray:
+    """
+    Grover's diffusion operator: reflect vector about its mean value.
+
+    Computes 2 * mean(v) - v per dimension. Amplifies dimensions that
+    are above the mean and suppresses those below.
+
+    This is the reflection step in Grover-style amplitude amplification.
+
+    Args:
+        vec: Input vector (float or bipolar)
+
+    Returns:
+        Reflected vector (bipolar)
+    """
+    v = vec.astype(np.float64)
+    mean_val = np.mean(v)
+    reflected = 2.0 * mean_val - v
+    return threshold_bipolar(reflected)
+
+
+def grover_amplify(
+    signal: np.ndarray,
+    background: np.ndarray,
+    iterations: int = 1,
+) -> np.ndarray:
+    """
+    Quantum-inspired iterative amplitude amplification.
+
+    Amplifies a weak signal buried in a strong background by iteratively:
+    1. Attend to the signal (mark the target)
+    2. Reflect about the background mean (diffusion)
+
+    Each iteration quadratically amplifies the signal component.
+    For optimal results, iterations ≈ π/4 * √(d / k) where k is the
+    number of "marked" dimensions, but 1-3 iterations usually suffice.
+
+    Unlike attend (single-step), grover_amplify iteratively sharpens
+    the signal through the mark-then-reflect cycle.
+
+    Args:
+        signal: The target pattern to amplify (weak signal)
+        background: The dominant background to suppress
+        iterations: Number of amplification rounds (1-3 recommended)
+
+    Returns:
+        Amplified signal vector (bipolar)
+    """
+    v = background.astype(np.float64)
+    s = signal.astype(np.float64)
+
+    for _ in range(iterations):
+        # Mark: attend to signal (boost agreeing dimensions)
+        agreement = s * v
+        weights = (1 + np.tanh(agreement)) / 2
+        v = v * weights
+
+        # Diffuse: reflect about mean
+        mean_val = np.mean(v)
+        v = 2.0 * mean_val - v
+
+    return threshold_bipolar(v)
+
+
+def drift_rate(
+    stream: List[np.ndarray],
+    window: int = 1,
+) -> List[float]:
+    """
+    Temporal derivative of similarity: how fast is the signal changing?
+
+    Computes the rate of change of consecutive similarities over
+    a sliding window. Distinguishes:
+    - Low drift rate + low similarity = gradual shift (organic)
+    - High drift rate + low similarity = sudden attack (flash flood)
+    - Accelerating drift rate = escalating attack (ramp-up)
+
+    Args:
+        stream: List of vectors (chronological order)
+        window: Smoothing window for similarity computation
+
+    Returns:
+        List of drift rates. Positive = similarity increasing (converging),
+        negative = similarity decreasing (diverging). Length = len(stream) - 2.
+    """
+    if len(stream) < 3:
+        return []
+
+    # Compute consecutive similarities
+    sims = []
+    for i in range(1, len(stream)):
+        if window > 1 and i >= window:
+            # Average similarity over the window
+            w_sims = [
+                cosine_similarity(stream[j], stream[j - 1])
+                for j in range(max(1, i - window + 1), i + 1)
+            ]
+            sims.append(float(np.mean(w_sims)))
+        else:
+            sims.append(cosine_similarity(stream[i], stream[i - 1]))
+
+    # Compute derivative of similarity series
+    rates = []
+    for i in range(1, len(sims)):
+        rates.append(sims[i] - sims[i - 1])
+
+    return rates
