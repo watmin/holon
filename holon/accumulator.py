@@ -26,6 +26,9 @@ the baseline, so rare anomalies have low similarity.
 - `normalize_accumulator(accum)` → Get unit vector for similarity
 - `threshold_accumulator(accum)` → Convert to bipolar
 - `merge_accumulators(a, b)` → Combine accumulators
+- `capacity(accum, codebook_size)` → Remaining capacity estimate
+- `purity(accum)` → Concentration measure (quantum-inspired)
+- `participation_ratio(accum)` → Effective number of active dimensions
 """
 
 import numpy as np
@@ -165,3 +168,107 @@ def clear_accumulator(accumulator: np.ndarray) -> np.ndarray:
         Zero-initialized accumulator
     """
     return np.zeros_like(accumulator)
+
+
+def capacity(accumulator: np.ndarray, codebook_size: int) -> float:
+    """
+    Estimate how close the accumulator is to saturation.
+
+    As more vectors are added, the accumulator's ability to distinguish
+    individual components degrades. This estimates the remaining capacity
+    as a fraction of theoretical maximum.
+
+    Based on the capacity bound: N ≤ d / (2 * ln(k)) for d-dimensional
+    vectors with k codebook items, where N is the max number of items
+    that can be reliably retrieved.
+
+    Args:
+        accumulator: Float accumulator from accumulate()
+        codebook_size: Number of distinct vectors that may be stored
+
+    Returns:
+        Remaining capacity as a fraction in [0.0, 1.0]
+        - 1.0 = completely empty
+        - 0.0 = fully saturated (no further items can be reliably stored)
+    """
+    d = len(accumulator)
+    if codebook_size < 2:
+        return 1.0
+
+    # Theoretical max items for reliable retrieval
+    max_items = d / (2.0 * np.log(codebook_size))
+
+    # Estimate current load from the magnitude
+    # Each accumulated vector contributes ~sqrt(d) to the norm
+    norm = np.linalg.norm(accumulator)
+    estimated_items = (norm**2) / d
+
+    remaining = max(0.0, 1.0 - estimated_items / max_items)
+    return float(remaining)
+
+
+def purity(accumulator: np.ndarray) -> float:
+    """
+    Quantum-inspired purity measure: how concentrated is the accumulator?
+
+    Purity indicates whether the accumulator represents a single concept
+    (high purity) or a diffuse superposition of many (low purity).
+
+    For a single bipolar vector of dimension d, sum(v_i^2) = d, so
+    purity = d / d = 1.0. For N random bipolar vectors accumulated,
+    sum(v_i^2) ≈ N*d, so purity ≈ 1/N.
+
+    Analogous to Tr(ρ²) from quantum mechanics where a pure state has
+    purity 1 and a maximally mixed state has purity 1/N.
+
+    Args:
+        accumulator: Float accumulator from accumulate()
+
+    Returns:
+        Purity score in (0.0, 1.0]
+        - 1.0 = single clean vector
+        - ~1/N = N dissimilar vectors accumulated
+    """
+    d = len(accumulator)
+    if d == 0:
+        return 0.0
+
+    v = accumulator.astype(np.float64)
+    l2_sq = np.sum(v**2)
+
+    if l2_sq < 1e-10:
+        return 0.0
+
+    return float(min(d / l2_sq, 1.0))
+
+
+def participation_ratio(accumulator: np.ndarray) -> float:
+    """
+    Participation ratio: effective number of active dimensions.
+
+    A baseline-free measure of how many dimensions contribute meaningfully
+    to the accumulator's energy. Reciprocal of purity.
+
+    PR = (sum v_i^2)^2 / sum(v_i^4)
+
+    For a single bipolar vector of dimension d: PR = d (all dimensions contribute).
+    As structure concentrates into fewer dimensions, PR decreases.
+
+    Args:
+        accumulator: Float accumulator from accumulate()
+
+    Returns:
+        Participation ratio (1.0 to d). Higher = more diffuse/uniform.
+    """
+    v = accumulator.astype(np.float64)
+    l2_sq = np.sum(v**2)
+
+    if l2_sq < 1e-10:
+        return 0.0
+
+    l4_sum = np.sum(v**4)
+
+    if l4_sum < 1e-10:
+        return 0.0
+
+    return float(l2_sq**2 / l4_sum)

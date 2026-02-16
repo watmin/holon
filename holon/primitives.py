@@ -31,6 +31,18 @@ Mirrors holon-rs/src/primitives.rs for cross-language parity.
 - `segment(stream, window)` → Find structural breakpoints
 - `invert(vec, codebook)` → Reconstruct components from vector
 - `complexity(vec)` → Entropy/mixture measure (0.0 to 1.0)
+
+### Vector Operations
+- `sparsify(vec, k)` → Keep top-k strongest dimensions
+- `centroid(vectors)` → True geometric average (continuous mean)
+- `flip(vec)` → Element-wise negation (+1 ↔ -1)
+- `topk_similar(query, candidates, k)` → Top-k retrieval
+- `similarity_matrix(vectors)` → Batch pairwise similarities
+- `entropy(vec)` → Information content measure
+- `random_project(vec, dims, seed)` → JL dimensionality reduction
+- `power(vec, exponent)` → Continuous binding strength
+- `autocorrelate(stream, max_lag)` → Periodicity detection
+- `cross_correlate(a, b, max_lag)` → Causal relationship detection
 """
 
 from typing import List, Tuple, Union
@@ -661,3 +673,300 @@ def invert(
 
     results.sort(key=lambda x: x[1], reverse=True)
     return results[:top_k]
+
+
+# =============================================================================
+# Vector Operations
+# =============================================================================
+
+
+def sparsify(vec: np.ndarray, k: int) -> np.ndarray:
+    """
+    Keep only the k dimensions with the largest absolute values. Zero the rest.
+
+    Improves noise resistance and reduces interference in bundling.
+    When there are ties (e.g., bipolar vectors where all |v_i| = 1),
+    exactly k dimensions are kept arbitrarily.
+
+    Args:
+        vec: Input vector
+        k: Number of dimensions to keep
+
+    Returns:
+        Sparsified vector with only top-k dimensions non-zero
+    """
+    if k >= len(vec):
+        return vec.copy()
+
+    abs_vals = np.abs(vec.astype(np.float64))
+    # argpartition gives indices of the k largest values (handles ties correctly)
+    top_k_indices = np.argpartition(abs_vals, -k)[-k:]
+
+    result = np.zeros_like(vec)
+    result[top_k_indices] = vec[top_k_indices]
+    return result
+
+
+def centroid(vectors: List[np.ndarray]) -> np.ndarray:
+    """
+    Compute the true geometric average of a set of vectors.
+
+    Unlike bundle (majority vote → bipolar) or prototype (thresholded majority),
+    centroid preserves continuous dimension weights before thresholding.
+    Better for interpolation and gradient-like operations.
+
+    Args:
+        vectors: List of vectors to average
+
+    Returns:
+        Centroid vector (bipolar)
+    """
+    if not vectors:
+        raise ValueError("Cannot compute centroid of empty list")
+
+    sums = np.sum(np.stack([v.astype(np.float64) for v in vectors]), axis=0)
+    norm = np.linalg.norm(sums)
+
+    if norm < 1e-10:
+        return np.zeros(len(vectors[0]), dtype=np.int8)
+
+    normalized = sums / norm
+    return threshold_bipolar(normalized)
+
+
+def flip(vec: np.ndarray) -> np.ndarray:
+    """
+    Negate every element: +1 → -1, -1 → +1, 0 → 0.
+
+    The logical NOT of a vector — the "opposite" of a concept.
+    similarity(vec, flip(vec)) ≈ -1.0
+
+    Args:
+        vec: Input vector
+
+    Returns:
+        Flipped vector
+    """
+    return (-vec).astype(vec.dtype)
+
+
+def topk_similar(
+    query: np.ndarray,
+    candidates: List[np.ndarray],
+    k: int = 5,
+) -> List[Tuple[int, float]]:
+    """
+    Find the k most similar vectors to a query from a candidate set.
+
+    Generalization of cleanup (top-1) for retrieval, classification,
+    and recommendation.
+
+    Args:
+        query: Query vector
+        candidates: List of candidate vectors
+        k: Number of top matches to return
+
+    Returns:
+        List of (index, similarity) tuples, sorted by similarity descending
+    """
+    if not candidates:
+        return []
+
+    scores = [(i, cosine_similarity(query, cand)) for i, cand in enumerate(candidates)]
+    scores.sort(key=lambda x: -x[1])
+    return scores[:k]
+
+
+def similarity_matrix(vectors: List[np.ndarray]) -> np.ndarray:
+    """
+    Compute all pairwise similarities for a set of vectors.
+
+    Returns a symmetric matrix where matrix[i][j] = similarity(vectors[i], vectors[j]).
+
+    Args:
+        vectors: List of vectors
+
+    Returns:
+        NxN numpy array of pairwise cosine similarities
+    """
+    n = len(vectors)
+    matrix = np.zeros((n, n), dtype=np.float64)
+
+    for i in range(n):
+        matrix[i, i] = 1.0
+        for j in range(i + 1, n):
+            sim = cosine_similarity(vectors[i], vectors[j])
+            matrix[i, j] = sim
+            matrix[j, i] = sim
+
+    return matrix
+
+
+def entropy(vec: np.ndarray) -> float:
+    """
+    Information-theoretic entropy of the vector's element distribution.
+
+    Measures how much "information" a vector carries.
+    - 0.0 = all same value (no information)
+    - ~1.585 = equal distribution of +1, -1, 0 (maximum for 3-valued)
+
+    Normalized to [0, 1] range.
+
+    Args:
+        vec: Input vector
+
+    Returns:
+        Normalized entropy (0.0 to 1.0)
+    """
+    total = len(vec)
+    if total == 0:
+        return 0.0
+
+    pos = np.sum(vec > 0)
+    neg = np.sum(vec < 0)
+    zero = np.sum(vec == 0)
+
+    probs = np.array([pos, neg, zero], dtype=np.float64) / total
+    probs = probs[probs > 0]
+
+    if len(probs) <= 1:
+        return 0.0
+
+    h = -np.sum(probs * np.log2(probs))
+    max_h = np.log2(3.0)  # max entropy for 3 values
+    return float(h / max_h)
+
+
+def random_project(vec: np.ndarray, target_dims: int, seed: int = 42) -> np.ndarray:
+    """
+    Reduce dimensionality via random projection (Johnson-Lindenstrauss).
+
+    Preserves pairwise distances with high probability when target_dims
+    is O(log(N)/ε²).
+
+    Args:
+        vec: Input vector (any dimensionality)
+        target_dims: Target dimensionality
+        seed: Random seed for reproducibility
+
+    Returns:
+        Projected vector (bipolar, target_dims dimensions)
+    """
+    rng = np.random.RandomState(seed)
+    source_dims = len(vec)
+
+    # Sparse random projection matrix (Achlioptas 2003)
+    # P(+1) = 1/6, P(0) = 2/3, P(-1) = 1/6 — sparse and fast
+    proj = rng.choice([-1, 0, 0, 0, 0, 1], size=(target_dims, source_dims))
+    projected = proj @ vec.astype(np.float64)
+
+    return threshold_bipolar(projected)
+
+
+def power(vec: np.ndarray, exponent: float) -> np.ndarray:
+    """
+    Fractional binding: raise a vector to a real-valued power.
+
+    - power=0 → identity-like (all zeros)
+    - power=1 → original vector
+    - power>1 → sharpened (increased contrast)
+    - 0<power<1 → softened (interpolation toward neutral)
+
+    For bipolar vectors, this interpolates between neutral and the vector.
+
+    Args:
+        vec: Input vector
+        exponent: Power to raise to (>= 0)
+
+    Returns:
+        Powered vector (bipolar)
+    """
+    if exponent < 0:
+        raise ValueError("Exponent must be >= 0")
+
+    if exponent == 0.0:
+        return np.zeros(len(vec), dtype=np.int8)
+
+    if exponent == 1.0:
+        return vec.copy()
+
+    v = vec.astype(np.float64)
+
+    if exponent == int(exponent) and exponent >= 2:
+        # Integer power: repeated binding (self-inverse for bipolar)
+        # Even powers → element-wise abs (all become +1 or 0)
+        # Odd powers → original vector
+        k = int(exponent)
+        if k % 2 == 0:
+            return np.where(vec != 0, 1, 0).astype(np.int8)
+        else:
+            return vec.copy()
+
+    # Fractional power: interpolate between identity and vec
+    result = v * exponent
+    return threshold_bipolar(result)
+
+
+def autocorrelate(stream: List[np.ndarray], max_lag: int) -> List[float]:
+    """
+    Compute similarity of a vector stream with itself at different time lags.
+
+    Peaks at lag k indicate period-k patterns.
+
+    Args:
+        stream: List of vectors (chronological order)
+        max_lag: Maximum lag to compute
+
+    Returns:
+        List of similarities at each lag [0..max_lag]
+        acf[0] = 1.0 (self-similarity), acf[k] = mean sim(t, t-k)
+    """
+    n = len(stream)
+    max_lag = min(max_lag, n - 1)
+    acf = []
+
+    for lag in range(max_lag + 1):
+        if lag == 0:
+            acf.append(1.0)
+            continue
+
+        sims = []
+        for i in range(lag, n):
+            sims.append(cosine_similarity(stream[i], stream[i - lag]))
+
+        acf.append(float(np.mean(sims)) if sims else 0.0)
+
+    return acf
+
+
+def cross_correlate(
+    stream_a: List[np.ndarray],
+    stream_b: List[np.ndarray],
+    max_lag: int,
+) -> List[float]:
+    """
+    Compute similarity between two vector streams at different time offsets.
+
+    Detects causal relationships: a peak at lag k means patterns in stream_b
+    follow patterns in stream_a by k time steps.
+
+    Args:
+        stream_a: First vector stream
+        stream_b: Second vector stream
+        max_lag: Maximum lag to compute
+
+    Returns:
+        List of similarities at each lag [0..max_lag]
+    """
+    n = min(len(stream_a), len(stream_b))
+    max_lag = min(max_lag, n - 1)
+    xcf = []
+
+    for lag in range(max_lag + 1):
+        sims = []
+        for i in range(lag, n):
+            sims.append(cosine_similarity(stream_a[i - lag], stream_b[i]))
+
+        xcf.append(float(np.mean(sims)) if sims else 0.0)
+
+    return xcf
