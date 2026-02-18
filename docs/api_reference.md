@@ -616,6 +616,54 @@ snap = sub.snapshot()
 sub2 = OnlineSubspace.from_snapshot(snap)
 ```
 
+### Engram Library
+
+Store learned manifold snapshots as reusable **engrams** for pattern recognition
+and instant replay. An engram is the stored memory of a subspace — named after
+the neuroscience concept of a physical memory trace.
+
+```python
+# Create a library
+library = client.create_engram_library()
+
+# Train a subspace on a pattern, then mint an engram
+sub = client.create_subspace(k=32)
+for vec in pattern_stream:
+    sub.update(vec)
+library.add("pattern_name", sub,
+    rule="...",           # arbitrary metadata
+    severity="high",
+    timestamp="2026-02-17")
+
+# Match new data against stored engrams (two-tier: eigenvalue pre-filter + residual)
+matches = library.match(new_vec, top_k=3)
+# → [("pattern_name", 12.5), ("other_pattern", 65.3), ...]
+
+# Eigenvalue-only pre-filter (very fast bulk screening)
+spectrum_matches = library.match_spectrum(new_sub.eigenvalues, top_k=3)
+# → [("pattern_name", 0.98), ...]
+
+# Management
+library.names()           # List all engram names
+library.get("dns_amp")    # Retrieve by name
+library.remove("old")     # Remove by name
+len(library)              # Count
+
+# Persistence (JSON + base64 numpy arrays)
+library.save("engrams.json")
+loaded = EngramLibrary.load("engrams.json")
+```
+
+**Engram contents:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | str | Human-readable label |
+| `subspace` | OnlineSubspace | Lazily reconstructed from snapshot |
+| `eigenvalue_signature` | ndarray (k,) | Normalized eigenvalue spectrum |
+| `surprise_profile` | dict | Per-field anomaly magnitudes (optional) |
+| `metadata` | dict | Arbitrary key-value pairs (rules, tags, etc.) |
+
 ### Continuous Value Encoding
 
 Encode continuous scalar values where similar values produce similar vectors:

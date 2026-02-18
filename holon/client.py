@@ -28,6 +28,7 @@ import requests
 
 if TYPE_CHECKING:
     from .cpu_store import CPUStore
+    from .engram import EngramLibrary
     from .subspace import OnlineSubspace
 
 
@@ -1015,6 +1016,35 @@ class HolonClient:
             scores[field] = float(np.linalg.norm(field_anomaly))
 
         return dict(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+
+    # =========================================================================
+    # Engram Library
+    # =========================================================================
+
+    def create_engram_library(self) -> "EngramLibrary":
+        """
+        Create an EngramLibrary for storing and matching learned manifolds.
+
+        An engram is the stored memory of a learned subspace — the
+        mathematical trace of a pattern encountered in data. The library
+        provides two-tier matching: fast eigenvalue pre-filter, then full
+        residual verification on top candidates.
+
+        Returns:
+            EngramLibrary configured with this client's dimensionality.
+
+        Example:
+            >>> library = client.create_engram_library()
+            >>> sub = client.create_subspace(k=64)
+            >>> for vec in attack_stream:
+            ...     sub.update(vec)
+            >>> library.add("dns_amp", sub, rule="((and ...) => (drop))")
+            >>> matches = library.match(new_vec, top_k=3)
+        """
+        self._ensure_local("create_engram_library")
+        from .engram import EngramLibrary
+
+        return EngramLibrary(dim=self._dimensions)
 
     # =========================================================================
     # Continuous Scalar Encoding

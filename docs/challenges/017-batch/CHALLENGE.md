@@ -320,6 +320,101 @@ improves detection beyond either signal alone.
 - Combined never worse than best single signal
 - Coherence contributes for volumetric attacks
 
+### 014: Attack Manifold Capture
+
+**Goal**: Prove we can train a *separate* subspace on attack-only traffic and it
+converges to a meaningful manifold that discriminates same-type attacks from normal
+traffic and other attack types.
+
+**Approach**:
+1. Train 4 attack subspaces (DNS amp, SYN flood, credential stuffing, exfiltration)
+2. Cross-test each subspace against all traffic types
+3. Compare eigenvalue spectra across attack types
+4. Verify convergence via eigenvalue stability over training
+
+**Success criteria**:
+- Each attack subspace has lowest residual for its own type
+- Normal traffic rejected (ratio > 1.5x)
+- Eigenvalue spectrum converges (cos@200 vs @500 > 0.95)
+
+### 015: Engram Library Matching
+
+**Goal**: An EngramLibrary storing 4 attack types can correctly match new instances
+to the right engram. Two-tier matching (eigenvalue pre-filter + full residual)
+produces the same correct result as brute-force.
+
+**Approach**:
+1. Train 4 attack subspaces, mint engrams, add to library
+2. Match fresh attack traffic → verify correct engram is top match
+3. Verify normal traffic does not match well
+4. Test eigenvalue spectrum pre-filter accuracy
+5. Save/load round-trip preserves matching behavior
+
+**Success criteria**:
+- Overall matching accuracy > 90%
+- Each attack type correctly matched > 80%
+- Normal traffic has higher residual than attack traffic
+- Spectrum pre-filter accuracy >= 75%
+- Persistence round-trip preserves exact scores
+
+### 016: Eager Activation (Few-Shot Matching)
+
+**Goal**: Measure how many anomalous packets are needed before a confident
+library match. If we can match within 1-5 packets, eager activation is practical.
+
+**Approach**:
+1. Build engram library from 4 attack types
+2. Simulate attack onset, feed packets one at a time
+3. Majority vote over sliding window of N packets
+4. Sweep N=1,2,3,5,10,20,50
+5. Measure false activation rate on normal traffic windows
+
+**Success criteria**:
+- Single-packet matching > 80%
+- 5-packet window > 90%
+- 10-packet window > 95%
+- Zero false activations on normal traffic (N=10)
+
+### 017: Variant Resilience
+
+**Goal**: Same attack type returns with different parameters (different source IPs,
+different target ports, different TTLs). The stored engram should still match because
+the subspace captures structure, not specific values.
+
+**Approach**:
+1. Train engrams from "original" DNS amp and SYN flood attacks
+2. Generate 5 variants of each with progressively more changes
+3. Variant 1-3: single field change; Variant 4-5: multi-field and stress test
+4. Match variants against library, compare residuals to original and normal
+
+**Success criteria**:
+- Baseline (original) matches 100%
+- All variants match correctly (>80%)
+- Worst variant still has lower residual than normal traffic
+
+### 018: Full Lifecycle — Detection, Minting, Re-detection
+
+**Goal**: Validate the complete engram lifecycle end-to-end: normal baseline →
+first attack (unknown) → learn manifold → mint engram with EDN rule → calm period →
+same attack returns → instant library match → stored rule deployed.
+
+**Approach**:
+1. Learn detection subspace from 1000 normal packets
+2. First attack: detect anomalies, library miss, build attack subspace
+3. Generate EDN rule from surprise fingerprint
+4. Mint engram with rule + metadata
+5. Calm period: verify zero false library hits
+6. Second attack: library match within 1 packet, deploy stored rule
+
+**Success criteria**:
+- Detection catches first attack (>90%)
+- Library miss on first encounter (correct — no prior engrams)
+- Attack subspace converges (n > 100)
+- EDN rule generated with constraints and actions
+- Zero false library hits during calm
+- Second attack matched in <= 2 packets
+- Instant match rate > 90%
+
 ---
 
 ## What We're Building Toward

@@ -101,6 +101,7 @@ Everything in Holon is built from these kernel operations:
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
 | **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `decay(acc,f)`, `normalize_accumulator(acc)` |
 | **Subspace** | `create_subspace(k)`, `sub.update(v)`, `sub.residual(v)`, `sub.anomalous_component(v)`, `surprise_fingerprint(v,sub,fields)` |
+| **Engram** | `create_engram_library()`, `lib.add(name,sub)`, `lib.match(v)`, `lib.match_spectrum(eigs)`, `lib.save(path)` |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
 | **Extended** | `attend(q,m,s,mode)`, `analogy(a,b,c)`, `project(v,subspace)`, `conditional_bind(a,b,gate)` |
 | **Analysis** | `similarity_profile(a,b)`, `complexity(v)`, `segment(stream,w,t)`, `invert(v,codebook)` |
@@ -552,6 +553,38 @@ if sub.residual(vec) > sub.threshold:
 
 See [Challenge 017 Learnings](docs/challenges/017-batch/LEARNINGS.md) for detailed results.
 
+### Engram Library — Pattern Memory for Instant Replay
+
+Store learned manifolds as **engrams** (memory traces) for future recognition
+and instant mitigation:
+
+```python
+library = client.create_engram_library()
+
+# First encounter: learn the pattern, mint an engram
+attack_sub = client.create_subspace(k=32)
+for vec in attack_stream:
+    attack_sub.update(vec)
+library.add("dns_amp", attack_sub, rule="...", severity="high")
+
+# Second encounter: match in 1 packet, deploy stored rule instantly
+matches = library.match(new_vec, top_k=3)
+if matches:
+    engram = library.get(matches[0][0])
+    print(engram.metadata["rule"])  # Ready to deploy
+
+# Persistence
+library.save("engrams.json")
+loaded = EngramLibrary.load("engrams.json")
+```
+
+**Key results from experiments 014-018:**
+- 100% matching accuracy across 4 attack types
+- Single-packet identification (no windowing needed)
+- Zero false activations on normal traffic
+- 100% variant resilience (different IPs, ports, TTLs still match)
+- Full lifecycle: detect → learn → mint → re-detect in 1 packet
+
 ## Honest Assessment
 
 **What Holon does well:**
@@ -573,6 +606,7 @@ See [Challenge 017 Learnings](docs/challenges/017-batch/LEARNINGS.md) for detail
 - Inline magnitude markers: `$log` and `$linear` for magnitude-aware encoding in data structures (Challenge 015)
 - Online subspace learning: CCIPCA-based anomaly detection with per-field attribution (Challenge 017)
 - Surprise fingerprinting: 100% attack classification from 7-number vector, auto-generated mitigation rules
+- Engram library: learned manifold snapshots with single-packet matching and variant resilience (Challenge 017)
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)

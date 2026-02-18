@@ -810,6 +810,94 @@ enough for perfect separation. In production, this enables: (1) detect
 anomalous windows, (2) cluster by fingerprint, (3) generate per-cluster
 rules. No labeled training data needed.
 
+## Engram Library (Experiments 014-018)
+
+### Concept: Engrams
+
+An **Engram** is the stored memory trace of a learned subspace manifold — named
+after the neuroscience concept of a physical memory trace stored in neural tissue.
+Each engram captures:
+- **Subspace snapshot** — mean vector + k principal components
+- **Eigenvalue signature** — compact k-vector for cheap pre-filtering
+- **Surprise profile** — per-field anomaly magnitudes
+- **Metadata** — labels, EDN mitigation rules, timestamps, tags
+
+The **EngramLibrary** manages a collection of engrams with two-tier matching:
+1. Fast eigenvalue cosine pre-filter — O(library_size * k)
+2. Full residual verification on top candidates — O(candidates * k * d)
+
+### 13. Attack Manifolds Converge to Meaningful Structure (Exp 014)
+
+Attack subspaces trained on 500 vectors each converge to distinct manifolds:
+- DNS amp: 2 active PCs (highly concentrated), threshold=2.91
+- SYN flood: 32 active PCs (varied sources), threshold=33.42
+- Credential stuffing: 32 active PCs, threshold=27.82
+- Exfiltration: 32 active PCs, threshold=35.92
+
+Cross-test residuals confirm each subspace has the lowest residual for its own
+attack type and rejects all others (2.4x-3.7x ratio for normal traffic, higher
+for cross-attack). Eigenvalue spectra converge by n=200 (cos > 0.99 vs n=500).
+
+### 14. Engram Library Achieves 100% Matching Accuracy (Exp 015)
+
+Four-engram library with two-tier matching:
+- **Full residual matching**: 100% accuracy (200/200) across all attack types
+- **Spectrum pre-filter**: 75% accuracy (3/4) — cred_stuff misses because its
+  eigenvalue spectrum is similar to syn_flood. Pre-filter is a speed optimization,
+  not the final decision.
+- **Normal rejection**: normal traffic residuals 2.4x-3.8x higher than attack residuals
+- **Persistence**: JSON round-trip (5.7MB for 4 engrams) preserves exact matching scores
+
+### 15. Single-Packet Eager Activation (Exp 016)
+
+Engram matching works from the very first anomalous packet:
+- **N=1 (single packet)**: 100% accuracy across all 4 attack types
+- **Zero false activations**: 0/20 trials at every window size (N=1 through N=50)
+- **Confidence gap**: mean residual gap between best and second-best match is
+  40-67 points — there is no ambiguity about which engram matches
+- Window aggregation is available but not needed — the signal is strong enough
+  for instant activation
+
+This means eager activation is not just practical, it's trivial. A single packet
+is sufficient to identify a known attack and deploy the stored rule.
+
+### 16. Variant Resilience — Structure Over Values (Exp 017)
+
+Stored engrams match all 10 tested variants (100% accuracy):
+- Single-field changes (different IPs, ports, TTLs): 100%
+- Multi-field changes (subnet + port): 100%
+- Stress tests (3+ fields changed): 100%
+
+Residuals increase with more field changes (0→54 for DNS amp, 27→54 for SYN flood)
+but remain well below normal traffic residuals (72 and 65 respectively). The subspace
+captures the attack's *structural signature* — which fields are used together and
+which values are unusual — not the specific parameter values.
+
+### 17. Full Lifecycle Validated End-to-End (Exp 018)
+
+Complete operational cycle in one experiment:
+1. **Baseline**: 1000 normal packets → detection subspace (threshold=33.0)
+2. **First attack (unknown)**: 200/200 detected, library MISS → learn attack manifold
+3. **Rule generation**: `{:constraints [((= ttl 245) (= path dns) (= dst_port 53))] :actions [(drop)]}`
+4. **Engram minting**: subspace snapshot + rule + metadata stored
+5. **Calm period**: 0/200 false library hits
+6. **Second attack (known)**: Library HIT in **1 packet** (20/20 trials)
+7. **Rule deployment**: stored EDN rule retrieved instantly
+
+The transition from "unknown attack requiring full analysis" to "known attack with
+instant mitigation" is the core value proposition of the engram system.
+
+### Implementation Notes
+
+**New primitives added to holon library (generic, domain-agnostic)**:
+- `holon/engram.py`: `Engram` class and `EngramLibrary` class
+- `HolonClient.create_engram_library()`: factory method
+- JSON persistence with base64-encoded numpy arrays
+
+**The engram system is fully generic** — it stores learned manifold snapshots with
+arbitrary metadata. The DDoS-specific elements (EDN rules, field names, attack
+classification) are all in the experiment scripts, not the library code.
+
 ## Completed Experiments
 
 - [x] **001**: CCIPCA convergence — 25D intrinsic manifold, stabilizes in 50 vectors
@@ -825,6 +913,11 @@ rules. No labeled training data needed.
 - [x] **011**: Sidecar dimensionality — 66D intrinsic for 19 fields, k=32 still works
 - [x] **012**: Multi-attack peeling — 100% clustering accuracy on concurrent attacks
 - [x] **013**: Subspace + coherence — residual dominates, coherence is secondary signal
+- [x] **014**: Attack manifold capture — 4 distinct subspaces, convergence by n=200
+- [x] **015**: Engram library matching — 100% accuracy, JSON persistence round-trip
+- [x] **016**: Eager activation — single-packet matching, zero false activations
+- [x] **017**: Variant resilience — 100% across 10 variants with multi-field changes
+- [x] **018**: Full lifecycle — detect → miss → learn → mint → re-detect in 1 packet
 
 ---
 

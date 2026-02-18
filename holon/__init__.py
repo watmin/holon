@@ -52,6 +52,9 @@ from .encoder import (  # noqa: F401 - re-exported for public API
     TimeResolution,
 )
 
+# Engram library (learned manifold snapshots)
+from .engram import Engram, EngramLibrary  # noqa: F401 - re-exported for public API
+
 # Core VSA primitives (mirrors holon-rs/src/primitives.rs)
 from .primitives import (  # noqa: F401 - re-exported for public API
     amplify,
