@@ -9,6 +9,7 @@ This client provides:
 - Data storage and similarity search
 - VSA primitives (bind, bundle, negate, amplify, etc.)
 - Streaming operations (accumulators for continuous learning)
+- Online subspace learning (anomaly detection via CCIPCA)
 - Continuous scalar encoding (rates, frequencies, etc.)
 - Multiple similarity metrics
 
@@ -27,6 +28,7 @@ import requests
 
 if TYPE_CHECKING:
     from .cpu_store import CPUStore
+    from .subspace import OnlineSubspace
 
 
 class HolonClient:
@@ -60,6 +62,10 @@ class HolonClient:
     - accumulate() - Add observation
     - normalize_accumulator() - Get unit vector for queries
     - threshold_accumulator() - Convert back to bipolar
+
+    **Online Subspace Learning** (anomaly detection):
+    - create_subspace() - Initialize CCIPCA subspace tracker
+    - surprise_fingerprint() - Per-field anomaly attribution
 
     **Similarity**:
     - similarity() - Compare vectors with various metrics
@@ -911,6 +917,104 @@ class HolonClient:
         """
         self._ensure_local("threshold_accumulator")
         return self._store.encoder.threshold_accumulator(accumulator)
+
+    # =========================================================================
+    # Online Subspace Learning
+    # =========================================================================
+
+    def create_subspace(
+        self,
+        k: int = 64,
+        amnesia: float = 2.0,
+        sigma_mult: float = 3.5,
+        ema_alpha: float = 0.01,
+        reorth_interval: int = 500,
+    ) -> "OnlineSubspace":
+        """
+        Create an OnlineSubspace for streaming anomaly detection.
+
+        Learns the low-dimensional manifold that familiar vectors occupy
+        via CCIPCA (Candid Covariance-free Incremental PCA). Vectors that
+        don't project cleanly onto the manifold have high residuals.
+
+        Args:
+            k: Number of principal components to track. 32-128 typical.
+                Lower = faster, higher = tighter boundary.
+            amnesia: Forgetting exponent. 2.0 = moderate, 3.0 = aggressive.
+                Higher values adapt faster to concept drift.
+            sigma_mult: Threshold sensitivity (number of std devs).
+                3.5 = conservative, 2.0 = aggressive.
+            ema_alpha: EMA decay for threshold tracking.
+            reorth_interval: Re-orthogonalize basis every N updates.
+
+        Returns:
+            OnlineSubspace configured with this client's dimensionality.
+
+        Example:
+            >>> sub = client.create_subspace(k=64)
+            >>> for record in normal_stream:
+            ...     sub.update(client.encode(record))
+            >>> for record in mixed_stream:
+            ...     if sub.residual(client.encode(record)) > sub.threshold:
+            ...         print("anomaly")
+        """
+        self._ensure_local("create_subspace")
+        from .subspace import OnlineSubspace
+
+        return OnlineSubspace(
+            dim=self._dimensions,
+            k=k,
+            amnesia=amnesia,
+            ema_alpha=ema_alpha,
+            sigma_mult=sigma_mult,
+            reorth_interval=reorth_interval,
+        )
+
+    def surprise_fingerprint(
+        self,
+        vec: np.ndarray,
+        subspace: "OnlineSubspace",
+        fields: Optional[List[str]] = None,
+    ) -> Dict[str, float]:
+        """
+        Compute per-field anomaly attribution from the subspace residual.
+
+        Extracts the anomalous component (the part of vec that doesn't
+        project onto the learned subspace), then unbinds each field's
+        role vector to measure that field's contribution to the anomaly.
+
+        Higher magnitude = more surprising = better rule predicate candidate.
+
+        Args:
+            vec: Encoded vector to analyze.
+            subspace: Trained OnlineSubspace.
+            fields: Field names to attribute. If None, returns the raw
+                anomalous component norm instead.
+
+        Returns:
+            Dict mapping field name to anomaly magnitude. Fields are
+            sorted by magnitude (highest = most surprising).
+
+        Example:
+            >>> sub = client.create_subspace()
+            >>> # ... train on normal traffic ...
+            >>> fp = client.surprise_fingerprint(attack_vec, sub,
+            ...     fields=["src_ip", "dst_port", "proto", "ttl"])
+            >>> # fp = {"dst_port": 44.2, "ttl": 43.8, "proto": 42.1, ...}
+        """
+        self._ensure_local("surprise_fingerprint")
+        anomaly = subspace.anomalous_component(vec)
+
+        if fields is None:
+            return {"_total": float(np.linalg.norm(anomaly))}
+
+        scores = {}
+        for field in fields:
+            role_vec = self.get_vector(field)
+            field_anomaly = role_vec * anomaly  # unbind
+            scores[field] = float(np.linalg.norm(field_anomaly))
+
+        return dict(sorted(scores.items(), key=lambda x: x[1], reverse=True))
 
     # =========================================================================
     # Continuous Scalar Encoding

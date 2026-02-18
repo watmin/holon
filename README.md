@@ -100,6 +100,7 @@ Everything in Holon is built from these kernel operations:
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
 | **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `decay(acc,f)`, `normalize_accumulator(acc)` |
+| **Subspace** | `create_subspace(k)`, `sub.update(v)`, `sub.residual(v)`, `sub.anomalous_component(v)`, `surprise_fingerprint(v,sub,fields)` |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
 | **Extended** | `attend(q,m,s,mode)`, `analogy(a,b,c)`, `project(v,subspace)`, `conditional_bind(a,b,gate)` |
 | **Analysis** | `similarity_profile(a,b)`, `complexity(v)`, `segment(stream,w,t)`, `invert(v,codebook)` |
@@ -510,6 +511,47 @@ The complete pipeline: **Learn → Detect → Identify → Mitigate**
 
 See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for complete details.
 
+## Online Subspace Learning (Challenge 017)
+
+Learn what "normal" looks like, detect what doesn't fit, and explain why — all from the vector algebra:
+
+```python
+client = HolonClient()
+sub = client.create_subspace(k=64)
+
+# Train: learn the manifold of normal structured data
+for record in normal_stream:
+    sub.update(client.encode(record))
+
+# Detect: residual = distance from the learned manifold
+vec = client.encode(suspicious_record)
+if sub.residual(vec) > sub.threshold:
+    # Attribute: which fields are surprising?
+    fp = client.surprise_fingerprint(vec, sub,
+        fields=["src_ip", "dst_port", "proto", "ttl"])
+    # → {"ttl": 44.9, "dst_port": 44.4, "src_ip": 43.9, ...}
+
+    # The top-k surprising fields + their values from the record → rule
+    # → ((and (= ttl 245) (= dst_port 53)) => (drop))
+```
+
+**Key properties:**
+- **Generic**: No domain knowledge — works on any structured data (network packets, transactions, sensor readings)
+- **Online**: O(k*d) per vector, no batch SVD, no covariance matrix
+- **Explainable**: `anomalous_component()` + `unbind()` identifies which fields are responsible
+- **Compact**: k vectors + mean ≈ 2MB for k=64, d=4096
+
+**What the subspace adds beyond centroid-based detection:**
+
+| | Centroid (accumulator) | Subspace |
+|---|---|---|
+| Output | Scalar (cosine distance) | Vector (anomalous component) |
+| Attribution | "Something changed" | "ttl and dst_port are surprising" |
+| Adaptation | Accumulator decay | Amnesia-controlled forgetting |
+| Spectrum | N/A | Eigenvalue shifts characterize attack type |
+
+See [Challenge 017 Learnings](docs/challenges/017-batch/LEARNINGS.md) for detailed results.
+
 ## Honest Assessment
 
 **What Holon does well:**
@@ -529,6 +571,8 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 - Zero-hardcode detection: 100% recall, 4% FP without domain knowledge (Challenge 012)
 - Continuous value encoding: log-scale rates, circular angles with smooth similarity
 - Inline magnitude markers: `$log` and `$linear` for magnitude-aware encoding in data structures (Challenge 015)
+- Online subspace learning: CCIPCA-based anomaly detection with per-field attribution (Challenge 017)
+- Surprise fingerprinting: 100% attack classification from 7-number vector, auto-generated mitigation rules
 
 **What Holon cannot do:**
 - Constraint satisfaction (Sudoku, SAT, graph coloring)
@@ -546,6 +590,7 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 
 | Batch | Description | Status |
 |-------|-------------|--------|
+| [017](docs/challenges/017-batch/LEARNINGS.md) | Online subspace learning (HyperBox) | ✅ CCIPCA, anomaly detection, fingerprinting |
 | [015](docs/challenges/015-batch/LEARNINGS.md) | Magnitude-aware numeric encoding | ✅ `$log`/`$linear` markers |
 | [014](docs/challenges/014-batch/LEARNINGS.md) | Extended primitives for explainable VSA | ✅ 9 new primitives |
 | [013](docs/challenges/013-batch/LEARNINGS.md) | Vector-derived rate limiting | ✅ No scalar state |

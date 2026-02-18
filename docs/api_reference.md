@@ -555,6 +555,67 @@ text_vector = client.encode_vectors_json({
 # Note: Client interface abstracts vector operations for typical use cases
 ```
 
+### Online Subspace Learning
+
+Learn a low-dimensional manifold from streaming data, detect anomalies, and attribute
+which fields are responsible:
+
+```python
+# Create a subspace tracker (factory pre-configures dimensionality)
+sub = client.create_subspace(k=64, amnesia=2.0, sigma_mult=3.5)
+
+# Train on normal data
+for record in normal_stream:
+    residual = sub.update(client.encode(record))
+
+# Detect anomalies
+vec = client.encode(suspicious_record)
+score = sub.residual(vec)           # Distance from learned manifold
+is_anomaly = score > sub.threshold  # Adaptive threshold (EMA + N*sigma)
+
+# Explain the anomaly
+anomaly = sub.anomalous_component(vec)  # 4096D vector of "what's weird"
+coords = sub.project(vec)               # k-D embedding for clustering/viz
+spectrum = sub.eigenvalues               # Variance along each component
+```
+
+**Per-field attribution** — identifies which fields make a record anomalous:
+
+```python
+fp = client.surprise_fingerprint(vec, sub,
+    fields=["src_ip", "dst_port", "proto", "ttl"])
+# → {"ttl": 44.9, "dst_port": 44.4, "proto": 42.9, "src_ip": 43.9}
+# Higher magnitude = more surprising
+```
+
+The fingerprint ranks fields by surprise. Combined with the raw record's values,
+this produces actionable rules:
+
+```python
+# Top-k surprising fields + their values from the record
+# → ((and (= ttl 245) (= dst_port 53)) => (drop))
+```
+
+**Subspace parameters:**
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `k` | 64 | Number of principal components (32-128 typical) |
+| `amnesia` | 2.0 | Forgetting exponent (higher = adapts faster) |
+| `sigma_mult` | 3.5 | Threshold sensitivity (lower = more aggressive) |
+| `ema_alpha` | 0.01 | EMA decay for threshold tracking |
+| `reorth_interval` | 500 | Re-orthogonalize basis every N updates |
+
+**Persistence:**
+
+```python
+# Export state for shipping to another node
+snap = sub.snapshot()
+
+# Restore on another node (no retraining needed)
+sub2 = OnlineSubspace.from_snapshot(snap)
+```
+
 ### Continuous Value Encoding
 
 Encode continuous scalar values where similar values produce similar vectors:

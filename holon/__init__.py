@@ -102,6 +102,9 @@ from .scalar import (  # noqa: F401 - re-exported for public API
     encode_scalar_log,
 )
 
+# Online subspace learning (CCIPCA)
+from .subspace import OnlineSubspace  # noqa: F401 - re-exported for public API
+
 # Vector managers
 from .vector_manager import (  # noqa: F401 - re-exported for public API
     DeterministicVectorManager,
