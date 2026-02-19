@@ -6,26 +6,49 @@ See the main [README](../README.md) for overview and quick start.
 Holon is a high-performance implementation of Vector Symbolic Architectures (VSA) and Hyperdimensional Computing (HDC) for structured data storage and similarity search. It provides neural-inspired memory capabilities with efficient similarity-based querying.
 
 ## Core Architecture
-- **VSA/HDC Foundation**: Bipolar vector representations with binding/bundling operations
-- **Structural Encoding**: Recursive encoding preserving data relationships (maps, sequences, sets)
-- **Similarity Search**: Cosine/dot product similarity with optimized algorithms
-- **Backend Support**: CPU (NumPy) and GPU (CuPy) with auto-detection
+
+Holon is organized into three clean layers:
+
+1. **`holon.kernel`** - Foundational VSA/HDC primitives
+   - Bipolar vector representations with binding/bundling operations
+   - Structural encoding preserving data relationships (maps, sequences, sets)
+   - Store backends: CPU (NumPy) and GPU (CuPy) with auto-detection
+   - Similarity search with optimized algorithms
+
+2. **`holon.memory`** - Programmatic neural memory
+   - `OnlineSubspace`: CCIPCA-based manifold learning for anomaly detection
+   - `Engram`/`EngramLibrary`: Learned pattern snapshots
+
+3. **`holon.highlevel`** - Convenience APIs
+   - `HolonClient`: Unified facade with query DSL, guards, negations
 
 ## Key Components Implemented
 
-#### Core Engine (holon/)
-- **vector_manager.py**: High-dimensional vector allocation and caching with CPU/GPU support
+#### Kernel Layer (holon/kernel/)
+- **primitives.py**: Core VSA operations (bind, bundle, unbind, etc.)
 - **encoder.py**: Structural encoding with binding operations and vector bootstrapping
+- **store.py**: Storage interface with CPU/GPU backend support and bulk operations
 - **similarity.py**: Optimized similarity search with heap selection and ANN indexing
-- **cpu_store.py**: Main storage interface with CPU/GPU backend support and bulk operations
-- **atomizer.py**: Data parsing and atomization for JSON/EDN with rich type support
+- **vector_manager.py**: High-dimensional vector allocation and caching
+- **scalar.py**: Scalar encoding (log-scale, circular, positional)
+- **walkable.py**: Zero-allocation encoding interface
+- **distance.py**: Distance metrics and significance testing
+- **accumulator.py**: Accumulator primitives for vector composition
+- **utils/atomizer.py**: Data parsing and atomization for JSON/EDN
+
+#### Memory Layer (holon/memory/)
+- **subspace.py**: Online subspace learning for anomaly detection
+- **engram.py**: Pattern memory and library management
+
+#### High-Level Layer (holon/highlevel/)
+- **client.py**: Unified client interface for data operations
 
 #### API Layer (scripts/server/)
 - **holon_server.py**: FastAPI REST API with advanced querying and vector encoding
 - **holon_server.py**: Batch operations, complex guards, and health monitoring
 
 #### Testing & Examples
-- **tests/**: 138 comprehensive unit tests with pytest (136/138 pass rate)
+- **tests/**: 603 comprehensive unit tests with pytest (all passing)
 - **examples/**: JSON and EDN usage examples with advanced query patterns
 - **scripts/**: Performance testing, challenge solutions, and API clients
 
@@ -61,8 +84,8 @@ For detailed performance benchmarks and optimization strategies, see the [Perfor
 - ✅ **Bulk operations** with optimized indexing
 - ✅ **HTTP REST API** with FastAPI and complex query support
 - ✅ **JSON/EDN support** with rich type conversion
-- ✅ **Challenge solutions** completed (4/4 major VSA/HDC challenges)
-- ✅ **Comprehensive testing** (138 tests, 136/138 pass rate)
+- ✅ **Challenge solutions** completed (17 batches of VSA/HDC challenges)
+- ✅ **Comprehensive testing** (603 tests, all passing)
 - ✅ **Repository organization** clean and documented
 
 ## Recent Breakthroughs
@@ -246,35 +269,48 @@ For complete API documentation including advanced query features, see the [API R
 
 ## Repository Structure
 ```
-holon/              # Core package
-├── __init__.py     # Package exports
-├── cpu_store.py    # Storage interface
-├── encoder.py      # Encoding engine
-├── vector_manager.py # Vector management
-├── atomizer.py     # Data parsing
-└── similarity.py   # Query optimization
+holon/                        # Core package (three-layer architecture)
+├── __init__.py               # Top-level exports + backward compat
+├── kernel/                   # Layer 1: Foundational VSA/HDC primitives
+│   ├── primitives.py         # Core VSA operations
+│   ├── encoder.py            # Structural encoding
+│   ├── store.py              # Storage backends (CPUStore)
+│   ├── scalar.py             # Scalar encoding
+│   ├── accumulator.py        # Accumulator primitives
+│   ├── vector_manager.py     # Vector management
+│   ├── walkable.py           # Zero-alloc encoding
+│   ├── distance.py           # Distance metrics
+│   ├── similarity.py         # Similarity search
+│   ├── utils/                # Utilities (atomizer)
+│   └── encoders/             # Extended encoders (domain, enhanced, semantic)
+├── memory/                   # Layer 2: Programmatic neural memory
+│   ├── subspace.py           # OnlineSubspace (CCIPCA)
+│   └── engram.py             # Engram, EngramLibrary
+├── highlevel/                # Layer 3: Convenience APIs
+│   └── client.py             # HolonClient facade
+├── qdrant_store.py           # Optional: Qdrant integration
+└── torchhd_encoder.py        # Optional: TorchHD backend
 
-scripts/            # Utilities
+scripts/                      # Utilities
 ├── server/
-│   └── holon_server.py # HTTP API
-└── performance_test.py # Benchmarking
+│   └── holon_server.py       # HTTP API
+└── challenges/               # Challenge solutions (batches 001-017)
 
-docs/               # Documentation
-├── README.md       # API & usage
-├── architecture.md # Technical design
-├── api_design.md   # API specification
-└── limits_and_performance.md # Performance guide
+docs/                         # Documentation
+├── ARCHITECTURE.md           # Layered architecture guide
+├── api_reference.md          # API documentation
+└── ...
 
-examples/           # Usage examples
-tests/              # Unit tests
+examples/                     # Usage examples
+tests/                        # Unit tests (603 tests)
 ```
 
 ## Critical Files to Understand
-- **holon/cpu_store.py**: Main interface and backend logic
-- **holon/encoder.py**: Core VSA/HDC encoding implementation
-- **holon/similarity.py**: Query optimization algorithms
+- **holon/kernel/**: Foundational primitives (start here)
+- **holon/memory/subspace.py**: Online subspace learning (the novel contribution)
+- **holon/highlevel/client.py**: Unified client facade
 - **scripts/server/holon_server.py**: HTTP API implementation
-- **docs/limits_and_performance.md**: Performance characteristics
+- **docs/ARCHITECTURE.md**: Layered architecture guide
 
 ## Current Working State
 - **All core functionality** implemented and tested

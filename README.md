@@ -16,11 +16,41 @@ Inspired by [Carin Meier's VSA talk](https://www.youtube.com/watch?v=j7ygjfbBJD0
 
 Holon encodes **JSON structure into vectors**, enabling similarity search over structured data. Unlike semantic embeddings that capture meaning, Holon captures *structure* - keys, nesting, relationships become geometry.
 
+## Architecture
+
+Holon is organized into three clean layers:
+
+1. **`holon.kernel`** - Foundational VSA/HDC primitives (~50 operations)
+   - The minimal, stable foundation: `bind()`, `bundle()`, `encode_data()`, store backends
+   - Mirrors `holon-rs` API for cross-language parity
+   - Zero dependencies on higher layers
+
+2. **`holon.memory`** - Programmatic neural memory (the novel contribution)
+   - `OnlineSubspace`: CCIPCA-based manifold learning for anomaly detection
+   - `Engram`/`EngramLibrary`: Learned pattern snapshots with single-packet matching
+
+3. **`holon.highlevel`** - Convenience APIs and composition
+   - `HolonClient`: Unified facade with query DSL, guards, `$markers`
+   - Builds on kernel + memory for ergonomic data operations
+
+Import directly from layers for clarity, or use top-level exports for convenience:
+
+```python
+# Explicit layer imports (recommended for new code)
+from holon.kernel import bind, bundle, CPUStore
+from holon.memory import OnlineSubspace, EngramLibrary
+from holon.highlevel import HolonClient
+
+# Top-level convenience (backward compatible)
+from holon import bind, bundle, CPUStore, OnlineSubspace, HolonClient
+```
+
 ## Quick Start
 
 ```python
 from holon import CPUStore, HolonClient
 
+# Create store and client
 store = CPUStore(dimensions=4096)
 client = HolonClient(local_store=store)
 
@@ -54,6 +84,8 @@ results = client.search_json(probe={
 })
 # → Finds sessions with similar event patterns
 ```
+
+> **Note**: The Quick Start uses top-level convenience imports. For library code or explicit layer usage, see the [Architecture](#architecture) section above.
 
 <div align="center">
 <img src="assets/time-bending-lattices.gif" alt="Time-Bending Lattices">
@@ -89,9 +121,9 @@ All scripts use `./scripts/run_with_venv.sh` to ensure venv activation:
 ./scripts/run_with_venv.sh pytest tests/
 ```
 
-## Core Primitives
+## Kernel Primitives
 
-Everything in Holon is built from these kernel operations:
+Everything in Holon is built from these foundational kernel operations (`holon.kernel`):
 
 | Category | Primitives |
 |----------|-----------|
@@ -100,38 +132,42 @@ Everything in Holon is built from these kernel operations:
 | **VSA Ops** | `bind(a,b)`, `unbind(ab,a)`, `bundle([vecs])`, `permute(v,k)` |
 | **Learning** | `prototype([examples])`, `prototype_add(p,ex,n)`, `cleanup(noisy,codebook)` |
 | **Streaming** | `create_accumulator()`, `accumulate(acc,v)`, `decay(acc,f)`, `normalize_accumulator(acc)` |
-| **Subspace** | `create_subspace(k)`, `sub.update(v)`, `sub.residual(v)`, `sub.anomalous_component(v)`, `surprise_fingerprint(v,sub,fields)` |
-| **Engram** | `create_engram_library()`, `lib.add(name,sub)`, `lib.match(v)`, `lib.match_spectrum(eigs)`, `lib.save(path)` |
+| **Subspace** | `OnlineSubspace(k)` - from `holon.memory` layer |
+| **Engram** | `EngramLibrary()` - from `holon.memory` layer |
 | **Manipulation** | `difference(a,b)`, `amplify(v,sig,str)`, `negate(v,x)`, `blend(a,b,α)`, `resonance(v,ref)` |
 | **Extended** | `attend(q,m,s,mode)`, `analogy(a,b,c)`, `project(v,subspace)`, `conditional_bind(a,b,gate)` |
 | **Analysis** | `similarity_profile(a,b)`, `complexity(v)`, `segment(stream,w,t)`, `invert(v,codebook)` |
-| **Similarity** | `similarity(a,b,metric)` - cosine, hamming, overlap, agreement, euclidean, manhattan |
+| **Similarity** | `cosine_similarity(a,b)`, `find_similar_vectors(query, vecs, top_k)` |
 
 ### Quick Examples
 
 ```python
+from holon.kernel import Encoder, VectorManager, prototype, difference, negate, amplify, cosine_similarity
+
+encoder = Encoder(VectorManager(dimensions=4096))
+
 # Learn a prototype from examples
-dev_vecs = [store.encoder.encode_data(d) for d in developer_profiles]
-dev_prototype = store.prototype(dev_vecs)
+dev_vecs = [encoder.encode_data(d) for d in developer_profiles]
+dev_prototype = prototype(dev_vecs)
 
 # Classify new data
-new_vec = store.encoder.encode_data(new_profile)
-is_developer = similarity(new_vec, dev_prototype) > 0.5
+new_vec = encoder.encode_data(new_profile)
+is_developer = cosine_similarity(new_vec, dev_prototype) > 0.5
 
 # Find what changed between versions
-v1 = store.encoder.encode_data(config_v1)
-v2 = store.encoder.encode_data(config_v2)
-delta = store.difference(v1, v2)  # The change is a vector!
+v1 = encoder.encode_data(config_v1)
+v2 = encoder.encode_data(config_v2)
+delta = difference(v1, v2)  # The change is a vector!
 
 # "X but NOT Y" queries
-all_errors = store.encoder.encode_data({"type": "error"})
-known_bugs = store.encoder.encode_data({"type": "error", "known": True})
-unknown_errors = store.negate(all_errors, known_bugs)
+all_errors = encoder.encode_data({"type": "error"})
+known_bugs = encoder.encode_data({"type": "error", "known": True})
+unknown_errors = negate(all_errors, known_bugs)
 
 # Boost specific signals
-base_query = store.encoder.encode_data({"topic": "security"})
-priority_signal = store.encoder.encode_data({"severity": "critical"})
-boosted = store.amplify(base_query, priority_signal, strength=2.0)
+base_query = encoder.encode_data({"topic": "security"})
+priority_signal = encoder.encode_data({"severity": "critical"})
+boosted = amplify(base_query, priority_signal, strength=2.0)
 ```
 
 ### Extended Primitives (Challenge 014)
@@ -139,7 +175,7 @@ boosted = store.amplify(base_query, priority_signal, strength=2.0)
 New primitives for explainable anomaly forensics:
 
 ```python
-from holon.primitives import segment, invert, complexity, attend, analogy
+from holon.kernel import segment, invert, complexity, attend, analogy
 
 # Find WHEN behavior changed in a stream
 breakpoints = segment(packet_vectors, window=100, threshold=0.3)
@@ -166,20 +202,22 @@ port_443_exfil = analogy(port_80_scan, port_443_scan, port_80_exfil)
 Encode continuous values where similar values produce similar vectors:
 
 ```python
+from holon.kernel import encode_scalar_log, encode_scalar, cosine_similarity
+
 # Log-scale encoding: equal ratios = equal similarity
-rate_100 = store.encode_scalar_log(100)
-rate_1000 = store.encode_scalar_log(1000)
-rate_10000 = store.encode_scalar_log(10000)
+rate_100 = encode_scalar_log(100, dimensions=4096)
+rate_1000 = encode_scalar_log(1000, dimensions=4096)
+rate_10000 = encode_scalar_log(10000, dimensions=4096)
 
 # 100→1000 similarity ≈ 1000→10000 similarity (both 10x)
-store.similarity(rate_100, rate_1000)   # ~0.94
-store.similarity(rate_1000, rate_10000) # ~0.92
+cosine_similarity(rate_100, rate_1000)   # ~0.94
+cosine_similarity(rate_1000, rate_10000) # ~0.92
 
 # Linear encoding for positions, temperatures, etc.
-temp_vec = store.encode_scalar(72.5, mode="linear")
+temp_vec = encode_scalar(72.5, mode="linear", dimensions=4096)
 
 # Circular encoding for angles, hours (wraps around)
-hour_vec = store.encode_scalar(23.5, mode="circular", period=24.0)
+hour_vec = encode_scalar(23.5, mode="circular", period=24.0, dimensions=4096)
 # hour 23.5 is similar to hour 0.5 (they're close on the clock)
 ```
 
@@ -188,20 +226,26 @@ hour_vec = store.encode_scalar(23.5, mode="circular", period=24.0)
 ### Config Drift Detection (The Coolest Thing We Built)
 
 ```python
+from holon.kernel import Encoder, VectorManager, difference, negate, amplify
+from holon.highlevel import HolonClient
+
+encoder = Encoder(VectorManager(dimensions=4096))
+client = HolonClient(...)
+
 # Encode configs as vectors
-golden = store.encoder.encode_data(golden_config)
-actual = store.encoder.encode_data(server_config)
+golden = encoder.encode_data(golden_config)
+actual = encoder.encode_data(server_config)
 
 # The drift is a vector
-drift = store.difference(golden, actual)
+drift_vec = difference(golden, actual)
 
 # Remove expected changes
-expected = store.encoder.encode_data({"version": "2.0"})
-unexpected = store.negate(drift, expected, method="orthogonalize")
+expected = encoder.encode_data({"version": "2.0"})
+unexpected = negate(drift_vec, expected, method="orthogonalize")
 
 # Amplify security-related drift
-security = store.encoder.encode_data({"tls": {}, "auth": {}})
-security_drift = store.amplify(unexpected, security, 2.0)
+security = encoder.encode_data({"tls": {}, "auth": {}})
+security_drift = amplify(unexpected, security, 2.0)
 
 # Find servers with similar security drift
 results = client.search_by_vector(security_drift, limit=10)
@@ -484,12 +528,16 @@ The integrated detector combines:
 Using vector operations to derive actionable firewall rules:
 
 ```python
+from holon.kernel import difference, cosine_similarity, Encoder, VectorManager
+
+encoder = Encoder(VectorManager(dimensions=4096))
+
 # What makes attacks different from normal?
-attack_delta = store.difference(attack_signature, baseline)
+attack_delta = difference(attack_signature, baseline)
 
 # Which features contribute most?
 for feature in features:
-    importance = similarity(encode({feature: value}), attack_delta)
+    importance = cosine_similarity(encoder.encode_data({feature: value}), attack_delta)
     if importance > threshold:
         rules.append(f"DROP if {feature}={value}")
 ```
@@ -517,20 +565,22 @@ See [Challenge 011 Learnings](docs/challenges/011-batch/LEARNINGS.md) for comple
 Learn what "normal" looks like, detect what doesn't fit, and explain why — all from the vector algebra:
 
 ```python
-client = HolonClient()
-sub = client.create_subspace(k=64)
+from holon.kernel import Encoder, VectorManager
+from holon.memory import OnlineSubspace
+
+encoder = Encoder(VectorManager(dimensions=4096))
+sub = OnlineSubspace(k=64, dimensions=4096)
 
 # Train: learn the manifold of normal structured data
 for record in normal_stream:
-    sub.update(client.encode(record))
+    sub.update(encoder.encode_data(record))
 
 # Detect: residual = distance from the learned manifold
-vec = client.encode(suspicious_record)
+vec = encoder.encode_data(suspicious_record)
 if sub.residual(vec) > sub.threshold:
     # Attribute: which fields are surprising?
-    fp = client.surprise_fingerprint(vec, sub,
-        fields=["src_ip", "dst_port", "proto", "ttl"])
-    # → {"ttl": 44.9, "dst_port": 44.4, "src_ip": 43.9, ...}
+    fp = sub.anomalous_component(vec)
+    # → The anomalous component can be decomposed to find surprising fields
 
     # The top-k surprising fields + their values from the record → rule
     # → ((and (= ttl 245) (= dst_port 53)) => (drop))
@@ -559,10 +609,12 @@ Store learned manifolds as **engrams** (memory traces) for future recognition
 and instant mitigation:
 
 ```python
-library = client.create_engram_library()
+from holon.memory import OnlineSubspace, EngramLibrary
+
+library = EngramLibrary()
 
 # First encounter: learn the pattern, mint an engram
-attack_sub = client.create_subspace(k=32)
+attack_sub = OnlineSubspace(k=32, dimensions=4096)
 for vec in attack_stream:
     attack_sub.update(vec)
 library.add("dns_amp", attack_sub, rule="...", severity="high")

@@ -38,7 +38,7 @@ class TestCodeStructureSearch:
     def test_ingest_single_file(self, client):
         """Test ingesting a single Python file."""
         client, store = client
-        count = ingest_python_file(client, "holon/client.py")
+        count = ingest_python_file(client, "holon/highlevel/client.py")
         assert count > 50  # client.py should have many nodes
 
     def test_ingest_directory(self, client):
@@ -52,7 +52,7 @@ class TestCodeStructureSearch:
     def test_search_class_def(self, client):
         """Test searching for class definitions."""
         client, store = client
-        ingest_python_file(client, "holon/client.py")
+        ingest_python_file(client, "holon/highlevel/client.py")
 
         results = client.search_json(probe={"_type": "ClassDef"}, limit=10)
         assert len(results) >= 1
@@ -65,7 +65,7 @@ class TestCodeStructureSearch:
                 found_holon_client = True
                 # Verify coordinates
                 loc = data.get("_location", {})
-                assert loc.get("file") == "holon/client.py"
+                assert "highlevel/client.py" in loc.get("file", "")
                 assert loc.get("line") > 0
                 break
         assert found_holon_client
@@ -73,7 +73,7 @@ class TestCodeStructureSearch:
     def test_search_function_def(self, client):
         """Test searching for function definitions."""
         client, store = client
-        ingest_python_file(client, "holon/cpu_store.py")
+        ingest_python_file(client, "holon/kernel/store.py")
 
         results = client.search_json(
             probe={"_type": "FunctionDef", "name": "insert"}, limit=10
@@ -88,12 +88,12 @@ class TestCodeStructureSearch:
         )
         assert data.get("_type") == "FunctionDef"
         loc = data.get("_location", {})
-        assert "cpu_store.py" in loc.get("file", "")
+        assert "store.py" in loc.get("file", "")
 
     def test_search_with_class_context(self, client):
         """Test that _in_class context is tracked."""
         client, store = client
-        ingest_python_file(client, "holon/cpu_store.py")
+        ingest_python_file(client, "holon/kernel/store.py")
 
         # Search for functions in CPUStore
         results = client.search_json(
@@ -112,7 +112,7 @@ class TestCodeStructureSearch:
     def test_or_query_multiple_types(self, client):
         """Test $or query across multiple node types."""
         client, store = client
-        ingest_python_file(client, "holon/encoder.py")
+        ingest_python_file(client, "holon/kernel/encoder.py")
 
         results = client.search_json(
             probe={
@@ -171,7 +171,7 @@ class TestCodeStructureSearch:
     def test_coordinate_accuracy(self, client):
         """Test that coordinates point to actual source lines."""
         client, store = client
-        ingest_python_file(client, "holon/client.py")
+        ingest_python_file(client, "holon/highlevel/client.py")
 
         results = client.search_json(
             probe={"_type": "FunctionDef", "name": "insert"}, limit=5

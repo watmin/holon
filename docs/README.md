@@ -22,6 +22,7 @@ See the main [README.md](../README.md) for overview and quick start.
 
 | Document | Description |
 |----------|-------------|
+| [Architecture Overview](ARCHITECTURE.md) | **NEW**: Layered design (kernel/memory/highlevel), import patterns, and design rationale |
 | [System Context](holon_context.md) | Overall architecture and data flow |
 | [Architecture Decisions](architecture/decisions/) | Key design choices (ADRs) |
 
