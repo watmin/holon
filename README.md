@@ -170,6 +170,25 @@ priority_signal = encoder.encode_data({"severity": "critical"})
 boosted = amplify(base_query, priority_signal, strength=2.0)
 ```
 
+## Showcases (Non-Networking)
+
+Polished examples demonstrating Holon's generic power across diverse domains:
+
+- **[Log Anomaly Memory](examples/showcases/log_anomaly_memory/)** - Detect anomalous log lines with field-level attribution and instant recall
+- **[Config Drift Remediation](examples/showcases/config_drift_remediation/)** - Detect configuration drift, attribute the changed field, generate remediation
+- **[Time-Series Recall & Forecast](examples/showcases/timeseries_recall_forecast/)** - Recall historical patterns and forecast next steps from partial sequences
+- **[API Fingerprinting](examples/showcases/api_fingerprinting/)** - Fingerprint API endpoints with variant resilience and structural drift detection
+
+Each showcase is <150 lines and demonstrates the kernel + memory layer workflow: encode → learn subspace → mint engram → detect/recall.
+
+Run any showcase:
+```bash
+./scripts/run_with_venv.sh python -m examples.showcases.log_anomaly_memory.showcase
+./scripts/run_with_venv.sh python -m examples.showcases.config_drift_remediation.showcase
+./scripts/run_with_venv.sh python -m examples.showcases.timeseries_recall_forecast.showcase
+./scripts/run_with_venv.sh python -m examples.showcases.api_fingerprinting.showcase
+```
+
 ### Extended Primitives (Challenge 014)
 
 New primitives for explainable anomaly forensics:

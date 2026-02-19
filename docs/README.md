@@ -39,6 +39,22 @@ Each batch contains problem statements and learnings:
 | [005](challenges/005-batch/) | NP-hard optimization | Not attempted | Expected to fail (same reasons as Sudoku) |
 | [006](challenges/006-batch/) | LLM Memory Augmentation | Complete | [Ideal use case - 82% token savings](challenges/006-batch/LEARNINGS.md) |
 
+## Showcases (Non-Networking)
+
+End-to-end demos of Holon's generic power — no networking stack required.
+
+| Showcase | Description |
+|----------|-------------|
+| [Log Anomaly Memory](showcases/log_anomaly_memory.md) | Detect and attribute log anomalies; recall matching engram |
+| [Config Drift Remediation](showcases/config_drift_remediation.md) | Detect config drift, attribute culprit field, remediate with `difference`+`amplify` |
+| [Time-Series Recall & Forecast](showcases/timeseries_recall_forecast.md) | Match partial sensor sequences, forecast next 3 states |
+| [API Fingerprinting](showcases/api_fingerprinting.md) | Variant-resilient endpoint fingerprinting; anomaly on unknown structure |
+
+Run any with:
+```bash
+./scripts/run_with_venv.sh python -m examples.showcases.<name>.showcase
+```
+
 ## Examples
 
 | Example | Description |
