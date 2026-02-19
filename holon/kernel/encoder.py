@@ -18,9 +18,19 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, List, Sequence, Union
 
-import edn_format
 import numpy as np
-from edn_format.immutable_dict import ImmutableDict
+
+# Optional EDN format support
+try:
+    import edn_format
+    from edn_format.immutable_dict import ImmutableDict
+
+    HAS_EDN = True
+except ImportError:
+    HAS_EDN = False
+    ImmutableDict = None  # type: ignore
+
+_DICT_TYPES = (dict, ImmutableDict) if HAS_EDN and ImmutableDict else (dict,)
 
 # Import from reorganized modules
 from . import accumulator as accum_module
@@ -314,7 +324,7 @@ class Encoder:
 
     def _encode_recursive(self, data: Any, list_mode=None, **kwargs) -> np.ndarray:
         """Recursively encode data structures."""
-        if isinstance(data, (dict, ImmutableDict)):
+        if isinstance(data, _DICT_TYPES):
             return self._encode_map(data, list_mode=list_mode, **kwargs)
         elif isinstance(data, (list, tuple)):
             mode = list_mode if list_mode is not None else self.default_list_mode
@@ -325,7 +335,7 @@ class Encoder:
             return self._encode_scalar(data)
 
     def _encode_map(
-        self, data: Union[dict, ImmutableDict], list_mode=None, **kwargs
+        self, data: Union[dict, Any], list_mode=None, **kwargs
     ) -> np.ndarray:
         """Encode a map by binding keys to values."""
         if not data:
@@ -536,15 +546,15 @@ class Encoder:
             return self.vector_manager.get_vector(data)
         elif isinstance(data, (int, float)):
             return self.vector_manager.get_vector(str(data))
-        elif isinstance(data, edn_format.Keyword):
+        elif HAS_EDN and isinstance(data, edn_format.Keyword):
             return self.vector_manager.get_vector(f":{data.name}")
-        elif isinstance(data, edn_format.Symbol):
+        elif HAS_EDN and isinstance(data, edn_format.Symbol):
             return self.vector_manager.get_vector(data.name)
         elif data is None:
             return self.vector_manager.get_vector("nil")
         elif isinstance(data, bool):
             return self.vector_manager.get_vector("true" if data else "false")
-        elif isinstance(data, edn_format.Char):
+        elif HAS_EDN and isinstance(data, edn_format.Char):
             return self.vector_manager.get_vector(str(data))
         else:
             return self.vector_manager.get_vector(str(data))

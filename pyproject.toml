@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "holon"
+version = "0.1.0"
+description = "Programmatic Neural Memory using Vector Symbolic Architectures"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "watministrator & Grok (xAI)"},
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["vsa", "hdc", "hyperdimensional-computing", "vector-symbolic-architectures", "neural-memory"]
+
+dependencies = [
+    "numpy>=1.21.0",
+]
+
+[project.optional-dependencies]
+edn = [
+    "edn_format>=0.7.0",
+]
+
+server = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+]
+
+faiss = [
+    "faiss-cpu>=1.7.0",
+]
+
+qdrant = [
+    "qdrant-client>=1.7.0",
+]
+
+http = [
+    "requests>=2.25.0",
+]
+
+dev = [
+    # Testing
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.24.0",
+    # Code quality
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=4.0.0",
+    "mypy>=1.0.0",
+    # Documentation
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    # Development tools
+    "pre-commit>=2.20.0",
+    "ipykernel>=6.0.0",
+    # Performance profiling
+    "memory-profiler>=0.60.0",
+    "line-profiler>=4.0.0",
+]
+
+all = [
+    "holon[edn,server,faiss,qdrant,http]",
+]
+
+[project.urls]
+Homepage = "https://github.com/watmin/holon"
+Repository = "https://github.com/watmin/holon"
+Documentation = "https://github.com/watmin/holon/tree/main/docs"
+
+[tool.setuptools]
+packages = ["holon", "holon.kernel", "holon.kernel.utils", "holon.kernel.encoders", "holon.memory", "holon.highlevel"]
+
+[tool.setuptools.package-data]
+holon = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

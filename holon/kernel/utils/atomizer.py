@@ -1,14 +1,22 @@
 import json
 
-import edn_format
-
 try:
     import ujson as json_fast
 except ImportError:
     json_fast = json
 from typing import Any, Set
 
-from edn_format.immutable_dict import ImmutableDict
+# Optional EDN format support
+try:
+    import edn_format
+    from edn_format.immutable_dict import ImmutableDict
+
+    HAS_EDN = True
+except ImportError:
+    HAS_EDN = False
+    ImmutableDict = None  # type: ignore
+
+_DICT_TYPES = (dict, ImmutableDict) if HAS_EDN and ImmutableDict else (dict,)
 
 
 def parse_data(data: str, data_type: str) -> Any:
@@ -22,6 +30,11 @@ def parse_data(data: str, data_type: str) -> Any:
     if data_type == "json":
         return json_fast.loads(data)
     elif data_type == "edn":
+        if not HAS_EDN:
+            raise ImportError(
+                "EDN format support requires edn_format. "
+                "Install with: pip install holon[edn]"
+            )
         return edn_format.loads(data)
     else:
         raise ValueError(f"Unsupported data_type: {data_type}")
@@ -39,7 +52,7 @@ def atomize(data: Any) -> Set[str]:
     atoms = set()
 
     def _atomize_recursive(obj: Any):
-        if isinstance(obj, (dict, ImmutableDict)):
+        if isinstance(obj, _DICT_TYPES):
             for key, value in obj.items():
                 _atomize_recursive(key)
                 _atomize_recursive(value)
@@ -50,11 +63,11 @@ def atomize(data: Any) -> Set[str]:
             atoms.add(obj)
         elif isinstance(obj, (int, float)):
             atoms.add(str(obj))  # Convert numbers to strings for atomization
-        elif isinstance(obj, edn_format.Keyword):
+        elif HAS_EDN and isinstance(obj, edn_format.Keyword):
             atoms.add(f":{obj.name}")  # EDN keywords as :keyword
-        elif isinstance(obj, edn_format.Symbol):
+        elif HAS_EDN and isinstance(obj, edn_format.Symbol):
             atoms.add(obj.name)  # EDN symbols as strings
-        elif isinstance(obj, edn_format.Char):
+        elif HAS_EDN and isinstance(obj, edn_format.Char):
             atoms.add(str(obj))  # EDN characters
         elif obj is None:
             atoms.add("nil")
