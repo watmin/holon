@@ -13,7 +13,7 @@ Run with: ./scripts/run_with_venv.sh python -m examples.showcases.timeseries_rec
 import random
 
 from holon.kernel import Encoder, ListEncodeMode, VectorManager
-from holon.kernel.walkable import LogScale
+from holon.kernel.walkable import LogScale, TimeScale
 from holon.memory import EngramLibrary, OnlineSubspace
 
 DIM = 4096
@@ -26,7 +26,7 @@ def _state(temp):
 
 def _step(t, temp):
     return {
-        "timestamp": {"$time": BASE_TS + t * 60},
+        "timestamp": TimeScale(BASE_TS + t * 60),
         "value": LogScale(temp),
         "state": _state(temp),
     }

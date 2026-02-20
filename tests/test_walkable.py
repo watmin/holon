@@ -692,3 +692,199 @@ class TestMagnitudeAwareScalars:
         assert (
             sim_high > sim_default
         ), f"Expected high scale > default: {sim_high} > {sim_default}"
+
+    # -------------------------------------------------------------------------
+    # TimeScale tests
+    # -------------------------------------------------------------------------
+
+    def test_time_scale_parity_with_dict_marker(self, encoder):
+        """TimeScale(ts) should produce the same vector as {'$time': ts}."""
+        from holon import TimeScale
+
+        ts = 1_700_000_000
+
+        v_wrapper = encoder.encode_data({"ts": TimeScale(ts)})
+        v_marker = encoder.encode_data({"ts": {"$time": ts}})
+
+        np.testing.assert_array_equal(
+            v_wrapper,
+            v_marker,
+            err_msg="TimeScale wrapper and $time marker should encode identically",
+        )
+
+    def test_time_scale_resolution_parity(self, encoder):
+        """TimeScale with explicit resolution should match $time_resolution marker."""
+        from holon import TimeScale
+
+        ts = 1_700_000_000
+
+        v_wrapper = encoder.encode_data({"ts": TimeScale(ts, resolution="minute")})
+        v_marker = encoder.encode_data(
+            {"ts": {"$time": ts, "$time_resolution": "minute"}}
+        )
+
+        np.testing.assert_array_equal(
+            v_wrapper,
+            v_marker,
+            err_msg="TimeScale(resolution='minute') and $time_resolution='minute' should match",
+        )
+
+    def test_time_scale_default_resolution_is_hour(self, encoder):
+        """TimeScale default resolution should match $time_resolution='hour'."""
+        from holon import TimeScale
+
+        ts = 1_700_000_000
+
+        v_default = encoder.encode_data({"ts": TimeScale(ts)})
+        v_hour = encoder.encode_data({"ts": {"$time": ts, "$time_resolution": "hour"}})
+
+        np.testing.assert_array_equal(
+            v_default,
+            v_hour,
+            err_msg="TimeScale() default should equal $time_resolution='hour'",
+        )
+
+    def test_time_scale_near_times_more_similar(self, encoder):
+        """Close timestamps should yield higher similarity than distant ones."""
+        from holon import TimeScale
+
+        base_ts = 1_700_000_000
+
+        v_base = encoder.encode_data({"ts": TimeScale(base_ts)})
+        v_near = encoder.encode_data({"ts": TimeScale(base_ts + 3600)})  # 1 hour
+        v_far = encoder.encode_data(
+            {"ts": TimeScale(base_ts + 180 * 86400)}
+        )  # 180 days
+
+        sim_near = self.cosine_similarity(v_base, v_near)
+        sim_far = self.cosine_similarity(v_base, v_far)
+
+        assert (
+            sim_near > sim_far
+        ), f"Near time should be more similar: {sim_near:.3f} > {sim_far:.3f}"
+
+    def test_time_scale_iso_string(self, encoder):
+        """TimeScale should accept ISO 8601 string timestamps."""
+        from holon import TimeScale
+
+        v = encoder.encode_data({"ts": TimeScale("2024-01-29T10:30:00Z")})
+        assert np.any(v != 0), "ISO string TimeScale should produce non-zero vector"
+
+    def test_time_scale_walkable_path(self, encoder):
+        """TimeScale works through encode_walkable as well as encode_data."""
+        from holon import TimeScale, Walkable, WalkType
+
+        ts = 1_700_000_000
+
+        class Event(Walkable):
+            def walk_type(self):
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "ts", TimeScale(ts)
+
+        v_walkable = encoder.encode_walkable(Event())
+        v_data = encoder.encode_data({"ts": TimeScale(ts)})
+
+        np.testing.assert_array_equal(
+            v_walkable,
+            v_data,
+            err_msg="TimeScale should produce same vector via encode_walkable and encode_data",
+        )
+
+    def test_time_scale_non_zero(self, encoder):
+        """TimeScale encoding should produce a non-zero vector."""
+        from holon import TimeScale
+
+        v = encoder.encode_data({"ts": TimeScale(1_700_000_000)})
+        assert np.any(v != 0), "TimeScale should produce a non-zero vector"
+
+
+class TestWrapperEncodeDatePath:
+    """Tests that LogScale, LinearScale, and TimeScale work correctly through encode_data."""
+
+    @pytest.fixture
+    def encoder(self):
+        from holon import Encoder
+        from holon.vector_manager import VectorManager
+
+        vm = VectorManager(dimensions=4096, global_seed=42)
+        return Encoder(vm)
+
+    def cosine_similarity(self, a, b):
+        a = a.astype(np.float64)
+        b = b.astype(np.float64)
+        na = np.linalg.norm(a)
+        nb = np.linalg.norm(b)
+        if na == 0 or nb == 0:
+            return 0.0
+        return float(np.dot(a, b) / (na * nb))
+
+    def test_log_scale_encode_data_not_string(self, encoder):
+        """LogScale in encode_data must NOT fall through to string encoding."""
+        from holon import LogScale
+
+        v_log = encoder.encode_data({"rate": LogScale(1000)})
+        v_str = encoder.encode_data({"rate": 1000})
+
+        # LogScale encoding differs from plain integer string encoding
+        sim = self.cosine_similarity(v_log, v_str)
+        assert (
+            sim < 0.95
+        ), f"LogScale should not fall through to str encoding (sim={sim:.3f})"
+        assert np.any(v_log != 0), "LogScale vector should be non-zero"
+
+    def test_log_scale_encode_data_ratio_preservation(self, encoder):
+        """LogScale via encode_data should preserve equal-ratio similarity."""
+        from holon import LogScale
+
+        v100 = encoder.encode_data({"rate": LogScale(100)})
+        v1000 = encoder.encode_data({"rate": LogScale(1000)})
+        v10000 = encoder.encode_data({"rate": LogScale(10000)})
+
+        sim_100_1000 = self.cosine_similarity(v100, v1000)
+        sim_1000_10000 = self.cosine_similarity(v1000, v10000)
+
+        diff = abs(sim_100_1000 - sim_1000_10000)
+        assert diff < 0.15, (
+            f"encode_data LogScale: equal 10x ratios should have equal similarity drops, "
+            f"got diff={diff:.3f}"
+        )
+
+    def test_log_scale_encode_data_matches_encode_walkable(self, encoder):
+        """LogScale via encode_data should match encode_walkable."""
+        from holon import LogScale
+
+        v_data = encoder.encode_data({"rate": LogScale(500)})
+        v_walkable = encoder.encode_walkable({"rate": LogScale(500)})
+
+        np.testing.assert_array_equal(
+            v_data,
+            v_walkable,
+            err_msg="LogScale should produce same vector via encode_data and encode_walkable",
+        )
+
+    def test_linear_scale_encode_data_not_string(self, encoder):
+        """LinearScale in encode_data must NOT fall through to string encoding."""
+        from holon import LinearScale
+
+        v_linear = encoder.encode_data({"temp": LinearScale(20.0)})
+        v_str = encoder.encode_data({"temp": 20.0})
+
+        sim = self.cosine_similarity(v_linear, v_str)
+        assert (
+            sim < 0.95
+        ), f"LinearScale should not fall through to str encoding (sim={sim:.3f})"
+
+    def test_linear_scale_encode_data_matches_encode_walkable(self, encoder):
+        """LinearScale via encode_data should match encode_walkable."""
+        from holon import LinearScale
+
+        v_data = encoder.encode_data({"temp": LinearScale(25.0)})
+        v_walkable = encoder.encode_walkable({"temp": LinearScale(25.0)})
+
+        np.testing.assert_array_equal(
+            v_data,
+            v_walkable,
+            err_msg="LinearScale should produce same vector via encode_data and encode_walkable",
+        )

@@ -11,128 +11,113 @@ The kernel layer provides the minimal, stable foundation for all Holon operation
 This layer has no dependencies on memory/ or highlevel/ layers.
 """
 
-# Core VSA primitives
-from .primitives import (
-    # Core algebra
-    bind,
-    unbind,
-    bundle,
-    permute,
-    negate,
-    amplify,
-    difference,
-    threshold_bipolar,
-    # Pattern extraction
-    prototype,
-    prototype_add,
-    resonance,
-    blend,
-    cleanup,
-    # Extended algebra
-    similarity_profile,
-    attend,
-    analogy,
-    project,
-    conditional_bind,
-    segment,
-    invert,
-    complexity,
-    # Vector operations
-    sparsify,
-    centroid,
-    flip,
-    topk_similar,
-    similarity_matrix,
-    entropy,
-    random_project,
-    power,
-    autocorrelate,
-    cross_correlate,
-    # Advanced operations
-    reject,
-    bundle_with_confidence,
-    coherence,
-    grover_amplify,
-    drift_rate,
-)
-
 # Accumulator primitives
 from .accumulator import (
-    create_accumulator,
     accumulate,
     accumulate_weighted,
-    normalize_accumulator,
-    decay,
-    clear_accumulator,
-    merge_accumulators,
-    threshold_accumulator,
     capacity,
-    purity,
+    clear_accumulator,
+    create_accumulator,
+    decay,
+    merge_accumulators,
+    normalize_accumulator,
     participation_ratio,
-)
-
-# Scalar encoding
-from .scalar import (
-    encode_scalar,
-    encode_scalar_log,
-    decode_scalar_log,
-    encode_circular,
-    encode_positional,
-)
-
-# Encoder
-from .encoder import (
-    Encoder,
-    ListEncodeMode,
-    MathematicalPrimitive,
-    TimeResolution,
-)
-
-# Store backends
-from .store import (
-    CPUStore,
-    Store,
-)
-
-# Vector management
-from .vector_manager import (
-    VectorManager,
-    DeterministicVectorManager,
-)
-
-# Walkable interface for zero-serialization encoding
-from .walkable import (
-    Walkable,
-    WalkableDict,
-    WalkableList,
-    WalkableScalar,
-    WalkableSet,
-    WalkType,
-    LinearScale,
-    LogScale,
-    as_walkable,
-    is_walkable,
-    register_walkable,
-    register_walkable_adapter,
-    walk_iter,
+    purity,
+    threshold_accumulator,
 )
 
 # Distance metrics
 from .distance import (
     DistanceEngine,
     DistanceMetric,
-    cosine_similarity,
     compare_metrics,
+    cosine_similarity,
     get_recommended_metric,
     significance,
 )
 
+# Encoder
+from .encoder import Encoder, ListEncodeMode, MathematicalPrimitive, TimeResolution
+
+# Core VSA primitives
+from .primitives import (  # Core algebra; Pattern extraction; Extended algebra; Vector operations; Advanced operations
+    amplify,
+    analogy,
+    attend,
+    autocorrelate,
+    bind,
+    blend,
+    bundle,
+    bundle_with_confidence,
+    centroid,
+    cleanup,
+    coherence,
+    complexity,
+    conditional_bind,
+    cross_correlate,
+    difference,
+    drift_rate,
+    entropy,
+    flip,
+    grover_amplify,
+    invert,
+    negate,
+    permute,
+    power,
+    project,
+    prototype,
+    prototype_add,
+    random_project,
+    reject,
+    resonance,
+    segment,
+    similarity_matrix,
+    similarity_profile,
+    sparsify,
+    threshold_bipolar,
+    topk_similar,
+    unbind,
+)
+
+# Scalar encoding
+from .scalar import (
+    decode_scalar_log,
+    encode_circular,
+    encode_positional,
+    encode_scalar,
+    encode_scalar_log,
+)
+
 # Similarity metrics
 from .similarity import (
-    SimilarityMetric,
     AdvancedSimilarityEngine,
+    SimilarityMetric,
     find_similar_vectors,
     normalized_dot_similarity,
+)
+
+# Store backends
+from .store import CPUStore, Store
+
+# Vector management
+from .vector_manager import DeterministicVectorManager, VectorManager
+
+# Walkable interface for zero-serialization encoding
+from .walkable import (
+    LinearScale,
+    LogScale,
+    TimeScale,
+    Walkable,
+    WalkableDict,
+    WalkableList,
+    WalkableScalar,
+    WalkableSet,
+    WalkType,
+    as_walkable,
+    is_walkable,
+    register_walkable,
+    register_walkable_adapter,
+    walk_iter,
 )
 
 __all__ = [
@@ -211,6 +196,7 @@ __all__ = [
     "WalkType",
     "LinearScale",
     "LogScale",
+    "TimeScale",
     "as_walkable",
     "is_walkable",
     "register_walkable",

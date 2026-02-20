@@ -263,6 +263,51 @@ class LinearScale:
         return f"LinearScale({self.value}, scale={self.scale})"
 
 
+class TimeScale:
+    """Wrapper for time-aware encoding with circular + positional components.
+
+    Decomposes a timestamp into circular components (hour-of-day, day-of-week,
+    month-of-year) plus a positional component, so temporally close events
+    produce similar vectors while preserving periodic structure.
+
+    Equal absolute time differences produce equal similarity drops (positional),
+    and periodic structure is preserved across day/week/year boundaries (circular).
+
+    Use for: timestamps, event times, log times, any Unix epoch value.
+
+    Example:
+        class LogEntry(Walkable):
+            def __init__(self, ts: float, msg: str):
+                self.ts = ts
+                self.msg = msg
+
+            def walk_type(self) -> WalkType:
+                return WalkType.MAP
+
+            def walk_map_items(self):
+                yield "ts", TimeScale(self.ts)
+                yield "msg", self.msg
+    """
+
+    __slots__ = ("value", "resolution")
+
+    def __init__(self, value, resolution: str = "hour"):
+        """Create a time-aware encoding wrapper.
+
+        Args:
+            value: Unix timestamp (float or int) or ISO 8601 string.
+                   Same formats accepted by the {"$time": ...} marker.
+            resolution: Controls the positional component granularity.
+                        One of "second", "minute", "hour" (default), "day".
+                        Higher resolution = finer positional discrimination.
+        """
+        self.value = value
+        self.resolution = resolution
+
+    def __repr__(self) -> str:
+        return f"TimeScale({self.value!r}, resolution={self.resolution!r})"
+
+
 class WalkableDict(Walkable):
     """Wrapper for dict-like objects."""
 

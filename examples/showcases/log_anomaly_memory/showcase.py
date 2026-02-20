@@ -11,7 +11,7 @@ Run with: ./scripts/run_with_venv.sh python -m examples.showcases.log_anomaly_me
 import random
 
 from holon.kernel import Encoder, VectorManager
-from holon.kernel.walkable import LogScale
+from holon.kernel.walkable import LogScale, TimeScale
 from holon.memory import EngramLibrary, OnlineSubspace
 
 DIM = 4096
@@ -23,7 +23,7 @@ BASE_TS = 1_700_000_000  # 2023-11-14, synthetic epoch
 
 def normal_log(rng, offset_s):
     return {
-        "timestamp": {"$time": BASE_TS + offset_s},
+        "timestamp": TimeScale(BASE_TS + offset_s),
         "user": rng.choice(USERS),
         "action": rng.choice(ACTIONS),
         "status": rng.choice(STATUSES),
@@ -71,35 +71,35 @@ def main():
     # ── Test set: 90 normal + 10 injected anomalies (one of each type) ──
     anomaly_pool = [
         {
-            "timestamp": {"$time": BASE_TS + 99999},
+            "timestamp": TimeScale(BASE_TS + 99999),
             "user": "u_005",
             "action": "exfiltrate",
             "status": "200",
             "duration_ms": LogScale(120),
         },
         {
-            "timestamp": {"$time": BASE_TS + 99999},
+            "timestamp": TimeScale(BASE_TS + 99999),
             "user": "root",
             "action": "login",
             "status": "200",
             "duration_ms": LogScale(80),
         },
         {
-            "timestamp": {"$time": BASE_TS + 99999},
+            "timestamp": TimeScale(BASE_TS + 99999),
             "user": "u_012",
             "action": "view",
             "status": "503",
             "duration_ms": LogScale(60),
         },
         {
-            "timestamp": {"$time": BASE_TS + 99999},
+            "timestamp": TimeScale(BASE_TS + 99999),
             "user": "u_007",
             "action": "edit",
             "status": "500",
             "duration_ms": LogScale(60),
         },
         {
-            "timestamp": {"$time": BASE_TS + 99999},
+            "timestamp": TimeScale(BASE_TS + 99999),
             "user": "u_001",
             "action": "login",
             "status": "401",
