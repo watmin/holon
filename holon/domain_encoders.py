@@ -1,9 +1,6 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.kernel.encoders.domain import *
+"""Domain-specific encoders for mathematical patterns and graph topologies.
 
-This file will be removed in version 0.2.0.
+Alias for holon.kernel.encoders.domain — both paths are supported.
 """
 
-# Re-export from the new location
 from .kernel.encoders.domain import *  # noqa: F401, F403

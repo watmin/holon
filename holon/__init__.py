@@ -1,28 +1,16 @@
 # Holon: Programmatic Neural Memory
 # Version: 0.1.0
 #
-# ARCHITECTURE (New in 0.1.0):
+# Import anything directly from the top level:
 #
-# Holon is organized into three layers:
+#   from holon import bind, bundle, Encoder, OnlineSubspace, HolonClient
 #
-# 1. holon.kernel - Foundational VSA/HDC primitives (~20 core operations)
-#    The minimal, stable foundation: bind, bundle, encode, store backends
+# The implementation is organized into three layers, accessible when you
+# want to be explicit or pull in a single subsystem:
 #
-# 2. holon.memory - Programmatic neural memory (the crown jewel)
-#    Novel memory primitives: OnlineSubspace (CCIPCA), Engram/EngramLibrary
-#
-# 3. holon.highlevel - Convenience APIs and composition
-#    HolonClient: unified facade with query DSL, guards, $markers
-#
-# Import patterns:
-#   from holon.kernel import bind, bundle, encode_data     # direct kernel access
-#   from holon.memory import OnlineSubspace, EngramLibrary # memory layer
-#   from holon.highlevel import HolonClient                # convenience API (recommended)
-#
-# For backward compatibility, all symbols are re-exported at top level:
-#   from holon import bind, OnlineSubspace, HolonClient    # still works
-#
-# Note: For new code, prefer importing HolonClient from holon.highlevel
+#   holon.kernel   - VSA/HDC primitives (bind, bundle, encode, store, walkable)
+#   holon.memory   - Neural memory (OnlineSubspace, Engram, EngramLibrary)
+#   holon.highlevel - Convenience facade (HolonClient)
 
 __version__ = "0.1.0"
 
@@ -30,8 +18,6 @@ __version__ = "0.1.0"
 # Layer 1: Kernel - Foundational primitives
 # ============================================================================
 
-# HolonClient is available from top level for backward compatibility
-# Recommended: from holon.highlevel import HolonClient
 from .highlevel import HolonClient
 from .kernel import (  # VSA primitives; Accumulators; Scalar encoding; Encoder; Store; Vector management; Walkable; Distance; Similarity metrics
     AdvancedSimilarityEngine,
@@ -148,12 +134,7 @@ except ImportError:
 
 
 def create_client(dimensions: int = 4096) -> HolonClient:
-    """
-    Create a standalone HolonClient with default settings.
-
-    This is the quickest way to get started with Holon.
-
-    Note: For new code, prefer: from holon.highlevel import HolonClient
+    """Create a standalone HolonClient with default settings.
 
     Args:
         dimensions: Vector dimensionality (default 4096)
@@ -274,7 +255,7 @@ __all__ = [
     "OnlineSubspace",
     "Engram",
     "EngramLibrary",
-    # High-level (deprecated from top level)
+    # High-level
     "HolonClient",
     # Convenience
     "create_client",

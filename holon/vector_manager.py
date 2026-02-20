@@ -1,14 +1,11 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.kernel.vector_manager import *
+"""Deterministic atom-to-vector mapping.
 
-This file will be removed in version 0.2.0.
+Alias for holon.kernel.vector_manager — both paths are supported.
 """
 
-# Re-export from the new location
 from .kernel.vector_manager import *  # noqa: F401, F403
 
-__all__ = [
-    'VectorManager',
-    'DeterministicVectorManager',
+__all__ = [  # noqa: F405
+    "VectorManager",
+    "DeterministicVectorManager",
 ]

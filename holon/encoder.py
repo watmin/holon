@@ -1,9 +1,6 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.kernel.encoder import Encoder
+"""VSA/HDC Encoder for structured data.
 
-This file will be removed in version 0.2.0.
+Alias for holon.kernel.encoder — both paths are supported.
 """
 
-# Re-export from the new location
 from .kernel.encoder import *  # noqa: F401, F403

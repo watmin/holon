@@ -1,11 +1,8 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.highlevel.client import HolonClient
+"""HolonClient convenience facade.
 
-This file will be removed in version 0.2.0.
+Alias for holon.highlevel.client — both paths are supported.
 """
 
-# Re-export from the new location
 from .highlevel.client import *  # noqa: F401, F403
 
-__all__ = ['HolonClient']
+__all__ = ["HolonClient"]  # noqa: F405

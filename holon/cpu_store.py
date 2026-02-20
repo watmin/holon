@@ -1,9 +1,6 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.kernel.store import CPUStore, Store
+"""CPU-backed vector store.
 
-This file will be removed in version 0.2.0.
+Alias for holon.kernel.store — both paths are supported.
 """
 
-# Re-export from the new location
 from .kernel.store import *  # noqa: F401, F403

@@ -1,9 +1,6 @@
-"""
-DEPRECATED: This module exists for backward compatibility only.
-Use: from holon.kernel.encoders.semantic import *
+"""Semantic encoder combining structural and mathematical encoding.
 
-This file will be removed in version 0.2.0.
+Alias for holon.kernel.encoders.semantic — both paths are supported.
 """
 
-# Re-export from the new location
 from .kernel.encoders.semantic import *  # noqa: F401, F403
