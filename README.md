@@ -170,23 +170,25 @@ priority_signal = encoder.encode_data({"severity": "critical"})
 boosted = amplify(base_query, priority_signal, strength=2.0)
 ```
 
-## Showcases (Non-Networking)
+## Showcases
 
-Polished examples demonstrating Holon's generic power across diverse domains:
+Four self-contained demos, each demonstrating a capability that doesn't compose
+easily from standard tools:
 
-- **[Log Anomaly Memory](examples/showcases/log_anomaly_memory/)** - Detect anomalous log lines with field-level attribution and instant recall
-- **[Config Drift Remediation](examples/showcases/config_drift_remediation/)** - Detect configuration drift, attribute the changed field, generate remediation
-- **[Time-Series Recall & Forecast](examples/showcases/timeseries_recall_forecast/)** - Recall historical patterns and forecast next steps from partial sequences
-- **[API Fingerprinting](examples/showcases/api_fingerprinting/)** - Fingerprint API endpoints with variant resilience and structural drift detection
+- **[Log Anomaly Memory](examples/showcases/log_anomaly_memory/)** — Catch combinatorial anomalies where every field is individually valid but the combination breaks the learned behavioral manifold. Zero rules written.
 
-Each showcase is <150 lines and demonstrates the kernel + memory layer workflow: encode → learn subspace → mint engram → detect/recall.
+- **[Config Drift Remediation](examples/showcases/config_drift_remediation/)** — Detect subtle and multi-field config drift on arbitrary nested JSON (no schema), attribute the changed fields, and produce a corrective vector. Verified against the actual correct config.
+
+- **[Compositional Recall](examples/showcases/compositional_recall/)** — Query an incident library with algebraic operations: `negate` to exclude a layer, `amplify` to boost an environment, `attend` to extract security-resonant signal. Each is one function call on the same encoded library.
+
+- **[Streaming Changepoint Detection](examples/showcases/streaming_changepoint/)** — Track a system metric stream through healthy → degraded → incident → recovery phases with no labels. Residual rises 3x from healthy to incident. `segment()` finds phase transitions automatically.
 
 Run any showcase:
 ```bash
 ./scripts/run_with_venv.sh python -m examples.showcases.log_anomaly_memory.showcase
 ./scripts/run_with_venv.sh python -m examples.showcases.config_drift_remediation.showcase
-./scripts/run_with_venv.sh python -m examples.showcases.timeseries_recall_forecast.showcase
-./scripts/run_with_venv.sh python -m examples.showcases.api_fingerprinting.showcase
+./scripts/run_with_venv.sh python -m examples.showcases.compositional_recall.showcase
+./scripts/run_with_venv.sh python -m examples.showcases.streaming_changepoint.showcase
 ```
 
 ### Extended Primitives (Challenge 014)
