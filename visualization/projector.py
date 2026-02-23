@@ -1,8 +1,8 @@
 """
 3D Projection for high-dimensional Holon vectors.
 
-Uses random projection (Johnson-Lindenstrauss) to map high-D vectors
-to 3D space while approximately preserving distances.
+Uses orthogonal random projection to map high-D vectors to 3D space
+while approximately preserving distances (Johnson-Lindenstrauss).
 """
 
 import hashlib
