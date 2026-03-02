@@ -108,6 +108,56 @@ class OnlineSubspace:
                 basis[i] = 0.0
         return basis
 
+    def subspace_alignment(
+        self,
+        other: "OnlineSubspace",
+        top_angles: int = 0,
+    ) -> float:
+        """Measure directional alignment between two subspaces.
+
+        Computes cosines of principal angles via SVD of the basis inner
+        product matrix. Focuses on the top principal angles — the best-
+        aligned directions — since minor components are typically noise.
+
+        Args:
+            other: Subspace to compare against.
+            top_angles: Number of top principal angles to average.
+                0 (default) = use min(k_a, k_b) // 4, at least 3.
+
+        Returns a value in [0, 1]:
+          1.0 = perfectly aligned (same directions)
+          0.0 = orthogonal (completely different directions)
+
+        Cost: O(k * dim) for the basis product, O(k^2) for the SVD.
+        """
+        U = self._basis_vectors()
+        V = other._basis_vectors()
+
+        u_active = np.array(
+            [U[i] for i in range(self.k) if np.linalg.norm(self._components[i]) > 1e-10]
+        )
+        v_active = np.array(
+            [
+                V[i]
+                for i in range(other.k)
+                if np.linalg.norm(other._components[i]) > 1e-10
+            ]
+        )
+
+        if len(u_active) == 0 or len(v_active) == 0:
+            return 0.0
+
+        M = u_active @ v_active.T
+        singular_values = np.linalg.svd(M, compute_uv=False)
+        cos_angles = np.clip(singular_values, 0.0, 1.0)
+
+        n = len(cos_angles)
+        if top_angles <= 0:
+            top_angles = max(3, n // 4)
+        top_angles = min(top_angles, n)
+
+        return float(np.mean(cos_angles[:top_angles]))
+
     def update(self, x: np.ndarray) -> float:
         """Update subspace with a new vector and return its residual.
 

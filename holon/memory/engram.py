@@ -251,6 +251,37 @@ class EngramLibrary:
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
 
+    def match_alignment(
+        self,
+        probe_subspace: OnlineSubspace,
+        top_k: int = 3,
+    ) -> List[Tuple[str, float]]:
+        """Directional alignment matching against all stored engrams.
+
+        Compares the principal component directions of a probe subspace
+        against each engram's stored subspace. This measures whether the
+        variance lives in the same part of the vector space — the
+        directional complement to match_spectrum's magnitude comparison.
+
+        Args:
+            probe_subspace: A trained OnlineSubspace to compare.
+            top_k: Number of best matches to return.
+
+        Returns:
+            List of (name, alignment_score) tuples, sorted descending.
+            Alignment is in [0, 1]: 1.0 = same directions, 0.0 = orthogonal.
+        """
+        if not self._engrams:
+            return []
+
+        results = []
+        for engram in self._engrams.values():
+            alignment = probe_subspace.subspace_alignment(engram.subspace)
+            results.append((engram.name, alignment))
+
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
+
     def _prefilter(
         self,
         candidates: List[Engram],
