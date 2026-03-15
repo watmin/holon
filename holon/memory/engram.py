@@ -11,46 +11,58 @@ Engrams capture:
   - An optional surprise profile (per-field anomaly magnitudes)
   - Arbitrary metadata (labels, rules, timestamps, tags)
 
+Engrams are polymorphic over the subspace type they were minted from:
+  - ``kind="single"``: minted from OnlineSubspace — single-vector residual
+  - ``kind="striped"``: minted from StripedSubspace — list-of-vecs residual
+
 EngramLibrary manages a collection of engrams with two-tier matching:
   1. Fast eigenvalue cosine pre-filter — O(library_size * k)
   2. Full residual verification on top candidates — O(candidates * k * d)
 
-Usage:
-    from holon.engram import Engram, EngramLibrary
-    from holon.subspace import OnlineSubspace
+Usage (single-vector)::
 
     library = EngramLibrary()
-
-    # Train a subspace, then mint an engram
     sub = OnlineSubspace(dim=4096, k=64)
-    for vec in attack_stream:
+    for vec in stream:
         sub.update(vec)
-    library.add("dns_amp", sub, rule="((and (= dst_port 53)) => (drop))")
-
-    # Later, match new traffic against the library
+    library.add("pattern_a", sub, rule="drop")
     matches = library.match(new_vec, top_k=3)
-    if matches:
-        name, score = matches[0]
-        print(f"Matched engram '{name}' with score {score:.4f}")
+
+Usage (striped)::
+
+    library = EngramLibrary()
+    ss = StripedSubspace(dim=1024, k=16, n_stripes=8)
+    for stripe_vecs in stream:
+        ss.update(stripe_vecs)
+    library.add_striped("pattern_b", ss, action="BUY")
+    matches = library.match_striped(new_stripe_vecs, top_k=3)
 """
 
 import base64
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from .subspace import OnlineSubspace
+from .subspace import OnlineSubspace, StripedSubspace
 
 
 class Engram:
     """A stored memory trace of a learned subspace manifold.
 
+    Polymorphic over subspace type: ``kind="single"`` wraps an
+    ``OnlineSubspace`` snapshot; ``kind="striped"`` wraps a
+    ``StripedSubspace`` snapshot (N independent per-stripe OnlineSubspaces).
+
     Args:
         name: Human-readable label for this engram.
-        snapshot: Subspace state from OnlineSubspace.snapshot().
-        eigenvalue_signature: Normalized eigenvalue spectrum (k,).
+        snapshot: Subspace state dict. For single: OnlineSubspace.snapshot().
+                  For striped: StripedSubspace.snapshot() (contains "stripes" key).
+        eigenvalue_signature: Normalized eigenvalue spectrum for pre-filtering.
+            For single: shape (k,). For striped: concatenation of all stripe
+            eigenvalue signatures, shape (n_stripes * k,).
+        kind: ``"single"`` (default, backward-compat) or ``"striped"``.
         surprise_profile: Optional per-field anomaly magnitudes.
         metadata: Arbitrary key-value pairs (rules, timestamps, tags).
     """
@@ -60,42 +72,74 @@ class Engram:
         name: str,
         snapshot: dict,
         eigenvalue_signature: np.ndarray,
+        kind: str = "single",
         surprise_profile: Optional[Dict[str, float]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        if kind not in ("single", "striped"):
+            raise ValueError(f"kind must be 'single' or 'striped', got {kind!r}")
         self.name = name
         self._snapshot = snapshot
         self.eigenvalue_signature = eigenvalue_signature
+        self.kind = kind
         self.surprise_profile = surprise_profile or {}
         self.metadata = metadata or {}
-        self._subspace: Optional[OnlineSubspace] = None
+        self._subspace: Optional[Union[OnlineSubspace, StripedSubspace]] = None
 
     @property
-    def subspace(self) -> OnlineSubspace:
-        """Lazily reconstruct the OnlineSubspace from the stored snapshot."""
+    def subspace(self) -> Union[OnlineSubspace, StripedSubspace]:
+        """Lazily reconstruct the subspace from the stored snapshot."""
         if self._subspace is None:
-            self._subspace = OnlineSubspace.from_snapshot(self._snapshot)
+            if self.kind == "striped":
+                self._subspace = StripedSubspace.from_snapshot(self._snapshot)
+            else:
+                self._subspace = OnlineSubspace.from_snapshot(self._snapshot)
         return self._subspace
 
     def residual(self, vec: np.ndarray) -> float:
-        """Compute how well a vector fits this engram's manifold."""
-        return self.subspace.residual(vec)
+        """Compute residual for a single-vector engram.
+
+        Args:
+            vec: Input vector (dim,).
+
+        Raises:
+            TypeError: If called on a striped engram (use residual_striped).
+        """
+        if self.kind == "striped":
+            raise TypeError(
+                f"Engram '{self.name}' is striped — use residual_striped(stripe_vecs)"
+            )
+        return self.subspace.residual(vec)  # type: ignore[union-attr]
+
+    def residual_striped(self, stripe_vecs: List[np.ndarray]) -> float:
+        """Compute RSS residual for a striped engram.
+
+        Args:
+            stripe_vecs: List of per-stripe vectors (n_stripes,).
+
+        Raises:
+            TypeError: If called on a single-vector engram (use residual).
+        """
+        if self.kind == "single":
+            raise TypeError(
+                f"Engram '{self.name}' is single-vector — use residual(vec)"
+            )
+        return self.subspace.residual(stripe_vecs)  # type: ignore[union-attr]
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-compatible dict."""
-        snap = self._snapshot
+        if self.kind == "striped":
+            snap = self._snapshot
+            serialized_snap = {
+                "stripes": [_serialize_single_snap(s) for s in snap["stripes"]]
+            }
+        else:
+            serialized_snap = _serialize_single_snap(self._snapshot)
+
         return {
             "name": self.name,
-            "snapshot": {
-                "dim": snap["dim"],
-                "k": snap["k"],
-                "n": snap["n"],
-                "mean": _ndarray_to_b64(snap["mean"]),
-                "components": _ndarray_to_b64(snap["components"]),
-                "res_ema": snap["res_ema"],
-                "res_var_ema": snap["res_var_ema"],
-                "threshold": snap["threshold"],
-            },
+            "kind": self.kind,
+            "snapshot": serialized_snap,
             "eigenvalue_signature": _ndarray_to_b64(self.eigenvalue_signature),
             "surprise_profile": self.surprise_profile,
             "metadata": self.metadata,
@@ -104,34 +148,49 @@ class Engram:
     @classmethod
     def from_dict(cls, data: dict) -> "Engram":
         """Deserialize from a JSON-compatible dict."""
+        kind = data.get("kind", "single")
         snap_data = data["snapshot"]
-        snapshot = {
-            "dim": snap_data["dim"],
-            "k": snap_data["k"],
-            "n": snap_data["n"],
-            "mean": _b64_to_ndarray(snap_data["mean"]),
-            "components": _b64_to_ndarray(snap_data["components"]),
-            "res_ema": snap_data["res_ema"],
-            "res_var_ema": snap_data["res_var_ema"],
-            "threshold": snap_data["threshold"],
-        }
+
+        if kind == "striped":
+            snapshot = {
+                "stripes": [_deserialize_single_snap(s) for s in snap_data["stripes"]]
+            }
+        else:
+            snapshot = _deserialize_single_snap(snap_data)
+
         return cls(
             name=data["name"],
             snapshot=snapshot,
             eigenvalue_signature=_b64_to_ndarray(data["eigenvalue_signature"]),
+            kind=kind,
             surprise_profile=data.get("surprise_profile", {}),
             metadata=data.get("metadata", {}),
         )
 
     def __repr__(self) -> str:
+        if self.kind == "striped":
+            n_stripes = len(self._snapshot.get("stripes", []))
+            n = self._snapshot["stripes"][0].get("n", 0) if n_stripes else 0
+            k = self._snapshot["stripes"][0].get("k", 0) if n_stripes else 0
+            return (
+                f"Engram('{self.name}', kind='striped', n_stripes={n_stripes}, "
+                f"n={n}, k={k}, metadata_keys={list(self.metadata.keys())})"
+            )
         n = self._snapshot.get("n", 0)
         k = self._snapshot.get("k", 0)
         meta_keys = list(self.metadata.keys())
-        return f"Engram('{self.name}', n={n}, k={k}, " f"metadata_keys={meta_keys})"
+        return f"Engram('{self.name}', n={n}, k={k}, metadata_keys={meta_keys})"
 
 
 class EngramLibrary:
     """A collection of engrams with two-tier matching.
+
+    Holds both single-vector engrams (minted from ``OnlineSubspace``) and
+    striped engrams (minted from ``StripedSubspace``) in the same store.
+    Each is matched via the appropriate method:
+
+    - ``match(vec)``         — for single-vector engrams
+    - ``match_striped(vecs)`` — for striped engrams
 
     Tier 1 (fast): Eigenvalue cosine similarity pre-filter.
     Tier 2 (full): Residual computation on candidate subspaces.
@@ -151,7 +210,7 @@ class EngramLibrary:
         surprise_profile: Optional[Dict[str, float]] = None,
         **metadata: Any,
     ) -> Engram:
-        """Mint and store an engram from a trained subspace.
+        """Mint and store an engram from a trained OnlineSubspace.
 
         Args:
             name: Unique label for this engram.
@@ -170,6 +229,48 @@ class EngramLibrary:
             name=name,
             snapshot=subspace.snapshot(),
             eigenvalue_signature=sig,
+            kind="single",
+            surprise_profile=surprise_profile,
+            metadata=metadata,
+        )
+        self._engrams[name] = engram
+        return engram
+
+    def add_striped(
+        self,
+        name: str,
+        subspace: StripedSubspace,
+        surprise_profile: Optional[Dict[str, float]] = None,
+        **metadata: Any,
+    ) -> Engram:
+        """Mint and store an engram from a trained StripedSubspace.
+
+        The eigenvalue signature is the concatenation of all per-stripe
+        eigenvalue signatures (normalized). This lets the same eigenvalue
+        pre-filter work across both single and striped engrams.
+
+        Args:
+            name: Unique label for this engram.
+            subspace: Trained StripedSubspace to snapshot.
+            surprise_profile: Optional per-field anomaly magnitudes.
+            **metadata: Arbitrary key-value pairs stored with the engram.
+
+        Returns:
+            The minted Engram (kind="striped").
+        """
+        # Concatenate per-stripe eigenvalue signatures as the prefilter key
+        stripe_eigs = []
+        for i in range(subspace.n_stripes):
+            eig = subspace.stripe(i).eigenvalues
+            eig_norm = np.linalg.norm(eig)
+            stripe_eigs.append(eig / eig_norm if eig_norm > 1e-10 else eig)
+        sig = np.concatenate(stripe_eigs)
+
+        engram = Engram(
+            name=name,
+            snapshot=subspace.snapshot(),
+            eigenvalue_signature=sig,
+            kind="striped",
             surprise_profile=surprise_profile,
             metadata=metadata,
         )
@@ -182,9 +283,11 @@ class EngramLibrary:
         top_k: int = 3,
         prefilter_k: int = 10,
     ) -> List[Tuple[str, float]]:
-        """Two-tier matching against all stored engrams.
+        """Two-tier matching against single-vector engrams.
 
-        Tier 1: Rank all engrams by eigenvalue cosine similarity (cheap).
+        Skips striped engrams — use match_striped() for those.
+
+        Tier 1: Rank by eigenvalue cosine similarity (cheap).
         Tier 2: Compute full residual on top prefilter_k candidates.
 
         Lower residual = better match (vector fits the engram's manifold).
@@ -196,14 +299,15 @@ class EngramLibrary:
 
         Returns:
             List of (name, residual) tuples, sorted by residual ascending.
-            Empty list if library is empty.
+            Empty list if no single-vector engrams.
         """
-        if not self._engrams:
+        single_engrams = [e for e in self._engrams.values() if e.kind == "single"]
+        if not single_engrams:
             return []
 
         vec = np.asarray(vec, dtype=np.float64).ravel()
 
-        candidates = list(self._engrams.values())
+        candidates = single_engrams
         if len(candidates) > prefilter_k:
             candidates = self._prefilter(candidates, prefilter_k)
 
@@ -214,6 +318,62 @@ class EngramLibrary:
 
         results.sort(key=lambda x: x[1])
         return results[:top_k]
+
+    def match_striped(
+        self,
+        stripe_vecs: List[np.ndarray],
+        top_k: int = 3,
+        prefilter_k: int = 10,
+    ) -> List[Tuple[str, float]]:
+        """Two-tier matching against striped engrams.
+
+        Skips single-vector engrams — use match() for those.
+
+        Tier 1: Rank by concatenated eigenvalue cosine similarity (cheap).
+        Tier 2: Compute full RSS residual on top prefilter_k candidates.
+
+        Lower residual = better match.
+
+        Args:
+            stripe_vecs: List of per-stripe vectors from encode_walkable_striped.
+            top_k: Number of best matches to return.
+            prefilter_k: Number of candidates to pass to tier-2.
+
+        Returns:
+            List of (name, rss_residual) tuples, sorted by residual ascending.
+            Empty list if no striped engrams.
+        """
+        striped_engrams = [e for e in self._engrams.values() if e.kind == "striped"]
+        if not striped_engrams:
+            return []
+
+        # Build probe signature: concatenate normalized per-stripe eigenvalues
+        # from the live stripe_vecs statistics isn't available — use a flat
+        # probe of ones as a neutral prefilter (falls back to energy ranking)
+        candidates = striped_engrams
+        if len(candidates) > prefilter_k:
+            candidates = self._prefilter(candidates, prefilter_k)
+
+        results = []
+        for engram in candidates:
+            res = engram.residual_striped(stripe_vecs)
+            results.append((engram.name, res))
+
+        results.sort(key=lambda x: x[1])
+        return results[:top_k]
+
+    def names(self, kind: Optional[str] = None) -> List[str]:
+        """List all engram names, optionally filtered by kind.
+
+        Args:
+            kind: ``"single"``, ``"striped"``, or ``None`` for all.
+
+        Returns:
+            List of engram names.
+        """
+        if kind is None:
+            return list(self._engrams.keys())
+        return [n for n, e in self._engrams.items() if e.kind == kind]
 
     def match_spectrum(
         self,
@@ -302,10 +462,6 @@ class EngramLibrary:
         """Remove an engram by name. Returns True if it existed."""
         return self._engrams.pop(name, None) is not None
 
-    def names(self) -> List[str]:
-        """List all engram names."""
-        return list(self._engrams.keys())
-
     def get(self, name: str) -> Optional[Engram]:
         """Retrieve an engram by name."""
         return self._engrams.get(name)
@@ -357,3 +513,31 @@ def _b64_to_ndarray(obj: dict) -> np.ndarray:
     """Decode a numpy array from base64 representation."""
     raw = base64.b64decode(obj["data"])
     return np.frombuffer(raw, dtype=np.dtype(obj["dtype"])).reshape(obj["shape"]).copy()
+
+
+def _serialize_single_snap(snap: dict) -> dict:
+    """Serialize a single OnlineSubspace snapshot dict to JSON-safe form."""
+    return {
+        "dim": snap["dim"],
+        "k": snap["k"],
+        "n": snap["n"],
+        "mean": _ndarray_to_b64(snap["mean"]),
+        "components": _ndarray_to_b64(snap["components"]),
+        "res_ema": snap["res_ema"],
+        "res_var_ema": snap["res_var_ema"],
+        "threshold": snap["threshold"],
+    }
+
+
+def _deserialize_single_snap(snap_data: dict) -> dict:
+    """Deserialize a single OnlineSubspace snapshot dict from JSON-safe form."""
+    return {
+        "dim": snap_data["dim"],
+        "k": snap_data["k"],
+        "n": snap_data["n"],
+        "mean": _b64_to_ndarray(snap_data["mean"]),
+        "components": _b64_to_ndarray(snap_data["components"]),
+        "res_ema": snap_data["res_ema"],
+        "res_var_ema": snap_data["res_var_ema"],
+        "threshold": snap_data["threshold"],
+    }
