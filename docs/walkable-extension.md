@@ -11,9 +11,9 @@ The Walkable interface provides zero-serialization encoding for in-memory data s
 | Handle a custom scalar type | Return it from `walk_scalar_value()` |
 | Change how a scalar encodes to vector | Subclass `Encoder` |
 
-## The Four Structural Types
+## The Five Structural Types
 
-Walkable has four types that cover all data structures:
+Walkable has five types that cover all data structures:
 
 ```python
 class WalkType(Enum):
@@ -21,6 +21,7 @@ class WalkType(Enum):
     MAP = "map"        # Key-value pairs (dict, objects, records)
     LIST = "list"      # Ordered sequences (list, tuple, array)
     SET = "set"        # Unordered unique items
+    SPREAD = "spread"  # Fan-out: each element gets its own indexed leaf binding
 ```
 
 Choose based on **structure**, not semantics:
@@ -28,6 +29,13 @@ Choose based on **structure**, not semantics:
 - Your `TimeSeries` with ordered values? → `LIST`
 - Your `TagSet` with unique tags? → `SET`
 - Your `Money` amount? → `SCALAR`
+- Your `CipherSuite` list you want per-element attribution on? → `SPREAD`
+
+`SPREAD` behaves identically to `LIST` in the standard single-vector encode path. The
+distinction only matters in **striped encoding**: `LIST` contributes one aggregate leaf
+binding for the whole sequence, while `SPREAD` fans out to N indexed bindings
+(`field.[0]`, `field.[1]`, ...) that land in different stripes and can be attributed
+individually.
 
 ## Implementing Walkable for Custom Types
 
@@ -339,10 +347,40 @@ for path, value, walkable in walk_iter(customer):
 
 3. **Register adapters once** at import time, not per-call.
 
+## Using SPREAD for Striped Encoding
+
+`WalkableSpread` is a ready-made wrapper for sequences whose elements you want to
+attribute individually when using `encode_walkable_striped`:
+
+```python
+from holon import Encoder, WalkableSpread, StripedSubspace
+
+encoder = Encoder(dim=4096, seed=42)
+n_stripes = 8
+
+# Each cipher lands in a deterministic stripe by FNV-1a hash of "ciphers.[0]", etc.
+record = {
+    "version": "TLS1.3",
+    "ciphers": WalkableSpread(["AES256-GCM", "AES128-GCM", "CHACHA20"]),
+}
+
+stripes = encoder.encode_walkable_striped(record, n_stripes)
+# stripes[i] is the vector contribution from fields that hash to stripe i
+
+subspace = StripedSubspace(dim=4096, k=32, n_stripes=n_stripes)
+subspace.update(stripes)
+profile = subspace.residual_profile(stripes)  # per-stripe anomaly scores
+```
+
+Use a plain `list` (or `WalkType.LIST`) when you want the whole sequence to behave as a
+single encoded unit. Use `WalkableSpread` when individual elements should be isolatable
+in residual profiling and drilldown attribution.
+
 ## Summary
 
-- **4 structural types**: SCALAR, MAP, LIST, SET
+- **5 structural types**: SCALAR, MAP, LIST, SET, SPREAD
 - **Implement Walkable** for your own types
 - **Use `@register_walkable`** for third-party types
 - **Scalars return any value** - encoder handles encoding
 - **Nesting works automatically** - just yield Walkables
+- **Use `WalkableSpread`** for per-element attribution in striped encoding
