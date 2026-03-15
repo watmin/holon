@@ -195,6 +195,14 @@ class Encoder:
             return self._encode_walkable_list(walkable, mode=mode, **kwargs)
         elif wtype == WalkType.SET:
             return self._encode_walkable_set(walkable)
+        elif wtype == WalkType.SPREAD:
+            # SPREAD encodes identically to LIST for the standard (non-striped) path —
+            # each element is positionally bound and then bundled. The difference only
+            # matters in striped encoding, where Spread fans out into independent leaf
+            # bindings. Here we delegate to the list encoder for a consistent result.
+            return self._encode_walkable_list(
+                walkable, mode=ListEncodeMode.POSITIONAL, **kwargs
+            )
         else:  # WalkType.SCALAR
             return self._encode_walkable_scalar(walkable)
 
@@ -853,6 +861,285 @@ class Encoder:
             weighted_sum += weight * vec.astype(np.float32)
 
         return self._threshold_bipolar(weighted_sum)
+
+    # =========================================================================
+    # Striped Encoding (FQDN leaf hashing)
+    # =========================================================================
+
+    @staticmethod
+    def field_stripe(path: str, n_stripes: int) -> int:
+        """Deterministic stripe assignment via FNV-1a hash of the full dotted path.
+
+        The same path always maps to the same stripe index, at both encode
+        time and drilldown time. Uses the same FNV-1a constants as holon-rs
+        for cross-language determinism.
+
+        Args:
+            path: Fully-qualified dotted path (e.g. "tls.version", "src_ip").
+            n_stripes: Total number of stripes.
+
+        Returns:
+            Stripe index in [0, n_stripes).
+        """
+        h = 0xCBF29CE484222325
+        for b in path.encode("utf-8"):
+            h ^= b
+            h = (h * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+        return h % n_stripes
+
+    def encode_json_striped(self, json_str: str, n_stripes: int) -> List[np.ndarray]:
+        """Encode a JSON string into N striped vectors via FQDN leaf hashing.
+
+        Convenience wrapper around :meth:`encode_walkable_striped` that
+        accepts a JSON string directly.
+
+        Args:
+            json_str: Valid JSON object string.
+            n_stripes: Number of independent stripes to produce.
+
+        Returns:
+            List of n_stripes bipolar int8 vectors.
+        """
+        import json
+
+        data = json.loads(json_str)
+        return self.encode_walkable_striped(data, n_stripes)
+
+    def encode_walkable_striped(self, data: Any, n_stripes: int) -> List[np.ndarray]:
+        """Encode a data structure into N striped vectors using flat FQDN leaf hashing.
+
+        Instead of the hierarchical encoding produced by :meth:`encode_walkable`,
+        this method walks the structure recursively, collects every **leaf**
+        binding (scalar, set, list), hashes its full dotted path using FNV-1a
+        to pick a stripe, and bundles each stripe's bindings independently.
+
+        Maps are intermediate nodes that extend the path; they do not produce
+        bindings themselves. Lists are treated as a single composed leaf.
+        Spread items fan out — each element becomes an independent leaf.
+
+        The result is N vectors, each containing ~total_leaves/N bindings,
+        uniformly distributed regardless of nesting depth.
+
+        Use with :class:`~holon.memory.StripedSubspace` for per-field-group
+        anomaly attribution: the stripe with the highest residual identifies
+        which field group caused the anomaly.
+
+        Args:
+            data: Any dict, Walkable, or JSON-compatible structure.
+            n_stripes: Number of independent stripes.
+
+        Returns:
+            List of n_stripes bipolar int8 vectors (each shape (dim,)).
+        """
+        walkable = as_walkable(data)
+        stripes: List[List[np.ndarray]] = [[] for _ in range(n_stripes)]
+
+        if walkable.walk_type() == WalkType.MAP:
+            for key, value in walkable.walk_map_items():
+                path = str(key)
+                self._collect_leaf_bindings(value, path, n_stripes, stripes)
+
+        return [
+            self._threshold_bipolar(self.xp.sum(self.xp.stack(bindings), axis=0))
+            if bindings
+            else self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
+            for bindings in stripes
+        ]
+
+    def _collect_leaf_bindings(
+        self,
+        value: Any,
+        path: str,
+        n_stripes: int,
+        stripes: List[List[np.ndarray]],
+    ) -> None:
+        """Recursive flat walk: collect leaf bindings and distribute to stripes.
+
+        Scalars and Sets produce a single leaf binding.
+        Lists are composed into a single leaf binding (positionally encoded bundle).
+        Maps recurse by key.
+        Spread fans out — each element becomes an independent leaf binding
+        with its own indexed path.
+
+        Args:
+            value: The current value (unwrapped Python value or Walkable).
+            path: Fully-qualified dotted path for this value.
+            n_stripes: Total stripe count.
+            stripes: In-progress list of per-stripe binding lists (mutated in place).
+        """
+        # Handle LogScale / LinearScale / TimeScale wrappers as scalar leaves
+        if isinstance(value, LogScale):
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(
+                {self._log_marker: value.value, self._scale_marker: value.scale}
+            )
+            stripes[idx].append(role * filler)
+            return
+
+        if isinstance(value, LinearScale):
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(
+                {self._linear_marker: value.value, self._scale_marker: value.scale}
+            )
+            stripes[idx].append(role * filler)
+            return
+
+        if isinstance(value, TimeScale):
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            time_dict = {self._time_marker: value.value}
+            if value.resolution != "hour":
+                time_dict[self._time_resolution_marker] = value.resolution
+            filler = self._encode_time(time_dict)
+            stripes[idx].append(role * filler)
+            return
+
+        # Dict with numeric scalar marker — treat as leaf
+        if isinstance(value, dict) and self._is_numeric_scalar_marker(value):
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(value)
+            stripes[idx].append(role * filler)
+            return
+
+        # Dict with $time marker — treat as leaf
+        if isinstance(value, dict) and self._time_marker in value:
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_time(value)
+            stripes[idx].append(role * filler)
+            return
+
+        walkable = as_walkable(value)
+        wtype = walkable.walk_type()
+
+        if wtype == WalkType.SCALAR:
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_walkable_scalar(walkable)
+            stripes[idx].append(role * filler)
+
+        elif wtype == WalkType.MAP:
+            items = list(walkable.walk_map_items())
+            if not items:
+                # Empty map is a leaf
+                idx = self.field_stripe(path, n_stripes)
+                role = self.vector_manager.get_vector(path)
+                filler = self.vector_manager.get_vector(f"{path}.{{}}")
+                stripes[idx].append(role * filler)
+            else:
+                for key, child in items:
+                    sub_path = f"{path}.{key}"
+                    self._collect_leaf_bindings(child, sub_path, n_stripes, stripes)
+
+        elif wtype == WalkType.LIST:
+            # List is a single composed leaf (positionally encoded bundle)
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_walkable_list(walkable, mode=self.default_list_mode)
+            stripes[idx].append(role * filler)
+
+        elif wtype == WalkType.SET:
+            # Set is a single composed leaf
+            idx = self.field_stripe(path, n_stripes)
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_walkable_set(walkable)
+            stripes[idx].append(role * filler)
+
+        elif wtype == WalkType.SPREAD:
+            # Fan-out: each element is an independent leaf with indexed path
+            items = list(walkable.walk_spread_items())
+            if not items:
+                idx = self.field_stripe(path, n_stripes)
+                role = self.vector_manager.get_vector(path)
+                filler = self.vector_manager.get_vector(f"{path}.[]")
+                stripes[idx].append(role * filler)
+            else:
+                for i, child in enumerate(items):
+                    sub_path = f"{path}.[{i}]"
+                    self._collect_leaf_bindings(child, sub_path, n_stripes, stripes)
+
+    def leaf_binding(self, value: Any, path: str) -> np.ndarray:
+        """Produce the bound vector (role ⊙ filler) for a single leaf value.
+
+        This is the exact binding that :meth:`encode_walkable_striped` places
+        into a stripe — useful for cosine-based drilldown attribution. After
+        detecting an anomaly in stripe S, you can identify which specific field
+        contributed most by computing cosine similarity between the anomalous
+        component and ``leaf_binding(field_value, field_path)``.
+
+        Args:
+            value: The field value (scalar, list, set, or dict with markers).
+            path: Fully-qualified dotted path (e.g. "tls.version").
+
+        Returns:
+            Bipolar int8 vector: ``bind(role[path], filler[value])``.
+        """
+        # Handle wrappers
+        if isinstance(value, LogScale):
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(
+                {self._log_marker: value.value, self._scale_marker: value.scale}
+            )
+            return role * filler
+
+        if isinstance(value, LinearScale):
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(
+                {self._linear_marker: value.value, self._scale_marker: value.scale}
+            )
+            return role * filler
+
+        if isinstance(value, TimeScale):
+            role = self.vector_manager.get_vector(path)
+            time_dict = {self._time_marker: value.value}
+            if value.resolution != "hour":
+                time_dict[self._time_resolution_marker] = value.resolution
+            filler = self._encode_time(time_dict)
+            return role * filler
+
+        if isinstance(value, dict) and self._is_numeric_scalar_marker(value):
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_numeric_scalar(value)
+            return role * filler
+
+        if isinstance(value, dict) and self._time_marker in value:
+            role = self.vector_manager.get_vector(path)
+            filler = self._encode_time(value)
+            return role * filler
+
+        walkable = as_walkable(value)
+        wtype = walkable.walk_type()
+        role = self.vector_manager.get_vector(path)
+
+        if wtype == WalkType.SCALAR:
+            filler = self._encode_walkable_scalar(walkable)
+            return role * filler
+
+        elif wtype == WalkType.LIST:
+            filler = self._encode_walkable_list(walkable, mode=self.default_list_mode)
+            return role * filler
+
+        elif wtype == WalkType.SET:
+            filler = self._encode_walkable_set(walkable)
+            return role * filler
+
+        elif wtype == WalkType.MAP:
+            items = list(walkable.walk_map_items())
+            if not items:
+                filler = self.vector_manager.get_vector(f"{path}.{{}}")
+                return role * filler
+
+        elif wtype == WalkType.SPREAD:
+            items = list(walkable.walk_spread_items())
+            if not items:
+                filler = self.vector_manager.get_vector(f"{path}.[]")
+                return role * filler
+
+        # Nested maps/non-empty spread: not a single leaf — return zeros
+        return self.xp.zeros(self.vector_manager.dimensions, dtype=self.xp.int8)
 
     # =========================================================================
     # Utility

@@ -58,14 +58,18 @@ class WalkType(Enum):
     These correspond to the fundamental EDN/JSON types:
     - SCALAR: Atomic values (str, int, float, bool, None, keywords, symbols)
     - MAP: Key-value pairs (dict, records, objects)
-    - LIST: Ordered sequences (list, tuple, arrays)
-    - SET: Unordered unique items (set, frozenset)
+    - LIST: Ordered sequences (list, tuple, arrays) — composed into one vector
+    - SET: Unordered unique items (set, frozenset) — composed into one vector
+    - SPREAD: Independent indexed items — each element fans out into its own
+      leaf binding (fan-out). Use when per-element attribution or rule crafting
+      is needed (e.g., TLS cipher order, HTTP header list).
     """
 
     SCALAR = "scalar"
     MAP = "map"
     LIST = "list"
     SET = "set"
+    SPREAD = "spread"
 
 
 class Walkable(ABC):
@@ -159,6 +163,24 @@ class Walkable(ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} is type {self.walk_type()}, "
             "walk_set_items() only valid for SET types"
+        )
+
+    def walk_spread_items(self) -> Iterator[Any]:
+        """Yield items for fan-out encoding.
+
+        Override for SPREAD types. Each item becomes an independent leaf
+        binding with its own indexed path (e.g., field.[0], field.[1]).
+        Unlike LIST, these are not positionally composed — each element
+        is treated as a separate leaf for per-element attribution.
+
+        Use when per-element attribution or rule crafting is needed.
+
+        Yields:
+            Items in order (index assigned by position in iteration)
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} is type {self.walk_type()}, "
+            "walk_spread_items() only valid for SPREAD types"
         )
 
 
@@ -356,6 +378,43 @@ class WalkableSet(Walkable):
             yield item
 
 
+class WalkableSpread(Walkable):
+    """Wrapper for fan-out sequences where each element is an independent leaf.
+
+    Unlike WalkableList (which composes items into a single positionally-encoded
+    vector), WalkableSpread fans out — each element gets its own indexed path
+    and leaf binding. Use when per-element attribution matters.
+
+    In the standard (non-striped) :meth:`~holon.kernel.Encoder.encode_walkable`
+    path, SPREAD is encoded identically to LIST (positional binding + bundle),
+    so existing workloads are unaffected. The fan-out semantics only apply
+    in :meth:`~holon.kernel.Encoder.encode_walkable_striped`.
+
+    Example::
+
+        tls_ciphers = WalkableSpread(["AES256-GCM", "AES128-GCM", "CHACHA20"])
+        # In striped encoding, each cipher becomes an independent leaf:
+        # cipher.[0]=AES256-GCM, cipher.[1]=AES128-GCM, ...
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data: Union[list, tuple]):
+        self._data = data
+
+    def walk_type(self) -> WalkType:
+        return WalkType.SPREAD
+
+    def walk_spread_items(self) -> Iterator[Any]:
+        for item in self._data:
+            yield item
+
+    def walk_list_items(self) -> Iterator[Any]:
+        """Fallback for the standard encode path (treats Spread like a List)."""
+        for item in self._data:
+            yield item
+
+
 # =============================================================================
 # Type Registry for Extensibility
 # =============================================================================
@@ -545,6 +604,10 @@ def walk_iter(value: Any) -> Iterator[Tuple[str, Any, Walkable]]:
             for child in w.walk_set_items():
                 # Sets don't have indices, use value as path component
                 child_path = f"{path}.{{{child}}}" if path else f"{{{child}}}"
+                yield from _walk(child, child_path)
+        elif wtype == WalkType.SPREAD:
+            for i, child in enumerate(w.walk_spread_items()):
+                child_path = f"{path}.[{i}]" if path else f"[{i}]"
                 yield from _walk(child, child_path)
         # SCALAR has no children
 

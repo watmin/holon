@@ -40,6 +40,7 @@ from .kernel import (  # VSA primitives; Accumulators; Scalar encoding; Encoder;
     WalkableList,
     WalkableScalar,
     WalkableSet,
+    WalkableSpread,
     WalkType,
     accumulate,
     accumulate_weighted,
@@ -105,7 +106,7 @@ from .kernel import (  # VSA primitives; Accumulators; Scalar encoding; Encoder;
     unbind,
     walk_iter,
 )
-from .memory import Engram, EngramLibrary, OnlineSubspace
+from .memory import Engram, EngramLibrary, OnlineSubspace, StripedSubspace
 
 # ============================================================================
 # Layer 2: Memory - Programmatic neural memory
@@ -230,6 +231,7 @@ __all__ = [
     "WalkableList",
     "WalkableScalar",
     "WalkableSet",
+    "WalkableSpread",
     "WalkType",
     "LinearScale",
     "LogScale",
@@ -253,6 +255,7 @@ __all__ = [
     "normalized_dot_similarity",
     # Memory layer
     "OnlineSubspace",
+    "StripedSubspace",
     "Engram",
     "EngramLibrary",
     # High-level

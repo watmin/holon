@@ -27,7 +27,7 @@ Usage:
             print("anomaly")
 """
 
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -386,4 +386,242 @@ class OnlineSubspace:
         return (
             f"OnlineSubspace(dim={self.dim}, k={self.k}, n={self.n}, "
             f"active_components={active}, threshold={self.threshold:.4f})"
+        )
+
+
+class StripedSubspace:
+    """N independent OnlineSubspaces, one per stripe.
+
+    Each stripe learns and scores its own portion of the encoded data.
+    Aggregate residual is the root-sum-of-squares (RSS) of per-stripe
+    residuals, preserving the geometric interpretation of anomaly magnitude.
+
+    Used with ``Encoder.encode_walkable_striped`` which distributes leaf
+    bindings across stripes via FQDN path hashing (FNV-1a).
+
+    The key benefit over a single subspace: the per-stripe residual profile
+    tells you *which field group* caused the anomaly, enabling drilldown
+    attribution without cross-stripe crosstalk.
+
+    Args:
+        dim: Vector dimensionality for each stripe subspace.
+        k: Number of principal components per stripe.
+        n_stripes: Number of independent stripes.
+        **subspace_kwargs: Forwarded to each OnlineSubspace constructor
+            (amnesia, ema_alpha, sigma_mult, reorth_interval).
+
+    Example::
+
+        encoder = Encoder(VectorManager(4096))
+        striped = StripedSubspace(dim=4096, k=32, n_stripes=8)
+
+        for record in stream:
+            vecs = encoder.encode_walkable_striped(record, n_stripes=8)
+            residual = striped.update(vecs)
+            if residual > striped.threshold:
+                profile = striped.residual_profile(vecs)
+                hot = int(np.argmax(profile))
+                print(f"anomaly in stripe {hot}")
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        k: int,
+        n_stripes: int,
+        amnesia: float = 2.0,
+        ema_alpha: float = 0.01,
+        sigma_mult: float = 3.5,
+        reorth_interval: int = 500,
+    ):
+        self.dim = dim
+        self.k = k
+        self.n_stripes = n_stripes
+        self._stripes: List[OnlineSubspace] = [
+            OnlineSubspace(
+                dim=dim,
+                k=k,
+                amnesia=amnesia,
+                ema_alpha=ema_alpha,
+                sigma_mult=sigma_mult,
+                reorth_interval=reorth_interval,
+            )
+            for _ in range(n_stripes)
+        ]
+
+    @property
+    def n(self) -> int:
+        """Total observations (uses stripe 0 as reference)."""
+        return self._stripes[0].n if self._stripes else 0
+
+    @property
+    def threshold(self) -> float:
+        """RSS aggregate threshold across all stripes.
+
+        Returns ``inf`` until every stripe has enough observations.
+        """
+        sum_sq = 0.0
+        for sub in self._stripes:
+            t = sub.threshold
+            if t == float("inf"):
+                return float("inf")
+            sum_sq += t * t
+        return sum_sq**0.5
+
+    def update(self, stripe_vecs: List[np.ndarray]) -> float:
+        """Update all stripes and return the RSS aggregate residual.
+
+        Args:
+            stripe_vecs: List of n_stripes vectors, one per stripe.
+                         Produced by ``Encoder.encode_walkable_striped``.
+
+        Returns:
+            RSS aggregate residual (scalar anomaly score).
+        """
+        if len(stripe_vecs) != self.n_stripes:
+            raise ValueError(
+                f"Expected {self.n_stripes} stripe vectors, got {len(stripe_vecs)}"
+            )
+        sum_sq = 0.0
+        for sub, vec in zip(self._stripes, stripe_vecs):
+            r = sub.update(np.asarray(vec, dtype=np.float64))
+            sum_sq += r * r
+        return sum_sq**0.5
+
+    def residual_profile(self, stripe_vecs: List[np.ndarray]) -> np.ndarray:
+        """Per-stripe residual profile: the N-dim vector of individual stripe
+        residuals.
+
+        This is the directional signal — the *pattern* of which stripes are
+        anomalous — complementing the scalar RSS magnitude.
+
+        Args:
+            stripe_vecs: List of n_stripes vectors (same as passed to update).
+
+        Returns:
+            Array of shape (n_stripes,) with per-stripe residuals.
+        """
+        if len(stripe_vecs) != self.n_stripes:
+            raise ValueError(
+                f"Expected {self.n_stripes} stripe vectors, got {len(stripe_vecs)}"
+            )
+        return np.array(
+            [
+                sub.residual(np.asarray(vec, dtype=np.float64))
+                for sub, vec in zip(self._stripes, stripe_vecs)
+            ]
+        )
+
+    def residual(self, stripe_vecs: List[np.ndarray]) -> float:
+        """RSS aggregate residual across all stripes (non-updating).
+
+        Args:
+            stripe_vecs: List of n_stripes vectors.
+
+        Returns:
+            Scalar RSS residual.
+        """
+        profile = self.residual_profile(stripe_vecs)
+        return float(np.sqrt(np.sum(profile**2)))
+
+    def stripe_residual(self, stripe_vecs: List[np.ndarray], stripe_idx: int) -> float:
+        """Residual for a single stripe (for diagnostics).
+
+        Args:
+            stripe_vecs: List of n_stripes vectors.
+            stripe_idx: Index of the stripe to score.
+
+        Returns:
+            Scalar residual for that stripe.
+        """
+        return self._stripes[stripe_idx].residual(
+            np.asarray(stripe_vecs[stripe_idx], dtype=np.float64)
+        )
+
+    def stripe_threshold(self, stripe_idx: int) -> float:
+        """Adaptive threshold for a single stripe.
+
+        Args:
+            stripe_idx: Index of the stripe.
+
+        Returns:
+            Threshold for that stripe (may be inf).
+        """
+        return self._stripes[stripe_idx].threshold
+
+    def anomalous_component(
+        self, stripe_vecs: List[np.ndarray], stripe_idx: int
+    ) -> np.ndarray:
+        """Anomalous component of a specific stripe (for drilldown).
+
+        Args:
+            stripe_vecs: List of n_stripes vectors.
+            stripe_idx: Stripe to compute anomalous component for.
+
+        Returns:
+            Out-of-subspace component vector (dim,).
+        """
+        return self._stripes[stripe_idx].anomalous_component(
+            np.asarray(stripe_vecs[stripe_idx], dtype=np.float64)
+        )
+
+    def stripe(self, idx: int) -> OnlineSubspace:
+        """Access an individual stripe subspace directly.
+
+        Args:
+            idx: Stripe index.
+
+        Returns:
+            The OnlineSubspace for that stripe.
+        """
+        return self._stripes[idx]
+
+    def snapshot(self) -> Dict:
+        """Export state for persistence or shipping.
+
+        Returns:
+            Dict with ``stripes`` key containing each stripe's snapshot.
+        """
+        return {"stripes": [s.snapshot() for s in self._stripes]}
+
+    @classmethod
+    def from_snapshot(cls, snap: Dict) -> "StripedSubspace":
+        """Restore a StripedSubspace from a snapshot.
+
+        Args:
+            snap: Dict produced by :meth:`snapshot`.
+
+        Returns:
+            Restored StripedSubspace.
+        """
+        stripe_snaps = snap["stripes"]
+        n_stripes = len(stripe_snaps)
+        if n_stripes == 0:
+            raise ValueError("Cannot restore StripedSubspace from empty snapshot")
+        restored_stripes = [OnlineSubspace.from_snapshot(s) for s in stripe_snaps]
+        dim = restored_stripes[0].dim
+        k = restored_stripes[0].k
+        obj = cls.__new__(cls)
+        obj.dim = dim
+        obj.k = k
+        obj.n_stripes = n_stripes
+        obj._stripes = restored_stripes
+        return obj
+
+    def update_batch(self, batch: List[List[np.ndarray]]) -> np.ndarray:
+        """Update with a batch of stripe vector lists.
+
+        Args:
+            batch: List of stripe_vec lists (one per observation).
+
+        Returns:
+            Array of RSS residuals, shape (len(batch),).
+        """
+        return np.array([self.update(stripe_vecs) for stripe_vecs in batch])
+
+    def __repr__(self) -> str:
+        return (
+            f"StripedSubspace(dim={self.dim}, k={self.k}, "
+            f"n_stripes={self.n_stripes}, n={self.n}, "
+            f"threshold={self.threshold:.4f})"
         )
