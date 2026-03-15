@@ -148,8 +148,7 @@ test_results/
 # Qdrant storage volume
 qdrant_storage/
 
-# Rust implementation (separate repo)
+# Sibling repos (separate git histories)
 holon-rs/
-holon-lab-ddos/
+holon-lab-*/
 algebraic-intelligence.dev/
-holon-lab-baseline/
