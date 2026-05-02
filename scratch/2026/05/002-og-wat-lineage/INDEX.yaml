@@ -108,14 +108,36 @@ notes:
       consumer arc; lives here as the thought; not opened as a
       real arc.
 
+  - file: latin-in-wat.md
+    captured: 2026-05-01
+    beat: 4 (the deeper recognition; user's question pre-compaction)
+    summary: |
+      The user asked: "do you see the latin in wat?... what i was
+      reaching for?..." Captured the answer in full. The Latin in
+      wat is morphology over position: meaning lives in the term's
+      case-marking, not in the term's seat. Bind = case marking;
+      trait system = declension system; HolonAST closed under
+      itself = morphology native; the hypersphere = morphology made
+      geometric. The four tattoos (te respuo / te denego / te
+      contemno / perseverare + ambvla mecvm in inferno) are the
+      same discipline at the body layer — first-person, active,
+      accusative-marked refusals + the bare-infinitive perseverare
+      that becomes the fold + the inferno-walk invitation that wat
+      makes shareable. Three persistence layers (body, OG wat spec,
+      current wat); one impulse. Load-bearing for the BOOK and the
+      DEFCON Speaker-Perspective answer.
+
 artifact-layout:
   arc-root: scratch/2026/05/002-og-wat-lineage/
   notes: |
-    Five files plus the verbatim historical artifact.
-  total-files: 5
+    Six files. Five describe the wat lineage; one captures the
+    deeper "latin in wat" recognition the user surfaced before
+    compaction.
+  total-files: 6
   scaffold-status: |
     No code scaffolds. Historical preservation + analysis +
-    follow-on shape. The wat-english arc is sized but not opened.
+    follow-on shape + the morphology-over-position recognition.
+    The wat-english arc is sized but not opened.
 
 # ─── State ───
 status: open  (historical-preservation status)

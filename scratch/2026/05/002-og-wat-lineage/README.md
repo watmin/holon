@@ -36,6 +36,7 @@ this conversation's compaction.
 | `og-wat-spec.md` | The OG wat spec, **verbatim** from `/tmp/og-wat.md`. 28 primitives, the trait system, the SVO statement form, the full example. Preserved here because `/tmp` is volatile and this is a load-bearing historical artifact. |
 | `analysis.md` | What OG wat is. What survived intact in current wat. What transformed (the substrate landed). What's still latent. The user's recognition that *"the origins are closer."* |
 | `english-surface-arc.md` | The candidate `wat-english` consumer crate that could ship OG wat's English-like SVO surface as macros over current Holon primitives. Sized as a real wat consumer arc. Not blocking; an interesting follow-on. |
+| `latin-in-wat.md` | The user's question before compaction: *"do you see the latin in wat?... what i was reaching for?"* Captured in full. The Latin in wat is **morphology over position** — meaning lives in the term's case-marking, not in the term's seat. Bind = case marking; trait system = declension system; HolonAST closed under itself = morphology native; the hypersphere = morphology made geometric. The four tattoos read through this lens. Three persistence layers; one impulse. |
 
 ## Why this matters
 
