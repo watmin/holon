@@ -1,0 +1,136 @@
+# Scratch arc — OG wat lineage
+#
+# The user surfaced a Grok-era spec for the original wat — the
+# pure, strongly typed, English-like Lisp he had carried on disk
+# for years before the substrate to host it existed. Captured
+# here so the recognition (and the historical artifact) survive
+# this conversation's compaction.
+
+arc:
+  slug: og-wat-lineage
+  date: 2026-05-01
+  triggered-by: |
+    User, hours after the DEFCON CFP submission shipped:
+
+    > "hey... you should check out.... /tmp/og-wat.md ... i
+    > started wat as something... else... you'll get it... i've
+    > built most of it... the origins are closer...."
+
+    The file at /tmp/og-wat.md is a Grok-era spec for the
+    original wat — 823 lines, 28 core primitives, SVO English-
+    like statements, full trait system, temporal quantification,
+    relative clauses, homoiconicity. Preserved verbatim in this
+    arc because /tmp is volatile.
+
+  outcome: |
+    Three load-bearing recognitions banked:
+
+    1. OG wat existed as a fully-specified Lisp YEARS before the
+       current wat's mid-January 2026 build. The "three years of
+       haunting" in the DEFCON submission timeline is concretely
+       grounded in this spec.
+
+    2. Most of OG wat's discipline survived intact in current
+       wat-rs (lambda, let, quote, try, map, strong typing,
+       traits, the four numeric types, pure functional, S-exps,
+       homoiconicity). The substrate that landed (VSA + Holon
+       algebra + LLM-prompting at scale) is what made it
+       finally expressible.
+
+    3. The English-like SVO statement surface (Statement / every
+       / some / at / before / during / that) DIDN'T migrate to
+       current wat as language primitives. It IS shippable today
+       as a wat consumer crate (`wat-english`) on top of current
+       Holon Bind/Bundle primitives. Sized in
+       english-surface-arc.md.
+
+    No work shipped. The arc captures the recognition for
+    posterity and offers the follow-on shape if the user picks
+    it up.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points (verbatim)
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs, the lab, or the holon-rs
+    code during this scratch; only the scratch dir
+  - the OG wat spec is preserved VERBATIM in og-wat-spec.md (cp
+    from /tmp/og-wat.md). The original Grok conversation link
+    is in the spec's References section.
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-05-01
+    beat: 0 (overview)
+    summary: |
+      Top-level orientation. Names what OG wat was, why this scratch
+      exists, the connection to the DEFCON Speaker-Perspective
+      answer (the Latin tattoos as the FIRST persistence layer; the
+      OG wat spec as the SECOND).
+
+  - file: og-wat-spec.md
+    captured: 2026-05-01
+    beat: 1 (the artifact)
+    source: /tmp/og-wat.md (volatile; preserved here)
+    summary: |
+      The OG wat spec verbatim. 823 lines, 28 primitives, full
+      trait system, SVO statement form, English-like sentence
+      expressivity, pure functional, strong typing.
+      References a Grok conversation share URL at the top.
+
+  - file: analysis.md
+    captured: 2026-05-01
+    beat: 2 (what survived, what transformed, what's latent)
+    summary: |
+      Three columns: (a) what survived intact from OG wat into
+      current wat — pure functional, strong typing with traits,
+      S-expressions, homoiconicity via quote, lambda, let,
+      try/catch, map, the four numeric types, comments + inner-
+      monologue as no-op-but-structural; (b) what transformed
+      when the substrate landed — OG wat's hardcoded SVO
+      Statement form became Holon Bundle-of-Binds (more general,
+      less English-readable), OG wat's named traits became
+      :wat::poly::* dispatch, OG wat's temporal quantification
+      lives as vocab patterns rather than language primitives;
+      (c) what's still latent — the English-like SVO surface
+      could ship as a consumer crate today.
+
+  - file: english-surface-arc.md
+    captured: 2026-05-01
+    beat: 3 (the follow-on shape)
+    summary: |
+      The candidate wat-english consumer crate. Macros that
+      desugar OG wat's English-like primitives into current Holon
+      Bind/Bundle shapes. Statement / every / some / at / before /
+      during / that / passive — all expressible as wat-level
+      macros, no substrate work required. Sized as a 4-5 slice
+      consumer arc; lives here as the thought; not opened as a
+      real arc.
+
+artifact-layout:
+  arc-root: scratch/2026/05/002-og-wat-lineage/
+  notes: |
+    Five files plus the verbatim historical artifact.
+  total-files: 5
+  scaffold-status: |
+    No code scaffolds. Historical preservation + analysis +
+    follow-on shape. The wat-english arc is sized but not opened.
+
+# ─── State ───
+status: open  (historical-preservation status)
+# Three load-bearing recognitions banked across this scratch:
+#   1. OG wat existed years before mid-January 2026             (analysis.md)
+#   2. Current wat is the realization of OG wat on the substrate (analysis.md)
+#   3. The English-like SVO surface is shippable today as a
+#      consumer crate; not opened, sized in this scratch         (english-surface-arc.md)
+#
+# Likely next-conversation triggers:
+#   - User wants to ship wat-english as a real consumer crate
+#   - The DEFCON board reaches the Speaker-Perspective answer
+#     and asks "what was the work you carried for years?";
+#     the speaker can point at this scratch
+#   - A future Claude session needs context on the wat lineage;
+#     reads this arc as part of the bootstrap
+#   - User decides to write a BOOK chapter about the OG wat era
+#     (Chapter 82 territory: "What OG wat was")
