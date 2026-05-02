@@ -32,10 +32,12 @@ persists past the conversation's compaction.
 | `README.md` | This file. Top-level orientation. |
 | `the-recognition.md` | The user's framing, verbatim. The connection to existing substrate beats. The strange-loop nature of agents using wat to host their own memory of working on wat. |
 | `architecture.md` | The proposed system shape. Memory as AST. HologramStore as the cache. Recall as one cosine. Persistence via canonical EDN. Inventory of existing substrate primitives the design composes from. |
-| `memory-vocabulary.md` | Open problem #1: how does a markdown memory file lower to `Vec<Fact>`? What axes does the surface have? Five-to-ten named axes is the first-cut shape. |
-| `recall-protocol.md` | Open problem #2: what's the *current scope* the agent encodes for the cosine query? Plausible candidates and tradeoffs. |
-| `slice-plan.md` | Five proposed slices to first running prototype. Sequencing relative to wat-mcp's main shipping arc. The `feedback_no_pre_existing_excuse` discipline applied to memory writes. |
-| `open-questions.md` | Everything not yet settled, named with leans where the design has them. Nothing here blocks opening the wat-rs arc when the work surfaces. |
+| `storage.md` | Deep dive on the SQLite + file-system layering. Three tables that compose by foreign key. EDN payloads in SQLite rows. Time as metadata, not primary index. File system for content; SQLite for structure; MCP returns refs. |
+| `sift.md` | The query interface gets its name. **Sift** — verb for stream → predicate → stream. Single-fact, no Rete, TIME pushdown only. Lifts to its own `wat-sift` crate; wat-telemetry becomes the first migration; wat-memory the second consumer. Per the user's gaze call. |
+| `memory-vocabulary.md` | Open problem #1: how does a markdown memory file lower to `Vec<Fact>`? Nine candidate axes proposed; lean ships four (type, topic, handle, recency). Hybrid extraction (frontmatter wins; body extractor fills gaps). |
+| `recall-protocol.md` | Open problem #2: what's the *current scope* the agent encodes for the cosine query? Three candidates; lean is (c) explicit scope-AST. Helper combinators (`about`, `referencing`, `feedback-about`, `similar-to`, `like`). |
+| `slice-plan.md` | Five slices for the memory arc, sequenced after two prerequisites: wat-mcp slice 1 + wat-sift extraction. Total ~10-14 days from arc opening to running prototype. |
+| `open-questions.md` | Eight open questions, none blocking. Each carries a lean where the design has one. Resolution surfaces in the slice that needs the answer. |
 
 ## Locked decisions
 
