@@ -1,0 +1,193 @@
+# Scratch arc — memory as hologram
+#
+# An eight-message recognition that fell out of the conversation
+# the night the DEFCON CFP submission shipped. The user, having
+# released the form, surfaced an architecturally clean idea: the
+# Claude auto-memory system is currently a flat markdown index
+# that scales linearly in cognitive load — and the wat substrate
+# has every primitive needed to host it as a content-addressed
+# hologram instead. Captured here so the recognition persists
+# past the conversation's compaction.
+
+arc:
+  slug: memory-as-hologram
+  date: 2026-05-01
+  triggered-by: |
+    User, immediately after submitting the DEFCON CFP, opened a
+    fresh thread:
+
+    > "hey... you've still got some context i can exploit....
+    > a clever idea i just had.... do you know how your memory
+    > system works?... i think its a markdown file pointing to a
+    > markdown file?... why couldn't this be HolonAST as
+    > memories?.... the traversal to a thing we want to find....
+    > its a function off the scoping condition... we use the
+    > holograms to do the smart selection of which memory is
+    > most useful... we don't have one big ass thing that easy
+    > to get lost working on... we have an entrypoint and pivot
+    > points... when doing a memory recollection exercise.. you
+    > traverse the holograms to its storage?... we need to
+    > figure out how to remember ASTs on disk for this to work...
+    > but i think could deliver this... as an mcp?..."
+
+    The recognition lands cleanly because every primitive it
+    needs is already shipped in the substrate: HolonAST closed
+    under itself (arcs 057, 059), HashBundle as content-
+    addressed RAM (arc 074), coincident? as the equivalence
+    predicate (arc 023), eval-coincident? family (arc 026),
+    wat-edn shims for AST persistence (arcs 079, 086), wat-mcp
+    designed (scratch 006). Five locked decisions banked in one
+    exchange.
+
+  outcome: |
+    Architectural shape settled in one conversation:
+      - Memories ARE HolonASTs (not "represented as")
+      - Storage is HologramStore<MemoryAST> from arc 074
+      - Recall is one cosine via coincident?
+      - Persistence is canonical EDN on disk (arcs 079, 086)
+      - MCP is the delivery vehicle (rides scratch 006-wat-mcp)
+
+    Two open problems named explicitly:
+      - Memory vocabulary (how does a markdown file lower to
+        Vec<Fact>?)
+      - Recall protocol (what's the "current scope" the agent
+        encodes for the cosine query?)
+
+    No substrate work shipped. Five slices proposed for first
+    prototype. Sized at ~1 week of focused work in the user's
+    prompting cadence, ridden on top of wat-mcp's main shipping
+    arc.
+
+conventions:
+  - filenames: kebab-case .md, descriptive of the topic
+  - capture user's exact words at decision points (verbatim)
+  - distinguish user-original insight from thinking-with extension
+  - the assistant DID NOT touch wat-rs, the lab, or the holon-rs
+    code during this scratch; only the scratch dir itself
+  - sibling to scratch 006-wat-mcp; references and depends on it
+
+# ─── Beat-by-beat capture ───
+notes:
+  - file: README.md
+    captured: 2026-05-01
+    beat: 0 (overview)
+    summary: |
+      Top-level orientation. The recognition framed as
+      Index-pattern-vs-Lattice-pattern. The five locked
+      decisions banked. The arc-status block.
+
+  - file: the-recognition.md
+    captured: 2026-05-01
+    beat: 1 (the conversation itself)
+    summary: |
+      The user's framing preserved verbatim. The strange-loop
+      observation: agents using wat to host their own memory of
+      working on wat. The connection to BOOK Chapter 37
+      (HashBundle is RAM) and the persistence-layer thesis from
+      the DEFCON SUBMISSION.md (file system as IPC between
+      states of mind).
+
+  - file: architecture.md
+    captured: 2026-05-01
+    beat: 2 (the proposed shape)
+    summary: |
+      Five layers of the proposed system: memory representation
+      (struct + body lowered through vocab); storage
+      (HologramStore<MemoryAST>); recall (one cosine via
+      coincident?); persistence (canonical EDN on disk); delivery
+      (MCP via wat-mcp's one-tool surface). Inventory of every
+      existing substrate primitive the design composes from —
+      eight named arcs, all already shipped or specced.
+
+  - file: memory-vocabulary.md
+    captured: 2026-05-01
+    beat: 3 (open problem #1)
+    summary: |
+      The markdown-file-to-Vec<Fact> question. Same shape as the
+      trading lab's vocab modules (read structured input, emit
+      Vec<Fact>) but the input is unstructured prose. First-cut
+      proposal: 5-10 named axes — type (user/feedback/project/
+      reference), topic (extracted concepts), recency (scalar),
+      specificity (scalar), referenced-handles (set),
+      relevance-context (set). The vocab is the model; the
+      vocabulary the speaker chooses determines what dimensions
+      the recall surface has.
+
+  - file: recall-protocol.md
+    captured: 2026-05-01
+    beat: 4 (open problem #2)
+    summary: |
+      What does the agent encode as the "current scope" for the
+      cosine query? Three plausible candidates: (a) the user's
+      last message, (b) the last K turns synthesized, (c) an
+      explicit query-AST the agent constructs deliberately.
+      Lean: (c). Mirrors wat's existing pry interrogation
+      primitives — the agent says exactly what it wants to
+      recall. Less magic; more honest. Same shape as
+      `(:wat::pry::break ...)` from scratch 005.
+
+  - file: slice-plan.md
+    captured: 2026-05-01
+    beat: 5 (proposed shipping order)
+    summary: |
+      Five slices to first running prototype.
+      Slice 1: memory-vocab (the encoder).
+      Slice 2: HologramStore<MemoryAST> wiring + load-from-disk.
+      Slice 3: recall function (coincident? top-N).
+      Slice 4: wat-mcp tool publish (wraps recall as MCP call).
+      Slice 5: end-to-end test against the live MEMORY.md tree.
+      Sequenced after wat-mcp's slice 1 (basic MCP eval) ships
+      from scratch 006.
+
+  - file: open-questions.md
+    captured: 2026-05-01
+    beat: 6 (the unresolved)
+    summary: |
+      8 open questions categorized: vocabulary (3) — axis
+      selection, scalar bucketing, set-vs-list for tags;
+      recall (3) — top-N default, scope-AST shape, recall
+      across compaction; persistence (1) — write-time AST
+      canonicalization; delivery (1) — MCP error-shape for
+      "no memories matched."
+
+artifact-layout:
+  arc-root: scratch/2026/05/001-memory-as-hologram/
+  notes: |
+    Eight .md files plus INDEX.yaml.
+  total-files: 8
+  scaffold-status: |
+    No code scaffolds. Architectural sketch + five locked
+    decisions + two open problems sized + slice plan. Ready to
+    open as a real wat-rs arc when wat-mcp slice 1 lands or
+    when the user promotes this ahead of the current sequence.
+
+# ─── State ───
+status: open
+# Five load-bearing decisions banked across this scratch:
+#   1. Memories ARE HolonASTs (not "represented as")          (architecture.md)
+#   2. Storage is HologramStore<MemoryAST> (arc 074 substrate) (architecture.md)
+#   3. Recall is one cosine via coincident? (arc 023)          (architecture.md)
+#   4. Persistence via canonical EDN (arcs 079, 086)            (architecture.md)
+#   5. MCP delivery via wat-mcp one-tool surface (scratch 006) (architecture.md)
+#
+# Two open problems with leans documented:
+#   - Memory vocabulary: ~5-10 axes; specific axis selection open
+#   - Recall protocol: lean (c) explicit query-AST shape
+#
+# Likely next-conversation triggers:
+#   - wat-mcp slice 1 ships from scratch 006; this arc opens as
+#     the first real consumer
+#   - User decides this is more interesting than wat-mcp's
+#     current path and promotes it ahead
+#   - User encounters MEMORY.md scaling pain and wants the
+#     replacement
+#   - User wants a public demo / X follow-up that operationalizes
+#     the wat-substrate-hosts-Claude-memory thesis
+#
+# Likely first-slice acceptance bar:
+#   wat program reads N memory .md files from MEMORY.md's tree,
+#   lowers each through the memory-vocab encoder, builds a
+#   HologramStore, accepts a query AST, returns top-N coincident?
+#   memory ASTs as canonical EDN. End-to-end against the live
+#   ~80 memory tree. Subjective sanity check: "did the recall
+#   surface the memories I'd want for this query?"
