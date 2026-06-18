@@ -157,3 +157,13 @@ wat
 scratch/
 wat-rs/
 defcon-2026/
+
+# Sibling repos (separate git histories) + local cruft
+datamancy/
+datamancy.dev/
+datamancer.dev/
+clara-rules/
+.claude/
+wat-rs-arc-todo
+signal-desktop-keyring.gpg
+signal-desktop.sources
